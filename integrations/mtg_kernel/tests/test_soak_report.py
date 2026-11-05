@@ -56,7 +56,7 @@ def test_qualification_logs_are_not_units():
     result = run("k1")
     assert everything["games"] == 6 and result["counted_games"] == 4
     assert everything["eligible"] > result["ac5_bound"]["units"]
-    assert len(result["availability"]["logs"]["unledgered"]) == 2
+    assert result["logs"]["excluded"] == 2 and result["availability"]["logs"]["unledgered"] == []
 
 
 def test_k4_counts_the_r1_subclass_as_a_fault_and_fails_the_bound():
@@ -248,3 +248,54 @@ def test_t_is_the_design_constant(tmp_path):
     result = run("k1", root=root, wall_logs=[root / "k1" / "decisions"])
     assert result["checks"]["t_is_the_design_t"] is False and not result["checks_pass"]
     assert result["wall"]["check"]["t_seconds"] == 500.0
+
+
+def _ledger_ids(label: str) -> list[str]:
+    return [json.loads(line)["game_id"] for line in (FIXTURES / label / "matches.jsonl").read_text().splitlines()]
+
+
+def _qualification_log(root: Path, label: str) -> Path:
+    ids = set(_ledger_ids(label))
+    return next(p for p in (root / label / "decisions").glob("*.jsonl") if p.name.split(".")[0] not in ids)
+
+
+def test_a_rerun_with_other_entrant_constants_fails(tmp_path):
+    rerun = copy_fixture("k1", tmp_path)
+    for path in (rerun / "k1" / "decisions").glob("*.jsonl"):
+        out = []
+        for line in path.read_text().splitlines():
+            record = json.loads(line)
+            if record.get("kind") == "entrant":
+                record["entrant"]["budget"] = 1
+            out.append(json.dumps(record))
+        path.write_text("\n".join(out) + "\n")
+    result = run("k1", wall_logs=[rerun / "k1" / "decisions"])
+    check = result["wall"]["check"]
+    assert len(check["other_entrant_config"]) == 4 and check["pass"] is False
+    assert result["checks"]["wall_rerun_same_entrant"] is False and not result["checks_pass"]
+
+
+def test_an_incomplete_extra_rerun_log_fails(tmp_path):
+    rerun = copy_fixture("k1", tmp_path / "a")
+    aborted = copy_fixture("k1", tmp_path / "b")
+    for path in (aborted / "k1" / "decisions").glob("*.jsonl"):
+        lines = path.read_text().splitlines()
+        path.write_text("\n".join(lines[:-1]) + "\n")
+    check = run("k1", wall_logs=[rerun / "k1" / "decisions", aborted / "k1" / "decisions"])["wall"]["check"]
+    assert check["duplicate_logs"] and check["pass"] is False
+    alone = run("k1", wall_logs=[aborted / "k1" / "decisions"])["wall"]["check"]
+    assert len(alone["incomplete_logs"]) == 4 and alone["pass"] is False
+
+
+def test_a_torn_qualification_log_is_excluded_and_a_torn_counted_log_fails(tmp_path):
+    root = copy_fixture("k1", tmp_path)
+    qualification = _qualification_log(root, "k1")
+    qualification.write_text(qualification.read_text() + '{"kind": "sear')
+    result = run("k1", root=root, expect_games=4)
+    assert result["checks_pass"], result["checks"]
+    assert result["ac5_bound"]["units"] == 361
+    counted = next((root / "k1" / "decisions").glob(f"{_ledger_ids('k1')[0]}.*.jsonl"))
+    counted.write_text(counted.read_text() + '{"kind": "sear')
+    result = run("k1", root=root)
+    assert result["checks"]["counted_logs_parse"] is False and not result["checks_pass"]
+    assert result["logs"]["problems"]["malformed"] == [counted.name]

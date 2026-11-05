@@ -52,7 +52,9 @@ import hashlib
 import json
 import math
 import random
+import shutil
 import sys
+import tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -118,27 +120,53 @@ def _ledger_rows(ledger: Path, entrant: str) -> list[dict]:
     return rows
 
 
-def _games(logs: list[Path], keys: set[tuple[str, str]], entrant: str,
-           duplicates: list[str] | None = None) -> dict[tuple[str, str], dict]:
-    """Per ledger game and seat: the terminal record, the entrant record and the search records. A second
-    complete log of a game and seat is listed in ``duplicates`` and never read."""
-    out: dict[tuple[str, str], dict] = {}
-    for root in logs:
+def _scan(roots: list[Path], entrant: str, keys: set[tuple[str, str]]) -> tuple[dict, list[str]]:
+    """Logs whose header names the entrant and a counted (game id, seat), keyed by it: a list of
+    (path, records or None when a line does not parse). Every other log (qualification probes, other bots,
+    unreadable headers) is excluded by its first line alone and listed by name."""
+    found: dict[tuple[str, str], list[tuple[Path, list[dict] | None]]] = {}
+    excluded: list[str] = []
+    for root in roots:
         for path in sorted(root.glob("*.jsonl")):
-            header, records, final = entrant_availability._read_log(path)
-            if header is None or final is None or header.get("bot_name") != entrant:
+            try:
+                with open(path, encoding="utf-8") as handle:
+                    header = json.loads(handle.readline())
+            except (OSError, ValueError):
+                excluded.append(path.name)
                 continue
-            key = (header["game_id"], header["seat"])
-            if key not in keys:
+            key = (header.get("game_id"), header.get("seat")) if isinstance(header, dict) else None
+            if (not isinstance(header, dict) or header.get("kind") != "header" or header.get("bot_name") != entrant
+                    or key not in keys):
+                excluded.append(path.name)
                 continue
-            if key in out:
-                if duplicates is not None:
-                    duplicates.append(path.name)
-                continue
-            entrant_record = next((r["entrant"] for r in records if r.get("kind") == "entrant"), None)
-            out[key] = {"final": final, "entrant": entrant_record,
-                        "searches": [r for r in records if r.get("kind") == "search"]}
-    return out
+            try:
+                records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            except ValueError:
+                records = None
+            found.setdefault(key, []).append((path, records))
+    return found, excluded
+
+
+def _games(found: dict) -> tuple[dict[tuple[str, str], dict], dict[str, list[str]]]:
+    """Per (game id, seat) with exactly one complete, parseable log: its terminal, entrant and search records;
+    and the problems (duplicate, malformed and incomplete logs) by kind."""
+    out: dict[tuple[str, str], dict] = {}
+    problems: dict[str, list[str]] = {"duplicate": [], "malformed": [], "incomplete": []}
+    for key, entries in sorted(found.items()):
+        if len(entries) > 1:
+            problems["duplicate"].extend(path.name for path, _ in entries)
+            continue
+        path, records = entries[0]
+        if records is None:
+            problems["malformed"].append(path.name)
+            continue
+        final = records[-1] if records and records[-1].get("kind") == "availability" else None
+        if final is None:
+            problems["incomplete"].append(path.name)
+            continue
+        out[key] = {"final": final, "entrant": next((r["entrant"] for r in records if r.get("kind") == "entrant"), None),
+                    "searches": [r for r in records if r.get("kind") == "search"]}
+    return out, problems
 
 
 def _stats(values: list[float]) -> dict:
@@ -175,10 +203,20 @@ def _wall_check(walls: dict[str, float], t_seconds: float, causes: dict[str, str
 
 def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *, expect_games: int | None = None,
                 wall_logs: list[Path] | None = None, wall_causes: dict[str, str] | None = None) -> dict:
-    base = entrant_availability.report(logs, [ledger], entrant, receipts)
     rows = _ledger_rows(ledger, entrant)
     keys = {(row["game_id"], seat["seat"]) for row in rows for seat in row["seats"] if seat.get("name") == entrant}
-    games = _games(logs, keys, entrant)
+    found, excluded = _scan(logs, entrant, keys)
+    games, problems = _games(found)
+    # The availability totals and checks read only the counted games' parseable logs (duplicates included, so
+    # its own duplicate check sees them); an unreadable qualification log cannot stop the report.
+    with tempfile.TemporaryDirectory() as scratch:
+        for entries in found.values():
+            for path, records in entries:
+                if records is not None:
+                    target = Path(scratch) / str(len(list(Path(scratch).iterdir()))) / path.name
+                    target.parent.mkdir()
+                    shutil.copyfile(path, target)
+        base = entrant_availability.report(sorted(Path(scratch).iterdir()), [ledger], entrant, receipts)
     order = sorted(games)
     pairs = [(games[k]["final"]["c5_faults"], games[k]["final"]["eligible"]) for k in order]
     faults, units = sum(f for f, _ in pairs), sum(u for _, u in pairs)
@@ -216,14 +254,19 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
             "subset": subset, "check": None}
     if wall_logs:
         chosen = {s["game_id"] for s in subset}
-        rerun_duplicates: list[str] = []
-        rerun = _games(wall_logs, {k for k in keys if k[0] in chosen}, entrant, rerun_duplicates)
+        rerun_found, _ = _scan(wall_logs, entrant, {k for k in keys if k[0] in chosen})
+        rerun, rerun_problems = _games(rerun_found)
+        # The rerun must play the soak's entrant: the same constants record in every rerun log.
+        other_config = sorted(k[0] for k, g in rerun.items() if g["entrant"] != entrant_record)
+        rerun = {k: g for k, g in rerun.items() if g["entrant"] == entrant_record}
         rerun_walls, unmeasured = _wall_seconds(rerun)
         check = _wall_check(rerun_walls, t_seconds, wall_causes or {})
         missing = sorted(s["game_id"] for s in subset if s["game_id"] not in rerun_walls)
+        bad_logs = sorted(name for names in rerun_problems.values() for name in names)
         wall["check"] = {**check, "missing_games": missing, "unmeasured_games": unmeasured,
-                         "duplicate_logs": rerun_duplicates,
-                         "pass": check["pass"] and not missing and not rerun_duplicates}
+                         "duplicate_logs": rerun_problems["duplicate"], "malformed_logs": rerun_problems["malformed"],
+                         "incomplete_logs": rerun_problems["incomplete"], "other_entrant_config": other_config,
+                         "pass": check["pass"] and not missing and not bad_logs and not other_config}
 
     checks = dict(base["checks"])
     checks.update({
@@ -235,10 +278,13 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
         "t_is_the_design_t": entrant_record is not None
         and float(entrant_record.get("game_time_basis_seconds", -1)) == T_SECONDS,
         "every_game_wall_measured": not walls_missing,
+        "counted_logs_parse": not problems["malformed"],
     })
     if wall_logs:
         checks["wall_subset_rerun_complete"] = not wall["check"]["missing_games"]
-        checks["wall_rerun_one_log_per_game"] = not wall["check"]["duplicate_logs"]
+        checks["wall_rerun_one_complete_log_per_game"] = not (
+            wall["check"]["duplicate_logs"] or wall["check"]["malformed_logs"] or wall["check"]["incomplete_logs"])
+        checks["wall_rerun_same_entrant"] = not wall["check"]["other_entrant_config"]
     ac5_bound = {"units": units, "faults": faults, "share": None if not units else faults / units,
                  "cp_upper_95": bound, "pass": None if bound is None else bound <= AC5_LIMIT,
                  "limit": AC5_LIMIT}
@@ -246,6 +292,7 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
         "schema": "spellbench-w1-soak-report/v1",
         "entrant": entrant, "entrant_constants": entrant_record,
         "ledger_games": len(rows), "counted_games": len(pairs),
+        "logs": {"excluded": len(excluded), "problems": problems},
         "outcomes": {"win": outcome["win"], "loss": outcome["loss"], "draw": outcome["draw"],
                      "halted": other["halted"], "truncated": other["truncated"]},
         "forfeits": forfeits, "clock_forfeits": clock_forfeits,
