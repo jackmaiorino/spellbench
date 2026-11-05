@@ -239,6 +239,35 @@ def test_worked_example_1_three_trigger_order():
     assert bot._tally["walk"] == 2 and bot._group is None
 
 
+def test_the_group_plan_log_carries_every_walked_points_digests(tmp_path):
+    # Amendment 43.9 (a): G6 reads the walk's masked observation digests
+    # from the group_plan record; a record without them classifies every
+    # differing point as a drift (smokemc65: 102 drifted points, 0 known-hand
+    # divergences).
+    class DigestPool(FakePool):
+        def request_line(self, line):
+            answer = super().request_line(line)
+            point = answer.get("point", {})
+            if point.get("viewer_decision"):
+                point["flat"]["known_hand_masked_observation_sha256"] = "ab" * 32
+            return answer
+
+    keys, composition = trigger_completions()
+    bot = search.KernelSearchBot(RecordedScorer(), DigestPool(picks={(): 3}, points={(): (keys, True)}),
+                                 dict(ENTRANT), seed=11, decision_log=tmp_path, name="entrant", version="0",
+                                 expect_model_state="0" * 64)
+    start(bot)
+    bot.choose(group_decision(0, 0, 2, 3, payload_ext(composition=composition)))
+    bot.choose(group_decision(1, 1, 2, 2))
+    records = [json.loads(line) for line in (tmp_path / "g-test.p0.jsonl").read_text().splitlines()]
+    (plan,) = [r for r in records if r.get("kind") == "group_plan"]
+    walked = len(plan["plan"])
+    assert walked >= 1
+    for field in ("tensors", "masked_tensors", "known_hands", "masked_observations"):
+        assert len(plan[field]) == walked, field
+    assert plan["masked_observations"] == ["ab" * 32] * walked
+
+
 def block_composition():
     """Worked example 2: blockers b1, b2; attackers a1, a2. Wire is
     blocker-major (each blocker picks none, a1 or a2); natives are

@@ -414,7 +414,8 @@ class KernelSearchBot(KernelFlatBot):
                 self._write_log({"kind": "group_plan", "step": decision.seat_step, "mode": g["mode"],
                                  "plan": g.get("plan", []), "tensors": g.get("tensors", []),
                                  "masked_tensors": g.get("masked_tensors", []),
-                                 "known_hands": g.get("known_hands", []), "wire": p})
+                                 "known_hands": g.get("known_hands", []),
+                                 "masked_observations": g.get("masked_observations", []), "wire": p})
                 self._group = None
         return answer
 
