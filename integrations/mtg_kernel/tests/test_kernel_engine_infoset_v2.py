@@ -122,6 +122,45 @@ def test_r1_same_name_subclasses_pass_and_unknown_ones_raise():
             e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": code, "refusal_detail": detail})
 
 
+def _point(actor, infoset):
+    observation = json.dumps({"acting_player": actor})
+    return {"extensions": {"x_kernel_v5": {"observation_json": observation}, engine.INFOSET: infoset}}
+
+
+def test_buffered_points_check_refusal_subclasses(monkeypatch):
+    # Astra item 3: a later point of a committing group and a preview point
+    # are validated like a posed point; an unknown R1 subclass halts.
+    future = {"schema": engine.NATIVE_SCHEMA, "refusal": "R1", "refusal_detail": "same_name_future"}
+    known = {"schema": engine.NATIVE_SCHEMA, "refusal": "R1", "refusal_detail": "same_name_batch"}
+    root = _point("p0", {"schema": engine.NATIVE_SCHEMA, "payload_json": "{}"})
+
+    def committing(*later):
+        e = bare_engine()
+        e.infoset_on, e._group_info, e._wire, e._committing = False, None, [], False
+        e._internal = engine.InfosetEngine._new_internal()
+
+        def commit(self):
+            self._commit_steps.extend([(root, 0), *[(view, 0) for view in later]])
+        monkeypatch.setattr(engine.KernelEngine, "commit_buffer", commit)
+        return e
+
+    e = committing(_point("p1", known))
+    e.commit_buffer()
+    assert e._internal["p1"] == {"eligible": 1, "refusals": {"R1:same_name_batch": 1}}
+    with pytest.raises(engine.ProjectionError):
+        committing(_point("p1", known), _point("p1", future)).commit_buffer()
+    with pytest.raises(engine.ProjectionError):
+        committing(_point("p1", {"schema": "other"})).commit_buffer()
+    # Preview points: keys pass, a known refusal has no keys, an unknown
+    # subclass or schema halts.
+    assert engine.InfosetEngine._row_keys(_point("p0", {"schema": engine.NATIVE_SCHEMA, "row_keys": ["k"]})) == ["k"]
+    assert engine.InfosetEngine._row_keys(_point("p0", known)) is None
+    assert engine.InfosetEngine._row_keys({"extensions": {}}) is None
+    for bad in (future, {"schema": "other", "row_keys": ["k"]}, ["k"]):
+        with pytest.raises(engine.ProjectionError):
+            engine.InfosetEngine._row_keys(_point("p0", bad))
+
+
 def test_a_group_without_composition_says_why(monkeypatch):
     # G3: cap, no completions and missing preview keys are told apart.
     e = bare_engine()
