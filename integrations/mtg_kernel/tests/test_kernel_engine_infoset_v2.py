@@ -109,6 +109,19 @@ def test_r3_subclasses_and_the_opponent_discard_are_allowed_per_code():
         e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R3", "refusal_detail": "export"})
 
 
+def test_r1_same_name_subclasses_pass_and_unknown_ones_raise():
+    # G2: every R1 is a C5 fault. The same-name subclasses (mtg-kernel#521,
+    # #524) reach the bot; any other R1 subclass is still a protocol error.
+    e = bare_engine()
+    for detail in ("export", "same_name_batch", "same_name_hand"):
+        native = {"schema": engine.NATIVE_SCHEMA, "refusal": "R1", "refusal_detail": detail}
+        assert e.ordinary_extension(native) == {"schema": engine.WIRE_SCHEMA, "refusal": "R1", "refusal_detail": detail}
+    for code, detail in (("R1", "same_name"), ("R1", "same_name_other"), ("R1", "opponent"), ("R1b", "same_name_batch"),
+                         ("R2", "same_name_hand"), ("R3", "same_name_batch")):
+        with pytest.raises(engine.ProjectionError):
+            e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": code, "refusal_detail": detail})
+
+
 def test_a_group_without_composition_says_why(monkeypatch):
     # G3: cap, no completions and missing preview keys are told apart.
     e = bare_engine()

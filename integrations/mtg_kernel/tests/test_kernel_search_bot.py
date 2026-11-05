@@ -554,6 +554,25 @@ def test_refusals_are_classified_by_subclass(tmp_path):
     assert report["eligible"] == 2 and report["c5_faults"] == 2 and report["r3_ineligible"] == 1
 
 
+def test_r1_same_name_refusals_are_counted_c5_faults(tmp_path):
+    # G2: an R1 of any subclass is answered by policy and counted as a C5
+    # fault, tallied as R1:<subclass>; the game goes on.
+    pool = FakePool(picks={(): 0})
+    bot = search.KernelSearchBot(RecordedScorer(), pool, dict(ENTRANT), seed=11, decision_log=tmp_path,
+                                 name="entrant", version="0", expect_model_state="0" * 64)
+    start(bot)
+    for step, detail in enumerate(("same_name_batch", "same_name_hand", "export", "same_name_batch")):
+        pick = bot.choose(decision(step, {"schema": search.INFOSET_SCHEMA, "refusal": "R1", "refusal_detail": detail}))
+        assert 0 <= pick < 3
+    bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
+    import entrant_availability
+
+    report = entrant_availability.report([tmp_path])
+    assert report["refusals_by_subclass"] == {"R1:export": 1, "R1:same_name_batch": 2, "R1:same_name_hand": 1}
+    assert report["eligible"] == 4 and report["c5_faults"] == 4 and report["c5_by_reason"] == {"R1": 4}
+    assert report["unclassified_refusals"] == 0
+
+
 def test_r3_is_ineligible_only_for_the_opponents_plan():
     # G1: R3 with any subclass but "opponent" is eligible and a C5 fault.
     bot = make_bot(FakePool())
