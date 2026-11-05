@@ -53,6 +53,10 @@ R2_SURFACE_SUBCLASSES = frozenset({"hunter_trigger_order", "optional_cost_reshap
                                    "discard_untracked", "opponent_discard", "combat_untracked",
                                    "other_surface"})
 R3_SUBCLASSES = frozenset({"opponent", "plan_error"})
+# R1 subclasses: "export", or a same-name ambiguity the export refuses
+# (mtg-kernel#521 `same_name_batch`, #524 `same_name_hand`). Each is a C5
+# fault, tallied as R1:<subclass>; any other R1 subclass is a protocol error.
+R1_SUBCLASSES = frozenset({EXPORT_SUBCLASS, "same_name_batch", "same_name_hand"})
 # Amendment 43.2: R3b, V's own pending library search.
 R3B_SUBCLASSES = frozenset({"own_library_search"})
 # Why a group carries no composition (fairness gate G3); each is a C5 fault.
@@ -273,13 +277,15 @@ class InfosetEngine(KernelEngine):
         if "refusal" in native:
             refusal = {"schema": WIRE_SCHEMA, "refusal": native["refusal"]}
             # The refusal's subclass (amendment 43.1 part 2): for R2 the
-            # surface state the payload cannot carry, else "export".
+            # surface state the payload cannot carry, for R1 a same-name
+            # ambiguity, else "export".
             detail = native.get("refusal_detail")
             if detail is not None:
                 code = native["refusal"]
                 allowed = isinstance(detail, str) and (
                     detail in R3_SUBCLASSES if code == "R3" else
                     detail in R3B_SUBCLASSES if code == "R3b" else
+                    detail in R1_SUBCLASSES if code == "R1" else
                     detail == EXPORT_SUBCLASS or (code == "R2" and detail in R2_SURFACE_SUBCLASSES))
                 if not allowed:
                     raise ProjectionError("native infoset refusal_detail is not a subclass of its code")
