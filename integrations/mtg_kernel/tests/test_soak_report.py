@@ -326,3 +326,14 @@ def test_a_rerun_with_another_model_state_or_an_early_end_fails(tmp_path):
     result = run("k1", wall_logs=[early / "k1" / "decisions"])
     assert len(result["wall"]["check"]["not_the_soak_game"]) == 4 and result["wall"]["check"]["pass"] is False
     assert result["checks"]["wall_rerun_same_game"] is False
+
+
+def test_a_game_seating_the_entrant_twice_fails(tmp_path):
+    root = copy_fixture("k1", tmp_path)
+    ledger = root / "k1" / "matches.jsonl"
+    rows = [json.loads(line) for line in ledger.read_text().splitlines()]
+    for seat in rows[0]["seats"]:
+        seat["name"] = NAMES["k1"]
+    ledger.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    result = run("k1", root=root)
+    assert result["checks"]["entrant_one_seat_per_game"] is False and not result["checks_pass"]

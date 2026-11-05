@@ -280,6 +280,8 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
     checks.update({
         "ledger_names_the_entrant": bool(rows),
         "ledger_games_unique": len({row["game_id"] for row in rows}) == len(rows),
+        # A soak game seats the entrant once (vs b512); walls and bootstrap clusters are per game.
+        "entrant_one_seat_per_game": all(sum(s.get("name") == entrant for s in row["seats"]) == 1 for row in rows),
         "totals_consistent": faults == base["c5_faults"] and units == base["eligible"] and len(pairs) == base["games"],
         "one_entrant_record": entrant_record is not None,
         "games_expected": expect_games is None or len({row["game_id"] for row in rows}) == expect_games,
