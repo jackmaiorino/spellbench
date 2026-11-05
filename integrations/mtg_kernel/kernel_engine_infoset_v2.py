@@ -23,7 +23,6 @@ not enable the extension keep their pinned engine bytes.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import time
 import json
@@ -40,6 +39,7 @@ from kernel_engine_v2 import FLAT, KernelEngine, NativePeer, ProjectionError, er
 from kernel_combat_v2 import BlockDeclaration, legacy_block_assignment, native_block_pick
 from kernel_arrangement_v2 import native_arrangement_binding, native_arrangement_pick
 from kernel_order_v2 import TriggerOrder
+from kernel_g6_digest import known_hand_masked_digest, tensor_digest
 
 INFOSET = "x_kernel_infoset_v1"
 WIRE_SCHEMA = "mtg-kernel-spellbench-infoset/v1"
@@ -211,19 +211,21 @@ class InfosetEngine(KernelEngine):
     @staticmethod
     def tensor_digest(flat_extension):
         """sha256 of a point's x_kernel_flat_v4 tensor (canonical JSON)."""
-        text = json.dumps(flat_extension.get("tensor"), sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(text.encode()).hexdigest()
+        return tensor_digest(flat_extension.get("tensor"))
 
     def commit_check(self, steps, info, planned, wire):
         """G6: every committed native point is the planned (previewed) point
         the composition was built from (candidates and x_kernel_flat_v4
         equal) with the planned row picked, and the planned keys are the
         composition row of the group's wire answer: the rows Pi induced. The
-        committed points' tensor digests go to the receipt for comparison
-        with the entrant's walk (the imported state's points)."""
+        committed points' tensor digests, full and without V's knowledge of
+        the opponent's hand (kernel_g6_digest), go to the receipt for
+        comparison with the entrant's walk (the imported state's points)."""
         record = {"type": info["type"], "root_seat": info["root_seat"], "points": len(steps),
                   "witness": info["witness"], "composition": info["composition"] is not None,
-                  "committed_tensors": [self.tensor_digest(view["extensions"][FLAT]) for view, _ in steps]}
+                  "committed_tensors": [self.tensor_digest(view["extensions"][FLAT]) for view, _ in steps],
+                  "committed_masked_tensors": [known_hand_masked_digest(view["extensions"][FLAT])
+                                               for view, _ in steps]}
         if info["composition"] is None:
             return record
         planned = planned or []

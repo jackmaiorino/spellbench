@@ -144,12 +144,29 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     plans = [r for r in records if r.get("kind") == "group_plan" and r.get("mode") == "walk"]
     # Pi may stop before the last point (one completion left): its rows and
     # its points' tensors are a prefix of the committed ones, never longer.
+    # A point whose tensors differ only in V's knowledge of the opponent's
+    # hand (equal known-hand-masked digests, kernel_g6_digest) matches and is
+    # reported as a known-hand divergence: the export's knowledge follows V's
+    # information where the engine's known-hand rows follow copies (R5).
+    divergent: list[dict] = []
+
+    def point_matches(r: dict, g: dict, i: int) -> bool:
+        if r["tensors"][i] == g["committed_tensors"][i]:
+            return True
+        walk, committed = r.get("masked_tensors") or [], g.get("committed_masked_tensors") or []
+        if i < len(walk) and i < len(committed) and walk[i] is not None and walk[i] == committed[i]:
+            divergent.append({"step": r.get("step"), "point": i})
+            return True
+        return False
+
     out["plans_match"] = len(plans) == len(mine) and all(
         len(r["plan"]) <= len(g.get("committed_keys") or [])
         and r["plan"] == g["committed_keys"][:len(r["plan"])]
         and len(r.get("tensors", [])) == len(r["plan"])
-        and r["tensors"] == g.get("committed_tensors", [])[:len(r["plan"])]
+        and len(g.get("committed_tensors", [])) >= len(r["plan"])
+        and all([point_matches(r, g, i) for i in range(len(r["plan"]))])
         for r, g in zip(plans, mine))
+    out["known_hand_divergent_points"] = divergent
     # Witnesses: the groups rooted at this seat (each counted once per game).
     out["witness"] = {k: sum(1 for g in mine if g.get("witness", {}).get(k))
                       for k in ("multi_attacker", "multi_blocker", "three_triggers")}
@@ -231,6 +248,8 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     commit_check = None if receipts is None else {
         "groups": sum(r.get("commit_groups", 0) for r in reconciliation),
         "all_ok": all(r.get("commit_ok", False) and r.get("plans_match", False) for r in reconciliation),
+        # Walked points accepted only by the known-hand-masked digests.
+        "known_hand_divergent_points": sum(len(r.get("known_hand_divergent_points", [])) for r in reconciliation),
         "witness": witness,
         "witnesses_met": witness["multi_attacker"] >= 5 and witness["multi_blocker"] >= 5
         and witness["three_triggers"] >= 1}
