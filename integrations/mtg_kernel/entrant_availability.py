@@ -83,6 +83,32 @@ def _bot_refusals(tally: dict) -> dict[str, int]:
     return {key[8:]: n for key, n in tally.items() if key.startswith("refusal:")}
 
 
+def _classify_points(plan: dict, group: dict, divergent: list[dict], drifted: list[dict]) -> None:
+    """Each walked point of ``plan`` whose tensor digest differs from the
+    committed one: a known-hand divergence when the known opponent hands
+    differ and the known-hand-masked digests are equal (kernel_g6_digest; the
+    export's knowledge follows V's information where the engine's known-hand
+    rows follow copies, R5), else a drift. Both fail G6: without the known
+    hand the observation digest cannot be compared until the kernel reports
+    one. Malformed fields classify as drift."""
+    def seq(value) -> list:
+        return value if isinstance(value, list) else []
+
+    def at(values: list, i: int):
+        return values[i] if i < len(values) else None
+
+    walk, committed = seq(plan.get("tensors")), seq(group.get("committed_tensors"))
+    masks = seq(plan.get("masked_tensors")), seq(group.get("committed_masked_tensors"))
+    hands = seq(plan.get("known_hands")), seq(group.get("committed_known_hands"))
+    for i in range(len(seq(plan.get("plan")))):
+        w, c = at(walk, i), at(committed, i)
+        if w is not None and w == c:
+            continue
+        m, h = (at(masks[0], i), at(masks[1], i)), (at(hands[0], i), at(hands[1], i))
+        known_hand = None not in (w, c, *m, *h) and m[0] == m[1] and h[0] != h[1]
+        (divergent if known_hand else drifted).append({"step": plan.get("step"), "point": i})
+
+
 def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[dict]) -> dict:
     """One game's engine-side receipts against the entrant's record. The
     bridge counts a refusal at every eligible decision it refuses and the
@@ -144,36 +170,18 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     plans = [r for r in records if r.get("kind") == "group_plan" and r.get("mode") == "walk"]
     # Pi may stop before the last point (one completion left): its rows and
     # its points' tensors are a prefix of the committed ones, never longer.
-    # Every point whose tensors differ fails. Each is classified: a
-    # known-hand divergence when the known opponent hands differ and the
-    # known-hand-masked digests are equal (kernel_g6_digest; the export's
-    # knowledge follows V's information where the engine's known-hand rows
-    # follow copies, R5), else a drift. A divergence stays unverified: the
-    # observation digest, which includes the known hand, cannot be compared
-    # without it until the kernel reports one.
-    divergent: list[dict] = []
-    drifted: list[dict] = []
-
-    def at(record: dict, key: str, i: int):
-        values = record.get(key) or []
-        return values[i] if i < len(values) else None
-
-    def point_matches(r: dict, g: dict, i: int) -> bool:
-        if r["tensors"][i] == g["committed_tensors"][i]:
-            return True
-        masked = (at(r, "masked_tensors", i), at(g, "committed_masked_tensors", i))
-        hands = (at(r, "known_hands", i), at(g, "committed_known_hands", i))
-        known_hand = None not in masked and None not in hands and masked[0] == masked[1] and hands[0] != hands[1]
-        (divergent if known_hand else drifted).append({"step": r.get("step"), "point": i})
-        return False
-
     out["plans_match"] = len(plans) == len(mine) and all(
         len(r["plan"]) <= len(g.get("committed_keys") or [])
         and r["plan"] == g["committed_keys"][:len(r["plan"])]
         and len(r.get("tensors", [])) == len(r["plan"])
-        and len(g.get("committed_tensors", [])) >= len(r["plan"])
-        and all([point_matches(r, g, i) for i in range(len(r["plan"]))])
+        and r["tensors"] == g.get("committed_tensors", [])[:len(r["plan"])]
         for r, g in zip(plans, mine))
+    # Diagnostics only (the check above decides): every walked point whose
+    # tensor digest differs from the committed one, by class.
+    divergent: list[dict] = []
+    drifted: list[dict] = []
+    for r, g in zip(plans, mine):
+        _classify_points(r, g, divergent, drifted)
     out["known_hand_divergent_points"] = divergent
     out["drifted_points"] = drifted
     # Witnesses: the groups rooted at this seat (each counted once per game).

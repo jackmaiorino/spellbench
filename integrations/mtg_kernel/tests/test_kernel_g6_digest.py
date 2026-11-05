@@ -143,6 +143,43 @@ def test_a_known_hand_divergence_with_observation_drift_still_fails(tmp_path):
     assert not out["plans_match"] and not out["reconciled"]
 
 
+def test_every_failing_group_is_classified():
+    # Review round 3: a drift in one group does not hide a later group.
+    import entrant_availability
+    divergent, drifted = [], []
+    groups = [{"committed_tensors": ["c"], "committed_masked_tensors": ["x"], "committed_known_hands": ["h"]},
+              {"committed_tensors": ["c"], "committed_masked_tensors": ["m"], "committed_known_hands": ["h2"]}]
+    plans = [{"step": 7, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"]},
+             {"step": 8, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"]}]
+    for r, g in zip(plans, groups):
+        entrant_availability._classify_points(r, g, divergent, drifted)
+    assert drifted == [{"step": 7, "point": 0}] and divergent == [{"step": 8, "point": 0}]
+
+
+@pytest.mark.parametrize("field,value", [("masked_tensors", 1), ("masked_tensors", {"0": "m"}),
+                                         ("known_hands", "h1"), ("tensors", None), ("plan", 3)])
+def test_malformed_classification_fields_do_not_raise(field, value):
+    # Review round 3: malformed optional fields classify as drift.
+    import entrant_availability
+    divergent, drifted = [], []
+    plan = {"step": 7, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"], field: value}
+    group = {"committed_tensors": ["c"], "committed_masked_tensors": ["m"], "committed_known_hands": ["h2"]}
+    entrant_availability._classify_points(plan, group, divergent, drifted)
+    assert divergent == [] and len(drifted) <= 1
+
+
+def test_the_pass_fail_expression_is_mains(tmp_path):
+    # Review round 3: a committed_tensors string is not a list of digests.
+    import entrant_availability
+    out = _reconcile(tmp_path, ["m"], ["m"])
+    group = json.loads((tmp_path / "g-x.adapter.json").read_text())
+    group["groups"][0]["committed_tensors"] = "imported"
+    (tmp_path / "g-x.adapter.json").write_text(json.dumps(group))
+    plan = {"kind": "group_plan", "mode": "walk", "step": 7, "plan": ["k"], "tensors": ["imported"], "wire": [0]}
+    out = entrant_availability._reconcile(tmp_path, "g-x", "p0", {"tally": {}, "eligible": 1}, [plan])
+    assert not out["plans_match"] and not out["reconciled"]
+
+
 def test_an_observation_digest_drift_without_a_known_hand_difference_is_a_drift(tmp_path):
     # Review round 1: the committed point differs from the walk's only in the
     # observation digest (state[123]), with the same known hand.
