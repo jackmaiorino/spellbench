@@ -29,8 +29,10 @@ Computes, from one soak's decision logs, ledger and engine-side receipts:
   maximum at or below 1.5 T, where p99 is the nearest-rank value (the
   ceil(0.99 n)-th smallest; for 32 games, the maximum), and every game above
   T with a recorded cause (``--wall-causes``, a JSON object game id -> text).
-  T is the entrant's ``game_time_basis_seconds`` unless ``--t-seconds``
-  overrides it. The soak host's charged wall per game is always reported.
+  T is design section 2's 500 s, fixed here; the entrant's
+  ``game_time_basis_seconds`` must equal it. Every counted game must carry a
+  finite, nonnegative ``charged_wall_us``, and each rerun game one log. The
+  soak host's charged wall per game is always reported.
 * Ledger outcomes (entrant wins, losses, draws), forfeits by cause (a
   ``timeout`` forfeit is a board-clock forfeit; AC5 needs zero), halted and
   truncated games, and per-search wall times. Payload size and export time
@@ -41,7 +43,7 @@ Exit 0 when every pipeline check passes (inputs present, logs complete and
 reconciled, totals consistent); the AC5 verdicts are fields of the report.
 
 Usage: python soak_report.py LOG_DIR --ledger MATCHES.jsonl --entrant NAME --receipts DIR
-       [--expect-games N] [--wall-logs DIR] [--wall-causes FILE] [--t-seconds T] [--json OUT]
+       [--expect-games N] [--wall-logs DIR] [--wall-causes FILE] [--json OUT]
 """
 from __future__ import annotations
 
@@ -66,6 +68,7 @@ WALL_DOMAIN = "w1-ac5-wall:"
 WALL_SUBSET = 32
 WALL_P = 0.99
 WALL_MAX_FACTOR = 1.5
+T_SECONDS = 500.0  # design section 2: the entrant's summed charged choose intervals per game
 CLOCK_FORFEIT = "timeout"
 
 
@@ -115,8 +118,10 @@ def _ledger_rows(ledger: Path, entrant: str) -> list[dict]:
     return rows
 
 
-def _games(logs: list[Path], keys: set[tuple[str, str]], entrant: str) -> dict[tuple[str, str], dict]:
-    """Per ledger game and seat: the terminal record, the entrant record and the search records."""
+def _games(logs: list[Path], keys: set[tuple[str, str]], entrant: str,
+           duplicates: list[str] | None = None) -> dict[tuple[str, str], dict]:
+    """Per ledger game and seat: the terminal record, the entrant record and the search records. A second
+    complete log of a game and seat is listed in ``duplicates`` and never read."""
     out: dict[tuple[str, str], dict] = {}
     for root in logs:
         for path in sorted(root.glob("*.jsonl")):
@@ -124,7 +129,11 @@ def _games(logs: list[Path], keys: set[tuple[str, str]], entrant: str) -> dict[t
             if header is None or final is None or header.get("bot_name") != entrant:
                 continue
             key = (header["game_id"], header["seat"])
-            if key not in keys or key in out:
+            if key not in keys:
+                continue
+            if key in out:
+                if duplicates is not None:
+                    duplicates.append(path.name)
                 continue
             entrant_record = next((r["entrant"] for r in records if r.get("kind") == "entrant"), None)
             out[key] = {"final": final, "entrant": entrant_record,
@@ -135,6 +144,18 @@ def _games(logs: list[Path], keys: set[tuple[str, str]], entrant: str) -> dict[t
 def _stats(values: list[float]) -> dict:
     return {"n": len(values), "median": nearest_rank(values, 0.5), "p99": nearest_rank(values, WALL_P),
             "max": max(values, default=None)}
+
+
+def _wall_seconds(games: dict[tuple[str, str], dict]) -> tuple[dict[str, float], list[str]]:
+    """Charged entrant wall per game in seconds, and the games without a finite, nonnegative measurement."""
+    walls, missing = {}, []
+    for key, game in games.items():
+        value = game["final"].get("charged_wall_us")
+        if type(value) in (int, float) and math.isfinite(value) and value >= 0:
+            walls[key[0]] = value / 1e6
+        else:
+            missing.append(key[0])
+    return walls, sorted(missing)
 
 
 def _wall_check(walls: dict[str, float], t_seconds: float, causes: dict[str, str]) -> dict:
@@ -153,8 +174,7 @@ def _wall_check(walls: dict[str, float], t_seconds: float, causes: dict[str, str
 
 
 def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *, expect_games: int | None = None,
-                wall_logs: list[Path] | None = None, wall_causes: dict[str, str] | None = None,
-                t_seconds: float | None = None) -> dict:
+                wall_logs: list[Path] | None = None, wall_causes: dict[str, str] | None = None) -> dict:
     base = entrant_availability.report(logs, [ledger], entrant, receipts)
     rows = _ledger_rows(ledger, entrant)
     keys = {(row["game_id"], seat["seat"]) for row in rows for seat in row["seats"] if seat.get("name") == entrant}
@@ -168,8 +188,7 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
     # Entrant constants: one record shared by every counted game.
     constants = {json.dumps(g["entrant"], sort_keys=True) for g in games.values()}
     entrant_record = json.loads(next(iter(constants))) if len(constants) == 1 else None
-    if t_seconds is None and entrant_record is not None:
-        t_seconds = float(entrant_record["game_time_basis_seconds"])
+    t_seconds = T_SECONDS
 
     # Outcomes, forfeits, halts from the ledger, from the entrant's side.
     outcome = Counter()
@@ -186,33 +205,40 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
                              "entrant_lost": adj.get("loser_seat") == seat})
     clock_forfeits = sum(1 for f in forfeits if f["cause"] == CLOCK_FORFEIT)
 
-    walls = {k[0]: g["final"].get("charged_wall_us", 0) / 1e6 for k, g in games.items()}
+    walls, walls_missing = _wall_seconds(games)
     search_walls = [s["wall_us"] / 1e6 for g in games.values() for s in g["searches"] if "wall_us" in s]
     payload_bytes = [s["payload_bytes"] for g in games.values() for s in g["searches"] if "payload_bytes" in s]
     export_us = [s["export_us"] / 1e6 for g in games.values() for s in g["searches"] if "export_us" in s]
     subset = wall_subset([row["game_id"] for row in rows])
 
-    wall = {"soak_host": {"per_game_seconds": dict(sorted(walls.items())), **_stats(list(walls.values()))},
+    wall = {"soak_host": {"per_game_seconds": dict(sorted(walls.items())), "unmeasured_games": walls_missing,
+                          **_stats(list(walls.values()))},
             "subset": subset, "check": None}
     if wall_logs:
         chosen = {s["game_id"] for s in subset}
-        rerun = _games(wall_logs, {k for k in keys if k[0] in chosen}, entrant)
-        rerun_walls = {k[0]: g["final"].get("charged_wall_us", 0) / 1e6 for k, g in rerun.items()}
-        check = _wall_check(rerun_walls, t_seconds, wall_causes or {}) if t_seconds is not None else None
+        rerun_duplicates: list[str] = []
+        rerun = _games(wall_logs, {k for k in keys if k[0] in chosen}, entrant, rerun_duplicates)
+        rerun_walls, unmeasured = _wall_seconds(rerun)
+        check = _wall_check(rerun_walls, t_seconds, wall_causes or {})
         missing = sorted(s["game_id"] for s in subset if s["game_id"] not in rerun_walls)
-        wall["check"] = {**(check or {}), "missing_games": missing,
-                         "pass": bool(check and check["pass"] and not missing)}
+        wall["check"] = {**check, "missing_games": missing, "unmeasured_games": unmeasured,
+                         "duplicate_logs": rerun_duplicates,
+                         "pass": check["pass"] and not missing and not rerun_duplicates}
 
     checks = dict(base["checks"])
     checks.update({
         "ledger_names_the_entrant": bool(rows),
+        "ledger_games_unique": len({row["game_id"] for row in rows}) == len(rows),
         "totals_consistent": faults == base["c5_faults"] and units == base["eligible"] and len(pairs) == base["games"],
         "one_entrant_record": entrant_record is not None,
-        "games_expected": expect_games is None or len(rows) == expect_games,
-        "t_known": t_seconds is not None,
+        "games_expected": expect_games is None or len({row["game_id"] for row in rows}) == expect_games,
+        "t_is_the_design_t": entrant_record is not None
+        and float(entrant_record.get("game_time_basis_seconds", -1)) == T_SECONDS,
+        "every_game_wall_measured": not walls_missing,
     })
     if wall_logs:
         checks["wall_subset_rerun_complete"] = not wall["check"]["missing_games"]
+        checks["wall_rerun_one_log_per_game"] = not wall["check"]["duplicate_logs"]
     ac5_bound = {"units": units, "faults": faults, "share": None if not units else faults / units,
                  "cp_upper_95": bound, "pass": None if bound is None else bound <= AC5_LIMIT,
                  "limit": AC5_LIMIT}
@@ -255,12 +281,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expect-games", type=int, help="ledger games naming the entrant (128 for a soak)")
     parser.add_argument("--wall-logs", action="append", type=Path, help="decision logs of the wall-subset rerun")
     parser.add_argument("--wall-causes", type=Path, help="JSON object: game id -> recorded cause of a game over T")
-    parser.add_argument("--t-seconds", type=float, help="T (default: the entrant's game_time_basis_seconds)")
     parser.add_argument("--json", type=Path)
     args = parser.parse_args(argv)
     causes = json.loads(args.wall_causes.read_text(encoding="utf-8")) if args.wall_causes else None
     result = soak_report(args.logs, args.ledger, args.entrant, args.receipts, expect_games=args.expect_games,
-                         wall_logs=args.wall_logs, wall_causes=causes, t_seconds=args.t_seconds)
+                         wall_logs=args.wall_logs, wall_causes=causes)
     text = json.dumps(result, indent=2, sort_keys=True)
     print(text)
     if args.json:

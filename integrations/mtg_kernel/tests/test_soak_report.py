@@ -144,8 +144,9 @@ def test_wall_check_uses_the_rerun_logs_and_the_criterion(tmp_path):
     assert check["p99_at_or_below_t"] is False and check["max_at_or_below_1_5t"] is True and not check["pass"]
     # A cause does not rescue p99 above T.
     assert run("k1", wall_causes={games[0]: "noted"}, **base)["wall"]["check"]["pass"] is False
-    # At T = 600 the game is at T, not over it: the check passes.
-    check = run("k1", t_seconds=600, **base)["wall"]["check"]
+    # At exactly T the game is not over it.
+    _set_wall(rerun, "k1", games[0], 500.0)
+    check = run("k1", **base)["wall"]["check"]
     assert check["p99_at_or_below_t"] is True and check["over_t"] == [] and check["pass"]
     _set_wall(rerun, "k1", games[0], 800.0)
     check = run("k1", **base)["wall"]["check"]
@@ -196,3 +197,54 @@ def test_clock_forfeits_are_counted(tmp_path):
     assert result["clock_forfeits"] == 1
     assert result["forfeits"] == [{"game_id": row["game_id"], "cause": "timeout", "entrant_lost": True}]
     assert result["outcomes"]["loss"] == 1 and result["outcomes"]["win"] == 3
+
+
+def test_duplicate_ledger_rows_do_not_make_up_the_game_count(tmp_path):
+    root = copy_fixture("k1", tmp_path)
+    ledger = root / "k1" / "matches.jsonl"
+    ledger.write_text(ledger.read_text() * 32)
+    result = run("k1", root=root, expect_games=128)
+    assert result["checks"]["ledger_games_unique"] is False
+    assert result["checks"]["games_expected"] is False and not result["checks_pass"]
+
+
+def test_a_missing_wall_measurement_fails(tmp_path):
+    rerun = copy_fixture("k1", tmp_path)
+    path = sorted((rerun / "k1" / "decisions").glob("*.jsonl"))[0]
+    lines = path.read_text().splitlines()
+    final = json.loads(lines[-1])
+    del final["charged_wall_us"]
+    lines[-1] = json.dumps(final)
+    path.write_text("\n".join(lines) + "\n")
+    game = final["game_id"]
+    result = run("k1", wall_logs=[rerun / "k1" / "decisions"])
+    assert game in result["wall"]["check"]["unmeasured_games"]
+    assert game in result["wall"]["check"]["missing_games"] and not result["wall"]["check"]["pass"]
+    soak = run("k1", root=rerun)
+    assert soak["checks"]["every_game_wall_measured"] is False and not soak["checks_pass"]
+
+
+def test_conflicting_rerun_logs_fail(tmp_path):
+    fast = copy_fixture("k1", tmp_path / "fast")
+    slow = copy_fixture("k1", tmp_path / "slow")
+    for path in (slow / "k1" / "decisions").glob("*.jsonl"):
+        _set_wall(slow, "k1", path.name.split(".")[0], 900.0)
+    for order in ([fast, slow], [slow, fast]):
+        check = run("k1", wall_logs=[d / "k1" / "decisions" for d in order])["wall"]["check"]
+        assert check["duplicate_logs"] and check["pass"] is False
+
+
+def test_t_is_the_design_constant(tmp_path):
+    root = copy_fixture("k1", tmp_path)
+    for path in (root / "k1" / "decisions").glob("*.jsonl"):
+        lines = path.read_text().splitlines()
+        out = []
+        for line in lines:
+            record = json.loads(line)
+            if record.get("kind") == "entrant":
+                record["entrant"]["game_time_basis_seconds"] = 600
+            out.append(json.dumps(record))
+        path.write_text("\n".join(out) + "\n")
+    result = run("k1", root=root, wall_logs=[root / "k1" / "decisions"])
+    assert result["checks"]["t_is_the_design_t"] is False and not result["checks_pass"]
+    assert result["wall"]["check"]["t_seconds"] == 500.0
