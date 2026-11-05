@@ -271,8 +271,8 @@ def test_a_rerun_with_other_entrant_constants_fails(tmp_path):
         path.write_text("\n".join(out) + "\n")
     result = run("k1", wall_logs=[rerun / "k1" / "decisions"])
     check = result["wall"]["check"]
-    assert len(check["other_entrant_config"]) == 4 and check["pass"] is False
-    assert result["checks"]["wall_rerun_same_entrant"] is False and not result["checks_pass"]
+    assert len(check["not_the_soak_game"]) == 4 and check["pass"] is False
+    assert result["checks"]["wall_rerun_same_game"] is False and not result["checks_pass"]
 
 
 def test_an_incomplete_extra_rerun_log_fails(tmp_path):
@@ -299,3 +299,30 @@ def test_a_torn_qualification_log_is_excluded_and_a_torn_counted_log_fails(tmp_p
     result = run("k1", root=root)
     assert result["checks"]["counted_logs_parse"] is False and not result["checks_pass"]
     assert result["logs"]["problems"]["malformed"] == [counted.name]
+
+
+def _edit_logs(root: Path, label: str, edit) -> None:
+    for path in (root / label / "decisions").glob("*.jsonl"):
+        records = [json.loads(line) for line in path.read_text().splitlines()]
+        edit(records)
+        path.write_text("".join(json.dumps(r) + "\n" for r in records))
+
+
+def test_a_rerun_with_another_model_state_or_an_early_end_fails(tmp_path):
+    other_model = copy_fixture("k1", tmp_path / "model")
+    _edit_logs(other_model, "k1", lambda records: records[0].update(model_state_sha256="0" * 64))
+    check = run("k1", wall_logs=[other_model / "k1" / "decisions"])["wall"]["check"]
+    assert len(check["not_the_soak_game"]) == 4 and check["pass"] is False
+
+    other_seed = copy_fixture("k1", tmp_path / "seed")
+    _edit_logs(other_seed, "k1", lambda records: records[0].update(stream_seed=records[0]["stream_seed"] + 1))
+    assert run("k1", wall_logs=[other_seed / "k1" / "decisions"])["wall"]["check"]["pass"] is False
+
+    def stop_early(records):
+        records[-1]["eligible"] = 1
+        records[-1]["charged_wall_us"] = 1
+    early = copy_fixture("k1", tmp_path / "early")
+    _edit_logs(early, "k1", stop_early)
+    result = run("k1", wall_logs=[early / "k1" / "decisions"])
+    assert len(result["wall"]["check"]["not_the_soak_game"]) == 4 and result["wall"]["check"]["pass"] is False
+    assert result["checks"]["wall_rerun_same_game"] is False

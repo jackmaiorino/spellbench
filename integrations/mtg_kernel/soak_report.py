@@ -164,7 +164,8 @@ def _games(found: dict) -> tuple[dict[tuple[str, str], dict], dict[str, list[str
         if final is None:
             problems["incomplete"].append(path.name)
             continue
-        out[key] = {"final": final, "entrant": next((r["entrant"] for r in records if r.get("kind") == "entrant"), None),
+        out[key] = {"header": records[0], "final": final,
+                    "entrant": next((r["entrant"] for r in records if r.get("kind") == "entrant"), None),
                     "searches": [r for r in records if r.get("kind") == "search"]}
     return out, problems
 
@@ -256,16 +257,23 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
         chosen = {s["game_id"] for s in subset}
         rerun_found, _ = _scan(wall_logs, entrant, {k for k in keys if k[0] in chosen})
         rerun, rerun_problems = _games(rerun_found)
-        # The rerun must play the soak's entrant: the same constants record in every rerun log.
-        other_config = sorted(k[0] for k, g in rerun.items() if g["entrant"] != entrant_record)
-        rerun = {k: g for k, g in rerun.items() if g["entrant"] == entrant_record}
+        # The rerun must replay the soak's game: the same header (model state, selection, stream seed), the same
+        # entrant constants, and the same terminal record but for its wall clock (so a rerun that stopped early,
+        # or played another game, is not a wall measurement of this one).
+        def same_game(key: tuple[str, str], game: dict) -> bool:
+            soak = games.get(key)
+            strip = lambda final: {k: v for k, v in final.items() if k != "charged_wall_us"}  # noqa: E731
+            return (soak is not None and game["entrant"] == entrant_record and game["header"] == soak["header"]
+                    and strip(game["final"]) == strip(soak["final"]))
+        other_config = sorted(k[0] for k, g in rerun.items() if not same_game(k, g))
+        rerun = {k: g for k, g in rerun.items() if same_game(k, g)}
         rerun_walls, unmeasured = _wall_seconds(rerun)
         check = _wall_check(rerun_walls, t_seconds, wall_causes or {})
         missing = sorted(s["game_id"] for s in subset if s["game_id"] not in rerun_walls)
         bad_logs = sorted(name for names in rerun_problems.values() for name in names)
         wall["check"] = {**check, "missing_games": missing, "unmeasured_games": unmeasured,
                          "duplicate_logs": rerun_problems["duplicate"], "malformed_logs": rerun_problems["malformed"],
-                         "incomplete_logs": rerun_problems["incomplete"], "other_entrant_config": other_config,
+                         "incomplete_logs": rerun_problems["incomplete"], "not_the_soak_game": other_config,
                          "pass": check["pass"] and not missing and not bad_logs and not other_config}
 
     checks = dict(base["checks"])
@@ -284,7 +292,7 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
         checks["wall_subset_rerun_complete"] = not wall["check"]["missing_games"]
         checks["wall_rerun_one_complete_log_per_game"] = not (
             wall["check"]["duplicate_logs"] or wall["check"]["malformed_logs"] or wall["check"]["incomplete_logs"])
-        checks["wall_rerun_same_entrant"] = not wall["check"]["other_entrant_config"]
+        checks["wall_rerun_same_game"] = not wall["check"]["not_the_soak_game"]
     ac5_bound = {"units": units, "faults": faults, "share": None if not units else faults / units,
                  "cp_upper_95": bound, "pass": None if bound is None else bound <= AC5_LIMIT,
                  "limit": AC5_LIMIT}
