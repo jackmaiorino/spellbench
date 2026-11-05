@@ -98,30 +98,52 @@ def _reconcile(tmp_path, walk_masked, committed_masked, walk_hands=("h1",), comm
     return entrant_availability._reconcile(tmp_path, "g-x", "p0", final, [plan])
 
 
-def test_plans_match_accepts_a_known_hand_divergence_and_reports_it(tmp_path):
+POINT = [{"step": 7, "point": 0}]
+
+
+def test_a_known_hand_divergence_fails_and_is_classified(tmp_path):
+    # Review round 2: the observation digest is not verified without the
+    # known hand, so G6 fails; the report names the class.
     out = _reconcile(tmp_path, ["m"], ["m"])
-    assert out["plans_match"] and out["reconciled"]
-    assert out["known_hand_divergent_points"] == [{"step": 7, "point": 0}]
+    assert not out["plans_match"] and not out["reconciled"]
+    assert out["known_hand_divergent_points"] == POINT and out["drifted_points"] == []
 
 
-@pytest.mark.parametrize("walk,committed", [(["m"], ["other"]), (None, ["m"]), (["m"], None),
-                                            ([None], [None]), ([], ["m"])])
-def test_plans_match_fails_without_equal_masked_digests(tmp_path, walk, committed):
-    # A drifted state, logs or receipts written before the masked digests,
-    # or an encoding the mask does not cover: the full digests decide.
-    out = _reconcile(tmp_path, walk, committed)
+@pytest.mark.parametrize("case", CASES, ids=[c["game_id"] for c in CASES])
+def test_the_soak_points_classify_as_known_hand_divergences(tmp_path, case):
+    w, c = case["walk"], case["committed"]
+    out = _reconcile(tmp_path, [g6.known_hand_masked_digest(w)], [g6.known_hand_masked_digest(c)],
+                     (g6.known_hand_digest(w),), (g6.known_hand_digest(c),))
+    assert not out["plans_match"] and out["known_hand_divergent_points"] == POINT
+
+
+@pytest.mark.parametrize("walk,committed,walk_hands,committed_hands", [
+    (["m"], ["other"], ("h1",), ("h2",)),  # a drift beside a known-hand difference
+    (None, ["m"], ("h1",), ("h2",)),  # a log without masked digests
+    (["m"], None, ("h1",), ("h2",)),  # a receipt without masked digests
+    ([None], [None], ("h1",), ("h2",)),  # an encoding the mask does not cover
+    ([], ["m"], ("h1",), ("h2",)),
+    (["m"], ["m"], ("h",), ("h",)),  # the same known hand: the rest drifted
+    (["m"], ["m"], (), ("h",)),
+])
+def test_other_differences_are_drifts(tmp_path, walk, committed, walk_hands, committed_hands):
+    out = _reconcile(tmp_path, walk, committed, walk_hands, committed_hands)
+    assert not out["plans_match"] and out["drifted_points"] == POINT and out["known_hand_divergent_points"] == []
+
+
+def test_a_known_hand_divergence_with_observation_drift_still_fails(tmp_path):
+    # Review round 2: a real divergence plus a flipped observation digest
+    # classifies as a divergence (the digest is not separable) and fails.
+    case = CASES[0]
+    drifted = copy.deepcopy(case["committed"])
+    drifted["tensor"]["state"][g6.STATE_OBSERVATION_DIGEST] ^= 1
+    w = case["walk"]
+    out = _reconcile(tmp_path, [g6.known_hand_masked_digest(w)], [g6.known_hand_masked_digest(drifted)],
+                     (g6.known_hand_digest(w),), (g6.known_hand_digest(drifted),))
     assert not out["plans_match"] and not out["reconciled"]
 
 
-def test_plans_match_needs_the_known_hands_to_differ(tmp_path):
-    # Equal masked digests with the same known hand on both sides: the full
-    # digests then differ elsewhere (say in the observation digest only), a
-    # drifted state.
-    assert not _reconcile(tmp_path, ["m"], ["m"], ("h",), ("h",))["plans_match"]
-    assert not _reconcile(tmp_path, ["m"], ["m"], (), ("h",))["plans_match"]
-
-
-def test_an_observation_digest_drift_without_a_known_hand_difference_fails(tmp_path):
+def test_an_observation_digest_drift_without_a_known_hand_difference_is_a_drift(tmp_path):
     # Review round 1: the committed point differs from the walk's only in the
     # observation digest (state[123]), with the same known hand.
     walk = CASES[1]["committed"]
@@ -130,4 +152,4 @@ def test_an_observation_digest_drift_without_a_known_hand_difference_fails(tmp_p
     assert g6.known_hand_masked_digest(walk) == g6.known_hand_masked_digest(drifted)
     out = _reconcile(tmp_path, [g6.known_hand_masked_digest(walk)], [g6.known_hand_masked_digest(drifted)],
                      (g6.known_hand_digest(walk),), (g6.known_hand_digest(drifted),))
-    assert not out["plans_match"] and out["known_hand_divergent_points"] == []
+    assert not out["plans_match"] and out["drifted_points"] == POINT

@@ -13,15 +13,16 @@ engine's rows follow object identity.
 the KnownOpponentHand objects with their relations, the opponent's
 known-hand count in the state, and the state's digest of the canonical
 observation (which includes the known hand). ``known_hand_digest`` digests
-the known opponent hand itself (its card ids, sorted). G6 accepts a point
-whose full digests differ only when the masked digests are equal and the
-known hands differ, and reports it as a known-hand divergence; any other
-difference is a failure. At such a point what only the observation digest
-carries (for example subtype identities, of which the object features keep
-the count) is not compared: the walk's pool returns no observation, so a
-digest of it without the known hand needs the kernel. The functions are
-defined for one feature encoding; for any other they return None (full
-digests only).
+the known opponent hand itself (its card ids, sorted). G6 still fails every
+point whose full digests differ; it classifies one as a known-hand
+divergence when the masked digests are equal and the known hands differ,
+else as a drift. A divergence is not verified: what only the observation
+digest carries (for example subtype identities, of which the object features
+keep the count) cannot be compared without the known hand, since the walk's
+pool returns no observation; that needs a kernel-side digest of the
+observation without the opponent's known hand, from the pool and the bridge.
+The functions are defined for one feature encoding; for any other they
+return None.
 """
 from __future__ import annotations
 

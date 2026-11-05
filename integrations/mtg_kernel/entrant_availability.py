@@ -144,12 +144,15 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     plans = [r for r in records if r.get("kind") == "group_plan" and r.get("mode") == "walk"]
     # Pi may stop before the last point (one completion left): its rows and
     # its points' tensors are a prefix of the committed ones, never longer.
-    # A point whose tensors differ only in V's knowledge of the opponent's
-    # hand (the known hands differ, the known-hand-masked digests are equal:
-    # kernel_g6_digest) matches and is reported as a known-hand divergence:
-    # the export's knowledge follows V's information where the engine's
-    # known-hand rows follow copies (R5).
+    # Every point whose tensors differ fails. Each is classified: a
+    # known-hand divergence when the known opponent hands differ and the
+    # known-hand-masked digests are equal (kernel_g6_digest; the export's
+    # knowledge follows V's information where the engine's known-hand rows
+    # follow copies, R5), else a drift. A divergence stays unverified: the
+    # observation digest, which includes the known hand, cannot be compared
+    # without it until the kernel reports one.
     divergent: list[dict] = []
+    drifted: list[dict] = []
 
     def at(record: dict, key: str, i: int):
         values = record.get(key) or []
@@ -160,10 +163,9 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
             return True
         masked = (at(r, "masked_tensors", i), at(g, "committed_masked_tensors", i))
         hands = (at(r, "known_hands", i), at(g, "committed_known_hands", i))
-        if None in masked or None in hands or masked[0] != masked[1] or hands[0] == hands[1]:
-            return False
-        divergent.append({"step": r.get("step"), "point": i})
-        return True
+        known_hand = None not in masked and None not in hands and masked[0] == masked[1] and hands[0] != hands[1]
+        (divergent if known_hand else drifted).append({"step": r.get("step"), "point": i})
+        return False
 
     out["plans_match"] = len(plans) == len(mine) and all(
         len(r["plan"]) <= len(g.get("committed_keys") or [])
@@ -173,6 +175,7 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
         and all([point_matches(r, g, i) for i in range(len(r["plan"]))])
         for r, g in zip(plans, mine))
     out["known_hand_divergent_points"] = divergent
+    out["drifted_points"] = drifted
     # Witnesses: the groups rooted at this seat (each counted once per game).
     out["witness"] = {k: sum(1 for g in mine if g.get("witness", {}).get(k))
                       for k in ("multi_attacker", "multi_blocker", "three_triggers")}
@@ -254,8 +257,9 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     commit_check = None if receipts is None else {
         "groups": sum(r.get("commit_groups", 0) for r in reconciliation),
         "all_ok": all(r.get("commit_ok", False) and r.get("plans_match", False) for r in reconciliation),
-        # Walked points accepted only by the known-hand-masked digests.
+        # Walked points whose tensors differ, by class (each fails G6).
         "known_hand_divergent_points": sum(len(r.get("known_hand_divergent_points", [])) for r in reconciliation),
+        "drifted_points": sum(len(r.get("drifted_points", [])) for r in reconciliation),
         "witness": witness,
         "witnesses_met": witness["multi_attacker"] >= 5 and witness["multi_blocker"] >= 5
         and witness["three_triggers"] >= 1}
