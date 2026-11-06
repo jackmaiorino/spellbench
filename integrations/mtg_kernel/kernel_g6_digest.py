@@ -13,16 +13,18 @@ engine's rows follow object identity.
 the KnownOpponentHand objects with their relations, the opponent's
 known-hand count in the state, and the state's digest of the canonical
 observation (which includes the known hand). ``known_hand_digest`` digests
-the known opponent hand itself (its card ids, sorted). G6 still fails every
-point whose full digests differ; it classifies one as a known-hand
-divergence when the masked digests are equal and the known hands differ,
-else as a drift. A divergence is not verified: what only the observation
-digest carries (for example subtype identities, of which the object features
-keep the count) cannot be compared without the known hand, since the walk's
-pool returns no observation; that needs a kernel-side digest of the
-observation without the opponent's known hand, from the pool and the bridge.
-The functions are defined for one feature encoding; for any other they
-return None.
+the known opponent hand itself (its card ids, sorted).
+
+What only the observation digest carries (for example subtype identities, of
+which the object features keep the count) is compared through the kernel's
+own digest of the canonical observation without the opponent's known hand
+(mtg-kernel amendment 43.9 (a)): the bridge's committed point and the pool's
+walked point carry it as ``known_hand_masked_observation_sha256``
+(``masked_observation_digest``). G6 accepts a point whose full digests
+differ only when both masked digests are equal and the known hands differ
+(a known-hand divergence); any other difference is a drift and fails.
+The tensor functions are defined for one feature encoding; for any other
+they return None.
 """
 from __future__ import annotations
 
@@ -59,6 +61,23 @@ def _rows(flat: list, count: int) -> list[list] | None:
         return None
     width = len(flat) // count
     return [flat[i * width:(i + 1) * width] for i in range(count)]
+
+
+# The kernel's x_kernel_flat_v4 member (mtg-kernel amendment 43.9 (a)).
+MASKED_OBSERVATION_FIELD = "known_hand_masked_observation_sha256"
+
+
+def masked_observation_digest(flat_extension: dict[str, Any]) -> str | None:
+    """The kernel's sha256 of the point's canonical observation without the
+    opponent's known hand, or None when the point does not carry one."""
+    value = flat_extension.get(MASKED_OBSERVATION_FIELD) if isinstance(flat_extension, dict) else None
+    if not isinstance(value, str) or len(value) != 64:
+        return None
+    try:
+        int(value, 16)
+    except ValueError:
+        return None
+    return value
 
 
 def known_hand_digest(flat_extension: dict[str, Any]) -> str | None:

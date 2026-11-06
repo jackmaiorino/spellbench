@@ -86,11 +86,14 @@ def _bot_refusals(tally: dict) -> dict[str, int]:
 def _classify_points(plan: dict, group: dict, divergent: list[dict], drifted: list[dict]) -> None:
     """Each walked point of ``plan`` whose tensor digest differs from the
     committed one: a known-hand divergence when the known opponent hands
-    differ and the known-hand-masked digests are equal (kernel_g6_digest; the
-    export's knowledge follows V's information where the engine's known-hand
-    rows follow copies, R5), else a drift. Both fail G6: without the known
-    hand the observation digest cannot be compared until the kernel reports
-    one. Malformed fields classify as drift."""
+    differ, the known-hand-masked tensor digests are equal (kernel_g6_digest)
+    and the kernel's masked observation digests are equal (the canonical
+    observation without the opponent's known hand, mtg-kernel amendment 43.9
+    (a)); else a drift. The export's knowledge of the opponent's hand follows
+    V's information (under fallback D it claims no hand names) where the
+    engine's known-hand rows follow the native reveals, so a divergence is
+    expected; G6 accepts it and fails a drift. Malformed or missing fields
+    classify as drift."""
     def seq(value) -> list:
         return value if isinstance(value, list) else []
 
@@ -100,12 +103,15 @@ def _classify_points(plan: dict, group: dict, divergent: list[dict], drifted: li
     walk, committed = seq(plan.get("tensors")), seq(group.get("committed_tensors"))
     masks = seq(plan.get("masked_tensors")), seq(group.get("committed_masked_tensors"))
     hands = seq(plan.get("known_hands")), seq(group.get("committed_known_hands"))
+    observations = seq(plan.get("masked_observations")), seq(group.get("committed_masked_observations"))
     for i in range(len(seq(plan.get("plan")))):
         w, c = at(walk, i), at(committed, i)
         if w is not None and w == c:
             continue
         m, h = (at(masks[0], i), at(masks[1], i)), (at(hands[0], i), at(hands[1], i))
-        known_hand = None not in (w, c, *m, *h) and m[0] == m[1] and h[0] != h[1]
+        o = at(observations[0], i), at(observations[1], i)
+        known_hand = (None not in (w, c, *m, *h, *o) and m[0] == m[1] and o[0] == o[1]
+                      and h[0] != h[1])
         (divergent if known_hand else drifted).append({"step": plan.get("step"), "point": i})
 
 
@@ -170,18 +176,19 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     plans = [r for r in records if r.get("kind") == "group_plan" and r.get("mode") == "walk"]
     # Pi may stop before the last point (one completion left): its rows and
     # its points' tensors are a prefix of the committed ones, never longer.
-    out["plans_match"] = len(plans) == len(mine) and all(
-        len(r["plan"]) <= len(g.get("committed_keys") or [])
-        and r["plan"] == g["committed_keys"][:len(r["plan"])]
-        and len(r.get("tensors", [])) == len(r["plan"])
-        and r["tensors"] == g.get("committed_tensors", [])[:len(r["plan"])]
-        for r, g in zip(plans, mine))
-    # Diagnostics only (the check above decides): every walked point whose
-    # tensor digest differs from the committed one, by class.
+    # A point's tensors match when their digests are equal, or when they
+    # differ only in V's knowledge of the opponent's hand (a known-hand
+    # divergence, _classify_points); any drifted point fails.
     divergent: list[dict] = []
     drifted: list[dict] = []
     for r, g in zip(plans, mine):
         _classify_points(r, g, divergent, drifted)
+    out["plans_match"] = len(plans) == len(mine) and not drifted and all(
+        len(r["plan"]) <= len(g.get("committed_keys") or [])
+        and r["plan"] == g["committed_keys"][:len(r["plan"])]
+        and len(r.get("tensors", [])) == len(r["plan"])
+        and len(g.get("committed_tensors", [])) >= len(r["plan"])
+        for r, g in zip(plans, mine))
     out["known_hand_divergent_points"] = divergent
     out["drifted_points"] = drifted
     # Witnesses: the groups rooted at this seat (each counted once per game).

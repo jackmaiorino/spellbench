@@ -77,8 +77,10 @@ def test_other_encodings_and_shapes_are_not_masked():
     assert g6.known_hand_masked_digest({"feature_encoding_digest": g6.MASK_ENCODING_DIGEST, "tensor": None}) is None
 
 
-def _reconcile(tmp_path, walk_masked, committed_masked, walk_hands=("h1",), committed_hands=("h2",)):
-    """plans_match for one walked group whose full tensor digests differ."""
+def _reconcile(tmp_path, walk_masked, committed_masked, walk_hands=("h1",), committed_hands=("h2",),
+               walk_obs=None, committed_obs=None):
+    """plans_match for one walked group whose full tensor digests differ;
+    ``*_obs`` are the kernel's masked observation digests (amendment 43.9)."""
     import entrant_availability
     (tmp_path / "g-x.bridge.json").write_text(json.dumps({
         "receipt": "x_kernel_infoset_v1", "game_id": "g-x", "eligible": [1, 0],
@@ -87,6 +89,8 @@ def _reconcile(tmp_path, walk_masked, committed_masked, walk_hands=("h1",), comm
              "views_equal": True, "keys_equal": True, "committed_keys": ["k"], "expected_keys": ["k"],
              "committed_tensors": ["native"], "committed_masked_tensors": committed_masked,
              "committed_known_hands": list(committed_hands)}
+    if committed_obs is not None:
+        group["committed_masked_observations"] = committed_obs
     (tmp_path / "g-x.adapter.json").write_text(json.dumps({
         "receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-x", "native_seats": {"p0": "p0", "p1": "p1"},
         "composition": {}, "internal": {}, "groups": [group]}))
@@ -94,6 +98,8 @@ def _reconcile(tmp_path, walk_masked, committed_masked, walk_hands=("h1",), comm
             "known_hands": list(walk_hands)}
     if walk_masked is not None:
         plan["masked_tensors"] = walk_masked
+    if walk_obs is not None:
+        plan["masked_observations"] = walk_obs
     final = {"tally": {}, "eligible": 1}
     return entrant_availability._reconcile(tmp_path, "g-x", "p0", final, [plan])
 
@@ -101,20 +107,40 @@ def _reconcile(tmp_path, walk_masked, committed_masked, walk_hands=("h1",), comm
 POINT = [{"step": 7, "point": 0}]
 
 
-def test_a_known_hand_divergence_fails_and_is_classified(tmp_path):
-    # Review round 2: the observation digest is not verified without the
-    # known hand, so G6 fails; the report names the class.
-    out = _reconcile(tmp_path, ["m"], ["m"])
-    assert not out["plans_match"] and not out["reconciled"]
+OBS = "a" * 64
+
+
+def test_a_verified_known_hand_divergence_passes(tmp_path):
+    # Amendment 43.9 (a): masked tensors and the kernel's masked observation
+    # digests agree, the known hands differ: G6 accepts the point.
+    out = _reconcile(tmp_path, ["m"], ["m"], walk_obs=[OBS], committed_obs=[OBS])
+    assert out["plans_match"] and out["reconciled"]
     assert out["known_hand_divergent_points"] == POINT and out["drifted_points"] == []
+
+
+@pytest.mark.parametrize("walk_obs,committed_obs", [
+    (None, None),  # neither side reports the observation digest
+    ([OBS], None), (None, [OBS]), ([None], [OBS]), ([], [OBS]),
+    ([OBS], ["b" * 64]),  # the observations differ (a flipped subtype): a drift
+])
+def test_an_unverified_known_hand_divergence_fails(tmp_path, walk_obs, committed_obs):
+    out = _reconcile(tmp_path, ["m"], ["m"], walk_obs=walk_obs, committed_obs=committed_obs)
+    assert not out["plans_match"] and not out["reconciled"]
+    assert out["drifted_points"] == POINT and out["known_hand_divergent_points"] == []
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["game_id"] for c in CASES])
 def test_the_soak_points_classify_as_known_hand_divergences(tmp_path, case):
+    # The shake-out points (kernel 4badeac06) carry no kernel observation
+    # digest, so they fail as drifts; with equal ones they would pass.
     w, c = case["walk"], case["committed"]
-    out = _reconcile(tmp_path, [g6.known_hand_masked_digest(w)], [g6.known_hand_masked_digest(c)],
-                     (g6.known_hand_digest(w),), (g6.known_hand_digest(c),))
-    assert not out["plans_match"] and out["known_hand_divergent_points"] == POINT
+    args = ([g6.known_hand_masked_digest(w)], [g6.known_hand_masked_digest(c)],
+            (g6.known_hand_digest(w),), (g6.known_hand_digest(c),))
+    assert g6.masked_observation_digest(w) is None and g6.masked_observation_digest(c) is None
+    out = _reconcile(tmp_path, *args)
+    assert not out["plans_match"] and out["drifted_points"] == POINT
+    out = _reconcile(tmp_path, *args, walk_obs=[OBS], committed_obs=[OBS])
+    assert out["plans_match"] and out["known_hand_divergent_points"] == POINT
 
 
 @pytest.mark.parametrize("walk,committed,walk_hands,committed_hands", [
@@ -127,20 +153,22 @@ def test_the_soak_points_classify_as_known_hand_divergences(tmp_path, case):
     (["m"], ["m"], (), ("h",)),
 ])
 def test_other_differences_are_drifts(tmp_path, walk, committed, walk_hands, committed_hands):
-    out = _reconcile(tmp_path, walk, committed, walk_hands, committed_hands)
+    out = _reconcile(tmp_path, walk, committed, walk_hands, committed_hands, walk_obs=[OBS], committed_obs=[OBS])
     assert not out["plans_match"] and out["drifted_points"] == POINT and out["known_hand_divergent_points"] == []
 
 
 def test_a_known_hand_divergence_with_observation_drift_still_fails(tmp_path):
-    # Review round 2: a real divergence plus a flipped observation digest
-    # classifies as a divergence (the digest is not separable) and fails.
+    # A real divergence plus a drifted observation: the tensor mask cannot
+    # see it (it drops the observation digest), the kernel's masked
+    # observation digest does, so the point is a drift and fails.
     case = CASES[0]
     drifted = copy.deepcopy(case["committed"])
     drifted["tensor"]["state"][g6.STATE_OBSERVATION_DIGEST] ^= 1
     w = case["walk"]
     out = _reconcile(tmp_path, [g6.known_hand_masked_digest(w)], [g6.known_hand_masked_digest(drifted)],
-                     (g6.known_hand_digest(w),), (g6.known_hand_digest(drifted),))
-    assert not out["plans_match"] and not out["reconciled"]
+                     (g6.known_hand_digest(w),), (g6.known_hand_digest(drifted),),
+                     walk_obs=[OBS], committed_obs=["b" * 64])
+    assert not out["plans_match"] and not out["reconciled"] and out["drifted_points"] == POINT
 
 
 def test_every_failing_group_is_classified():
@@ -148,22 +176,28 @@ def test_every_failing_group_is_classified():
     import entrant_availability
     divergent, drifted = [], []
     groups = [{"committed_tensors": ["c"], "committed_masked_tensors": ["x"], "committed_known_hands": ["h"]},
-              {"committed_tensors": ["c"], "committed_masked_tensors": ["m"], "committed_known_hands": ["h2"]}]
-    plans = [{"step": 7, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"]},
-             {"step": 8, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"]}]
+              {"committed_tensors": ["c"], "committed_masked_tensors": ["m"], "committed_known_hands": ["h2"],
+               "committed_masked_observations": [OBS]}]
+    plans = [{"step": 7, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"],
+              "masked_observations": [OBS]},
+             {"step": 8, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"],
+              "masked_observations": [OBS]}]
     for r, g in zip(plans, groups):
         entrant_availability._classify_points(r, g, divergent, drifted)
     assert drifted == [{"step": 7, "point": 0}] and divergent == [{"step": 8, "point": 0}]
 
 
 @pytest.mark.parametrize("field,value", [("masked_tensors", 1), ("masked_tensors", {"0": "m"}),
-                                         ("known_hands", "h1"), ("tensors", None), ("plan", 3)])
+                                         ("known_hands", "h1"), ("tensors", None), ("plan", 3),
+                                         ("masked_observations", 1), ("masked_observations", ["x"])])
 def test_malformed_classification_fields_do_not_raise(field, value):
     # Review round 3: malformed optional fields classify as drift.
     import entrant_availability
     divergent, drifted = [], []
-    plan = {"step": 7, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"], field: value}
-    group = {"committed_tensors": ["c"], "committed_masked_tensors": ["m"], "committed_known_hands": ["h2"]}
+    plan = {"step": 7, "plan": ["k"], "tensors": ["w"], "masked_tensors": ["m"], "known_hands": ["h1"],
+            "masked_observations": [OBS], field: value}
+    group = {"committed_tensors": ["c"], "committed_masked_tensors": ["m"], "committed_known_hands": ["h2"],
+             "committed_masked_observations": [OBS]}
     entrant_availability._classify_points(plan, group, divergent, drifted)
     assert divergent == [] and len(drifted) <= 1
 
@@ -190,3 +224,11 @@ def test_an_observation_digest_drift_without_a_known_hand_difference_is_a_drift(
     out = _reconcile(tmp_path, [g6.known_hand_masked_digest(walk)], [g6.known_hand_masked_digest(drifted)],
                      (g6.known_hand_digest(walk),), (g6.known_hand_digest(drifted),))
     assert not out["plans_match"] and out["drifted_points"] == POINT
+
+
+def test_the_masked_observation_digest_reads_the_kernel_field():
+    flat = {g6.MASKED_OBSERVATION_FIELD: OBS}
+    assert g6.masked_observation_digest(flat) == OBS
+    for bad in ({}, {g6.MASKED_OBSERVATION_FIELD: "a" * 63}, {g6.MASKED_OBSERVATION_FIELD: "z" * 64},
+                {g6.MASKED_OBSERVATION_FIELD: 7}, None):
+        assert g6.masked_observation_digest(bad) is None
