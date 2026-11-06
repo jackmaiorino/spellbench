@@ -57,6 +57,11 @@ R3_SUBCLASSES = frozenset({"opponent", "plan_error"})
 # (mtg-kernel#521 `same_name_batch`, #524 `same_name_hand`). Each is a C5
 # fault, tallied as R1:<subclass>; any other R1 subclass is a protocol error.
 R1_SUBCLASSES = frozenset({EXPORT_SUBCLASS, "same_name_batch", "same_name_hand"})
+# Lead ruling 19 (AC5 scope narrowing): an R1 the reveal-triggered
+# moves-without-events test alone refuses. Not a C5 fault: the decision is
+# ineligible by definition, unless composition_cap refuses its group first
+# (group_extension); kept apart from R1_SUBCLASSES, which are all C5.
+R1_REVEAL_SUBCLASSES = frozenset({"same_name_hand_reveal"})
 # Amendment 43.2: R3b, V's own pending library search.
 R3B_SUBCLASSES = frozenset({"own_library_search"})
 # Why a group carries no composition (fairness gate G3); each is a C5 fault.
@@ -292,7 +297,7 @@ class InfosetEngine(KernelEngine):
                 allowed = isinstance(detail, str) and (
                     detail in R3_SUBCLASSES if code == "R3" else
                     detail in R3B_SUBCLASSES if code == "R3b" else
-                    detail in R1_SUBCLASSES if code == "R1" else
+                    (detail in R1_SUBCLASSES or detail in R1_REVEAL_SUBCLASSES) if code == "R1" else
                     detail == EXPORT_SUBCLASS or (code == "R2" and detail in R2_SURFACE_SUBCLASSES))
                 if not allowed:
                     raise ProjectionError("native infoset refusal_detail is not a subclass of its code")
@@ -301,6 +306,11 @@ class InfosetEngine(KernelEngine):
         if not isinstance(native.get("payload_json"), str):
             raise ProjectionError("native infoset extension lacks its payload")
         return {"schema": WIRE_SCHEMA, "payload_json": native["payload_json"]}
+
+    @staticmethod
+    def reveal_refused(extension):
+        """Whether a checked extension is ruling 19's reveal-class refusal."""
+        return extension.get("refusal") == "R1" and extension.get("refusal_detail") in R1_REVEAL_SUBCLASSES
 
     def ordinary_extension(self, native):
         extension = self._checked(native)
@@ -314,6 +324,17 @@ class InfosetEngine(KernelEngine):
 
     def group_extension(self, native, candidate_count):
         extension = self._checked(native)
+        if extension is not None and self.reveal_refused(extension):
+            # Ruling 19: every other C5 test runs before the reveal test, and
+            # composition_cap is the one the adapter applies. The enumeration
+            # is pure (the buffer alone, no payload); a group it refuses stays
+            # a C5 fault, told to the bot by composition_unavailable.
+            found = completions(self.buffer)
+            unavailable = ("composition_cap" if found is None else
+                           "no_completions" if not found or any(len(wire) < 1 for wire, _ in found) else None)
+            if unavailable is not None:
+                extension["composition_unavailable"] = unavailable
+            return extension
         if extension is None or "refusal" in extension:
             return extension
         started = time.perf_counter_ns()

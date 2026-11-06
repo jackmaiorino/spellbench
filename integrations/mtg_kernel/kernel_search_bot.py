@@ -67,11 +67,16 @@ FAULTS = ("R1", "R1b", "R2", "R4", "R5", "R6", "R7", "R8", "R8b",
           "order_map_missing", "incomplete", "pool_error", "no_match", "group_lost", "composition_cap",
           "no_completions", "missing_preview_keys", "tree_fault")
 # Policy outcomes that are not C5 faults: an ineligible decision, the
-# allowance, an opponent's library search (R3, amendment 43.1) and the
-# continuation points of a group already counted at its root. Every other
-# reason is a fault, unknown refusal codes included (fairness gate G2).
-NOT_FAULTS = ("ineligible", "allowance", "R3", "R3b")
+# allowance, an opponent's library search (R3, amendment 43.1), V's own (R3b,
+# 43.2), the reveal class (lead ruling 19) and the continuation points of a
+# group already counted at its root. Every other reason is a fault, unknown
+# refusal codes included (fairness gate G2).
+NOT_FAULTS = ("ineligible", "allowance", "R3", "R3b", "reveal")
 COMPOSITION_UNAVAILABLE = ("composition_cap", "no_completions", "missing_preview_keys")
+# Lead ruling 19: R1 subclasses the reveal-triggered moves-without-events test
+# alone refuses. Ineligible by definition (policy reason "reveal"), unless the
+# adapter found the group's composition refused first (then C5 by that reason).
+R1_REVEAL_SUBCLASSES = ("same_name_hand_reveal",)
 
 
 def is_fault(reason: str) -> bool:
@@ -203,6 +208,7 @@ class KernelSearchBot(KernelFlatBot):
             "searched_decisions": self._tally["searched"] + self._tally["searched_groups"],
             "c5_faults": faults, "r3_ineligible": self._tally["r3_ineligible"],
             "own_ineligible": self._tally["own_ineligible"],
+            "reveal_ineligible": self._tally["reveal_ineligible"],
             "allowance_remaining": self._game_remaining,
             "allowance": self._entrant["allowance"], "charged_wall_us": self._charged_wall_us,
         })
@@ -271,6 +277,17 @@ class KernelSearchBot(KernelFlatBot):
             # owner); counted and reported, not C5.
             self._tally["own_ineligible"] += 1
             return ext, "R3b"
+        if ext.get("refusal") == "R1" and ext.get("refusal_detail") in R1_REVEAL_SUBCLASSES:
+            why = ext.get("composition_unavailable")
+            if why is None:
+                # Ruling 19: the reveal test alone refused it; ineligible by
+                # definition, counted and reported, not C5.
+                self._tally["reveal_ineligible"] += 1
+                return ext, "reveal"
+            # composition_cap (or no completions) refused the group before
+            # the reveal test: eligible, and a C5 fault by that reason.
+            self._tally["eligible"] += 1
+            return ext, why if why in COMPOSITION_UNAVAILABLE else "composition_cap"
         self._tally["eligible"] += 1
         if "refusal" in ext:
             code = str(ext["refusal"])

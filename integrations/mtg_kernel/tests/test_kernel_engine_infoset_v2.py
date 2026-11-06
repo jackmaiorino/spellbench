@@ -230,3 +230,40 @@ def test_commit_check_traces_the_previewed_points_and_the_planned_rows():
     other_wire = e.commit_check([(root, 8), (second, 3)], info, planned, [0, 1])
     assert other_wire["views_equal"] and not other_wire["keys_equal"]
     assert not e.commit_check([(root, 8), (second, 3)], info, None, [1, 0])["views_equal"]
+
+
+REVEAL = {"schema": engine.NATIVE_SCHEMA, "refusal": "R1", "refusal_detail": "same_name_hand_reveal"}
+
+
+def test_the_reveal_subclass_is_an_r1_apart_from_the_c5_subclasses():
+    # Lead ruling 19: R1:same_name_hand_reveal reaches the bot; it is not one
+    # of the C5 R1 subclasses, and no other code may carry it.
+    assert "same_name_hand_reveal" in engine.R1_REVEAL_SUBCLASSES
+    assert not engine.R1_REVEAL_SUBCLASSES & engine.R1_SUBCLASSES
+    e = bare_engine()
+    assert e.ordinary_extension(dict(REVEAL)) == {"schema": engine.WIRE_SCHEMA, "refusal": "R1",
+                                                  "refusal_detail": "same_name_hand_reveal"}
+    for code in ("R1b", "R2", "R3", "R3b", "R4"):
+        with pytest.raises(engine.ProjectionError):
+            e.ordinary_extension({**REVEAL, "refusal": code})
+    with pytest.raises(engine.ProjectionError):
+        e.ordinary_extension({**REVEAL, "refusal_detail": "same_name_hand_reveal_other"})
+
+
+def test_composition_cap_runs_before_the_reveal_test_at_a_group_root(monkeypatch):
+    # Ruling 19: a reveal-refused group that composition_cap (or an empty
+    # enumeration) refuses stays a C5 fault, told by composition_unavailable;
+    # otherwise the refusal stands as it came.
+    e = bare_engine()
+    e.root = trigger_root()
+    e.buffer = TriggerOrder(e.root, Projection())
+    assert e.group_extension(dict(REVEAL), 3) == {"schema": engine.WIRE_SCHEMA, "refusal": "R1",
+                                                  "refusal_detail": "same_name_hand_reveal"}
+    monkeypatch.setattr(engine, "completions", lambda plan: None)
+    assert e.group_extension(dict(REVEAL), 3)["composition_unavailable"] == "composition_cap"
+    monkeypatch.setattr(engine, "completions", lambda plan: [])
+    assert e.group_extension(dict(REVEAL), 3)["composition_unavailable"] == "no_completions"
+    # Other refusals at a group root are left as they are (no enumeration).
+    monkeypatch.setattr(engine, "completions", lambda plan: pytest.fail("enumerated"))
+    other = {"schema": engine.NATIVE_SCHEMA, "refusal": "R1", "refusal_detail": "same_name_hand"}
+    assert "composition_unavailable" not in e.group_extension(other, 3)
