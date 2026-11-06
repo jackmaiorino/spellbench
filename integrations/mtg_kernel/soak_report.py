@@ -11,10 +11,23 @@ Computes, from one soak's decision logs, ledger and engine-side receipts:
   reason is a fault (``kernel_search_bot.is_fault``). The bound is the
   one-sided 95 percent Clopper-Pearson upper bound on faults / units
   (``entrant_availability.upper_bound_95``); it passes at or below 1 percent.
+  Lead ruling 19 narrows AC5's scope a third time: an R1 the
+  reveal-triggered moves-without-events test alone refuses
+  (``R1:same_name_hand_reveal``) is ineligible too, unless composition_cap
+  refused its group first. This fixed, declared behavior is the amended
+  accounting.
 * Reported with it: faults per reason and per refusal subclass, the R3 and
   R3b counts, the own share and its 2 percent trigger (43.2), the
   ``receipts_reconcile`` check and the rest of ``entrant_availability``'s
   checks.
+* **Ruling 19 reporting (report only).** The original R4 accounting beside
+  the amended one (``ac5_original``: faults = amended faults + reveal units,
+  units = amended units + reveal units, with its Clopper-Pearson bound and
+  cluster bootstrap); the reveal class (``reveal``: count, share of
+  eligible-plus-reveal units, its bound, the declared 2 percent trigger, the
+  maximum count in one game and the cluster bootstrap of the share); the R3,
+  R3b, reveal, total ineligible and searched shares of all units
+  (``share_of_all_units``); and G6 (``g6``).
 * **Report only, not a gate:** a game-clustered bound. Per-game
   (faults, units) pairs, ratio estimator sum(faults) / sum(units), 10,000
   resamples of the games with replacement from ``random.Random(20261105)``
@@ -223,6 +236,12 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
     faults, units = sum(f for f, _ in pairs), sum(u for _, u in pairs)
     bound = entrant_availability.upper_bound_95(faults, units)
     r3, r3b = base["r3_ineligible"], base["own_ineligible"]
+    # Ruling 19: per game, the reveal units, and the original R4 pairs (the reveal class counted a fault).
+    reveals = [games[k]["final"].get("reveal_ineligible", 0) for k in order]
+    reveal_pairs = [(r, u + r) for r, (_, u) in zip(reveals, pairs)]
+    original_pairs = [(f + r, u + r) for r, (f, u) in zip(reveals, pairs)]
+    reveal = sum(reveals)
+    original_faults, original_units = faults + reveal, units + reveal
 
     # Entrant constants: one record shared by every counted game.
     constants = {json.dumps(g["entrant"], sort_keys=True) for g in games.values()}
@@ -282,7 +301,8 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
         "ledger_games_unique": len({row["game_id"] for row in rows}) == len(rows),
         # A soak game seats the entrant once (vs b512); walls and bootstrap clusters are per game.
         "entrant_one_seat_per_game": all(sum(s.get("name") == entrant for s in row["seats"]) == 1 for row in rows),
-        "totals_consistent": faults == base["c5_faults"] and units == base["eligible"] and len(pairs) == base["games"],
+        "totals_consistent": faults == base["c5_faults"] and units == base["eligible"] and len(pairs) == base["games"]
+        and reveal == base["reveal_ineligible"],
         "one_entrant_record": entrant_record is not None,
         "games_expected": expect_games is None or len({row["game_id"] for row in rows}) == expect_games,
         "t_is_the_design_t": entrant_record is not None
@@ -297,7 +317,26 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
         checks["wall_rerun_same_game"] = not wall["check"]["not_the_soak_game"]
     ac5_bound = {"units": units, "faults": faults, "share": None if not units else faults / units,
                  "cp_upper_95": bound, "pass": None if bound is None else bound <= AC5_LIMIT,
-                 "limit": AC5_LIMIT}
+                 "limit": AC5_LIMIT, "accounting": "amended (lead ruling 19)"}
+    original_bound = entrant_availability.upper_bound_95(original_faults, original_units)
+    ac5_original = {"report_only": True, "units": original_units, "faults": original_faults,
+                    "share": None if not original_units else original_faults / original_units,
+                    "cp_upper_95": original_bound,
+                    "bootstrap_upper_95": cluster_bootstrap_upper(original_pairs)}
+    reveal_units = units + reveal
+    reveal_report = {
+        "count": reveal, "units": reveal_units, "share": None if not reveal_units else reveal / reveal_units,
+        "cp_upper_95": entrant_availability.upper_bound_95(reveal, reveal_units),
+        "trigger": 0.02, "share_over_2pct": base["reveal_share_over_2pct"],
+        "max_per_game": max(reveals, default=0),
+        "bootstrap": {"per_game": [{"game_id": k[0], "seat": k[1], "reveal": r, "units": u}
+                                   for k, (r, u) in zip(order, reveal_pairs)],
+                      "resamples": BOOTSTRAP_RESAMPLES, "seed": BOOTSTRAP_SEED,
+                      "upper_95": cluster_bootstrap_upper(reveal_pairs)}}
+    commit = base["commit_check"] or {}
+    g6 = {"receipts_reconcile": base["checks"]["receipts_reconcile"], "commit_groups": commit.get("groups"),
+          "commit_ok": commit.get("commit_ok"), "plans_match": commit.get("plans_match"),
+          "all_ok": commit.get("all_ok")}
     return {
         "schema": "spellbench-w1-soak-report/v1",
         "entrant": entrant, "entrant_constants": entrant_record,
@@ -307,6 +346,10 @@ def soak_report(logs: list[Path], ledger: Path, entrant: str, receipts: Path, *,
                      "halted": other["halted"], "truncated": other["truncated"]},
         "forfeits": forfeits, "clock_forfeits": clock_forfeits,
         "ac5_bound": ac5_bound,
+        "ac5_original": ac5_original,
+        "reveal": reveal_report,
+        "share_of_all_units": base["share_of_all_units"],
+        "g6": g6,
         "faults_by_reason": base["c5_by_reason"],
         "refusals_by_subclass": base["refusals_by_subclass"],
         "r3_opponent": r3, "r3b_own": r3b, "own_share": base["own_share"],

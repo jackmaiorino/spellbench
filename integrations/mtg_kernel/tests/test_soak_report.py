@@ -337,3 +337,86 @@ def test_a_game_seating_the_entrant_twice_fails(tmp_path):
     ledger.write_text("".join(json.dumps(r) + "\n" for r in rows))
     result = run("k1", root=root)
     assert result["checks"]["entrant_one_seat_per_game"] is False and not result["checks_pass"]
+
+
+REVEAL_GAME = "g-4b2a1a917ab88ef0"
+
+
+def _as_reveal(root: Path) -> None:
+    """The k4 fault game with its one R1 refused by the reveal test alone
+    (lead ruling 19): ineligible, not C5, on both the entrant's log and the
+    bridge receipt."""
+    path = root / "k4" / "decisions" / f"{REVEAL_GAME}.p0.jsonl"
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    final, tally = records[-1], records[-1]["tally"]
+    for record in records:
+        if record.get("kind") == "policy" and record.get("reason") == "R1":
+            record["reason"] = "reveal"
+    del tally["fault:R1"], tally["policy:R1"], tally["refusal:R1:same_name_batch"]
+    tally.update({"c5_units": 0, "eligible": 89, "reveal_ineligible": 1, "policy:reveal": 1,
+                  "refusal:R1:same_name_hand_reveal": 1})
+    final.update(c5_faults=0, eligible=89, reveal_ineligible=1)
+    path.write_text("".join(json.dumps(r) + "\n" for r in records))
+    receipt = root / "k4" / "receipts" / f"{REVEAL_GAME}.bridge.json"
+    bridge = json.loads(receipt.read_text())
+    side = bridge["tally"][0]
+    side["by_subclass"]["R1:same_name_hand_reveal"] = side["by_subclass"].pop("R1:same_name_batch")
+    receipt.write_text(json.dumps(bridge))
+
+
+def test_k1_reports_no_reveal_class_and_equal_original_and_amended_counts():
+    result = run("k1", expect_games=4)
+    assert result["checks_pass"], result["checks"]
+    assert result["reveal"]["count"] == 0 and result["reveal"]["max_per_game"] == 0
+    assert result["reveal"]["share"] == 0.0 and result["reveal"]["share_over_2pct"] is False
+    assert result["reveal"]["bootstrap"]["upper_95"] == 0.0
+    original, amended = result["ac5_original"], result["ac5_bound"]
+    assert (original["units"], original["faults"], original["cp_upper_95"]) == (
+        amended["units"], amended["faults"], amended["cp_upper_95"])
+    shares = result["share_of_all_units"]
+    assert shares["units"] == 365 and shares["r3b"] == pytest.approx(4 / 365) and shares["r3"] == 0.0
+    assert shares["ineligible"] == pytest.approx(4 / 365)
+    assert shares["searched"] == pytest.approx(result["availability"]["searched_decisions"] / 365)
+    assert result["g6"]["receipts_reconcile"] is True and result["g6"]["commit_ok"] is True
+    assert result["g6"]["plans_match"] is True
+
+
+def test_a_reveal_unit_is_ineligible_and_the_original_accounting_keeps_it_a_fault(tmp_path):
+    root = copy_fixture("k4", tmp_path)
+    _as_reveal(root)
+    result = run("k4", root=root)
+    assert result["checks_pass"], result["checks"]
+    amended, original = result["ac5_bound"], result["ac5_original"]
+    assert (amended["units"], amended["faults"]) == (202, 0)
+    assert amended["cp_upper_95"] == pytest.approx(entrant_availability.upper_bound_95(0, 202))
+    # The original R4 accounting is the recorded smoke's (203 units, 1 fault).
+    assert (original["units"], original["faults"]) == (203, 1)
+    assert original["cp_upper_95"] == pytest.approx(0.023154, abs=1e-6) and original["report_only"]
+    reveal = result["reveal"]
+    assert (reveal["count"], reveal["units"], reveal["max_per_game"]) == (1, 203, 1)
+    assert reveal["share"] == pytest.approx(1 / 203) and reveal["share_over_2pct"] is False
+    assert reveal["cp_upper_95"] == entrant_availability.upper_bound_95(1, 203)
+    pairs = [(g["reveal"], g["units"]) for g in reveal["bootstrap"]["per_game"]]
+    assert reveal["bootstrap"]["upper_95"] == soak_report.cluster_bootstrap_upper(pairs)
+    assert reveal["bootstrap"]["seed"] == 20261105 and reveal["bootstrap"]["resamples"] == 10_000
+    original_pairs = [(g["faults"] + r, g["units"] + r) for g, (r, _) in zip(result["bootstrap"]["per_game"], pairs)]
+    assert original["bootstrap_upper_95"] == soak_report.cluster_bootstrap_upper(original_pairs) > 0
+    assert result["refusals_by_subclass"]["R1:same_name_hand_reveal"] == 1
+    assert result["faults_by_reason"] == {}
+    shares = result["share_of_all_units"]
+    units = 202 + result["r3b_own"] + result["r3_opponent"] + 1
+    assert shares["units"] == units and shares["reveal"] == pytest.approx(1 / units)
+
+
+def test_the_reveal_bootstrap_is_the_declared_procedure_and_deterministic():
+    # The same procedure and seed as the R4 cluster bootstrap, on (reveal,
+    # eligible + reveal) per game.
+    pairs = [(0, 90), (2, 82), (1, 101), (0, 70)]
+    expected_rng = random.Random(20261105)
+    ratios = []
+    for _ in range(10_000):
+        draw = [pairs[expected_rng.randrange(4)] for _ in range(4)]
+        ratios.append(sum(f for f, _ in draw) / sum(u for _, u in draw))
+    ratios.sort()
+    first = soak_report.cluster_bootstrap_upper(pairs)
+    assert first == ratios[9499] == soak_report.cluster_bootstrap_upper(list(pairs))

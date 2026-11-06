@@ -809,3 +809,127 @@ def test_own_library_searches_are_ineligible_and_reported(tmp_path):
     assert report["c5_by_reason"] == {"R3b:export": 1}
     assert report["own_share"] == pytest.approx(1 / 3) and report["own_share_over_2pct"] is True
 
+
+
+REVEAL = {"schema": search.INFOSET_SCHEMA, "refusal": "R1", "refusal_detail": "same_name_hand_reveal"}
+
+
+def _game_log(root, game, infosets):
+    """One game's decision log (seat p0) in root, one ordinary decision per infoset."""
+    root.mkdir(parents=True, exist_ok=True)
+    bot = search.KernelSearchBot(RecordedScorer(), FakePool(picks={(): 0}), dict(ENTRANT), seed=11,
+                                 decision_log=root, name="entrant", version="0", expect_model_state="0" * 64)
+    bot.on_game_start(GameStart.from_request({"game_id": game, "seat": "p0", "engine": {
+        "name": "mtg-kernel", "card_pool_identity": "mtg-kernel-pauper-pool-v1/carddb-064a7c989255ab3c"}}))
+    for step, infoset in enumerate(infosets):
+        assert 0 <= bot.choose(decision(step, infoset)) < 3
+    bot.on_game_over(GameOver.from_request({"game_id": game, "terminal": {}}))
+    return json.loads((root / f"{game}.p0.jsonl").read_text().splitlines()[-1])
+
+
+def test_reveal_refusals_are_ineligible_and_answered_by_policy(tmp_path):
+    # Lead ruling 19: the reveal class is ineligible by definition, not C5,
+    # answered by policy and tallied apart (as R3 opponent and R3b own are).
+    summary = _game_log(tmp_path, "g-test", [dict(REVEAL), payload_ext(live_candidate_ids=[0, 1, 2])])
+    assert summary["reveal_ineligible"] == 1 and summary["eligible"] == 1 and summary["c5_faults"] == 0
+    assert summary["tally"]["policy:reveal"] == 1 and summary["tally"]["refusal:R1:same_name_hand_reveal"] == 1
+    assert not any(k.startswith("fault:") for k in summary["tally"])
+    assert not search.is_fault("reveal")
+
+
+def test_a_reveal_refused_group_root_is_ineligible_unless_its_composition_was_refused():
+    # Without a composition fault: ineligible, and the group's later substeps
+    # are continuations (no fault).
+    bot = make_bot(FakePool())
+    bot.choose(group_decision(0, 0, 2, 3, dict(REVEAL)))
+    bot.choose(group_decision(1, 1, 2, 3))
+    assert bot._tally["reveal_ineligible"] == 1 and bot._tally["eligible"] == 0
+    assert bot._tally["c5_units"] == 0 and bot._tally["policy:group_reveal"] == 1
+    # composition_cap ran first and refused the group: eligible, a C5 fault by
+    # that reason; an unknown reason falls back to composition_cap.
+    for why, reason in (("composition_cap", "composition_cap"), ("no_completions", "no_completions"),
+                        ("something_new", "composition_cap")):
+        bot = make_bot(FakePool())
+        bot.choose(group_decision(0, 0, 2, 3, {**REVEAL, "composition_unavailable": why}))
+        assert bot._tally["reveal_ineligible"] == 0 and bot._tally["eligible"] == 1
+        assert bot._tally[f"fault:{reason}"] == 1 and bot._tally["c5_units"] == 1
+
+
+def test_unknown_r1_subclasses_and_colliding_codes_still_fail_closed():
+    # Any other R1 subclass is a C5 fault; the reveal subclass under another
+    # code is that code's fault; a code named like the new policy reason is
+    # renamed so it cannot escape C5.
+    for infoset, fault in (({**REVEAL, "refusal_detail": "same_name_hand_reveal_v2"}, "R1"),
+                           ({**REVEAL, "refusal_detail": "same_name_hand"}, "R1"),
+                           ({**REVEAL, "refusal": "R1b"}, "R1b"),
+                           ({**REVEAL, "refusal": "R2"}, "R2"),
+                           ({**REVEAL, "refusal": "reveal"}, "refusal:reveal"),
+                           ({**REVEAL, "refusal": "reveal", "refusal_detail": "export"}, "refusal:reveal")):
+        bot = make_bot(FakePool())
+        bot.choose(decision(0, infoset))
+        assert bot._tally["reveal_ineligible"] == 0 and bot._tally["eligible"] == 1, infoset
+        assert bot._tally[f"fault:{fault}"] == 1 and bot._tally["c5_units"] == 1, infoset
+
+
+def test_report_gives_the_reveal_class_and_the_original_accounting_beside_the_amended(tmp_path):
+    import entrant_availability
+    searched = payload_ext(live_candidate_ids=[0, 1, 2])
+    r3 = {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "opponent"}
+    own = {"schema": search.INFOSET_SCHEMA, "refusal": "R3b", "refusal_detail": "own_library_search"}
+    fault = {"schema": search.INFOSET_SCHEMA, "refusal": "R2", "refusal_detail": "other_surface"}
+    _game_log(tmp_path, "g-a", [REVEAL, REVEAL, searched, searched, fault, r3, None])
+    _game_log(tmp_path, "g-b", [REVEAL, searched, own])
+    report = entrant_availability.report([tmp_path])
+    # Amended: eligible 4 (3 searched, 1 R2 fault); reveal 3, R3 1, R3b 1.
+    assert (report["eligible"], report["c5_faults"], report["reveal_ineligible"]) == (4, 1, 3)
+    assert report["reveal_max_per_game"] == 2
+    assert report["reveal_share"] == pytest.approx(3 / 7) and report["reveal_share_over_2pct"] is True
+    assert report["reveal_upper_95"] == entrant_availability.upper_bound_95(3, 7)
+    # Original R4: the reveal units were faults.
+    assert (report["original_c5_faults"], report["original_eligible"]) == (4, 7)
+    assert report["original_c5_share"] == pytest.approx(4 / 7)
+    assert report["original_c5_upper_95"] == entrant_availability.upper_bound_95(4, 7)
+    assert report["c5_upper_95"] == entrant_availability.upper_bound_95(1, 4)
+    shares = report["share_of_all_units"]
+    assert shares["units"] == 9 and shares["not_attached_decisions"] == 1
+    assert shares["r3"] == pytest.approx(1 / 9) and shares["r3b"] == pytest.approx(1 / 9)
+    assert shares["reveal"] == pytest.approx(3 / 9) and shares["ineligible"] == pytest.approx(5 / 9)
+    assert shares["searched"] == pytest.approx(3 / 9)
+    # A log without the class reads as zero.
+    clean = tmp_path / "clean"
+    _game_log(clean, "g-c", [searched])
+    report = entrant_availability.report([clean])
+    assert report["reveal_ineligible"] == 0 and report["reveal_share_over_2pct"] is False
+    assert (report["original_c5_faults"], report["original_eligible"]) == (0, 1)
+
+
+def test_the_reveal_trigger_is_above_two_percent_of_eligible_plus_reveal(tmp_path):
+    import entrant_availability
+    searched = payload_ext(live_candidate_ids=[0, 1, 2])
+    # 1 in 50 is exactly 2 percent: not over; 1 in 49 is.
+    _game_log(tmp_path / "at", "g-at", [REVEAL] + [searched] * 49)
+    _game_log(tmp_path / "over", "g-over", [REVEAL] + [searched] * 48)
+    at = entrant_availability.report([tmp_path / "at"])
+    over = entrant_availability.report([tmp_path / "over"])
+    assert at["reveal_share"] == pytest.approx(0.02) and at["reveal_share_over_2pct"] is False
+    assert over["reveal_share"] == pytest.approx(1 / 49) and over["reveal_share_over_2pct"] is True
+
+
+def test_reconciliation_counts_reveal_units_among_the_entrants(tmp_path):
+    import entrant_availability
+    logs = tmp_path / "logs"
+    _game_log(logs, "g-test", [REVEAL, payload_ext(live_candidate_ids=[0, 1, 2])])
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    ledger = _ledger(tmp_path / "matches.jsonl", "g-test")
+    (receipts / "g-test.bridge.json").write_text(json.dumps({
+        "receipt": "x_kernel_infoset_v1", "game_id": "g-test", "eligible": [2, 0],
+        "tally": [{"exported": 1, "by_code": {"R1": 1}, "by_subclass": {"R1:same_name_hand_reveal": 1}},
+                  {"exported": 0, "by_code": {}}], "order_map_missing": [0, 0]}))
+    (receipts / "g-test.adapter.json").write_text(json.dumps({
+        "receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-test", "native_seats": {"p0": "p0", "p1": "p1"},
+        "composition": {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}},
+        "internal": {}, "groups": []}))
+    result = entrant_availability.report([logs], [ledger], "entrant", receipts)
+    assert result["receipts"][0]["entrant_units"] == 2 and result["checks"]["receipts_reconcile"]
+    assert result["commit_check"]["commit_ok"] and result["commit_check"]["plans_match"]

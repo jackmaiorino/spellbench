@@ -154,7 +154,8 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     expected_refusals = Counter(bot_refusals)
     expected_refusals.update(internal["refusals"])
     out.update(native_seat=native, bridge_eligible=bridge["eligible"][index],
-               entrant_units=final["eligible"] + final.get("r3_ineligible", 0) + final.get("own_ineligible", 0),
+               entrant_units=final["eligible"] + final.get("r3_ineligible", 0) + final.get("own_ineligible", 0)
+               + final.get("reveal_ineligible", 0),
                internal_eligible=internal["eligible"], internal_refusals=internal["refusals"],
                bridge_refusals=engine_refusals, entrant_refusals=bot_refusals,
                bridge_order_map_missing=bridge["order_map_missing"][index],
@@ -203,7 +204,7 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     tally: Counter[str] = Counter()
     games, c5, eligible, searched, searches, zero_tree_searches, transitions = 0, 0, 0, 0, 0, 0, []
     r3_ineligible, search_errors, group_over_cap, allowance_over, unbalanced = 0, 0, 0, [], 0
-    own_ineligible = 0
+    own_ineligible, reveal_ineligible, reveal_max_per_game = 0, 0, 0
     seen: set[tuple[str, str]] = set()
     duplicates, incomplete, unledgered, reconciliation = [], [], [], []
     ledger = _ledger_games(ledgers, entrant) if ledgers else None
@@ -230,6 +231,8 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
             searched += final["searched_decisions"]
             r3_ineligible += final.get("r3_ineligible", 0)
             own_ineligible += final.get("own_ineligible", 0)
+            reveal_ineligible += final.get("reveal_ineligible", 0)
+            reveal_max_per_game = max(reveal_max_per_game, final.get("reveal_ineligible", 0))
             charged = final["tally"].get("units_charged", 0)
             if (final["allowance_remaining"] < 0 or charged > final["allowance"]
                     or charged != final["allowance"] - final["allowance_remaining"]):
@@ -264,6 +267,18 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     # for it. Points are reported separately.
     allowance_limited = tally["policy:allowance"] + tally["allowance_groups"]
     bound = upper_bound_95(c5, eligible)
+    # Lead ruling 19: the original R4 accounting, beside the amended one. The
+    # reveal class was a C5 fault there (R1 of any subclass), and never also
+    # counts as a C5 unit here, so the original faults and units add it back.
+    original_faults, original_eligible = c5 + reveal_ineligible, eligible + reveal_ineligible
+    # Every unit the bridge attached the extension to, a buffered group once:
+    # eligible plus the three ineligible-by-definition classes. This is the
+    # denominator of every share_of_all_units entry.
+    ineligible = r3_ineligible + own_ineligible + reveal_ineligible
+    all_units = eligible + ineligible
+
+    def of_all(n: int) -> float | None:
+        return None if not all_units else n / all_units
     # G6 (AC3 committed trajectories): reported with its own witness bar
     # (design 13: 5 multi-attacker, 5 multi-blocker, 1 three-trigger group);
     # a short run may not reach it, which the report says.
@@ -272,6 +287,8 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     commit_check = None if receipts is None else {
         "groups": sum(r.get("commit_groups", 0) for r in reconciliation),
         "all_ok": all(r.get("commit_ok", False) and r.get("plans_match", False) for r in reconciliation),
+        "commit_ok": all(r.get("commit_ok", False) for r in reconciliation),
+        "plans_match": all(r.get("plans_match", False) for r in reconciliation),
         # Walked points whose tensors differ, by class (each fails G6).
         "known_hand_divergent_points": sum(len(r.get("known_hand_divergent_points", [])) for r in reconciliation),
         "drifted_points": sum(len(r.get("drifted_points", [])) for r in reconciliation),
@@ -318,6 +335,30 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
         "own_share": None if not eligible + own_ineligible else own_ineligible / (eligible + own_ineligible),
         "own_share_over_2pct": None if not eligible + own_ineligible
         else own_ineligible / (eligible + own_ineligible) > 0.02,
+        # Lead ruling 19: the reveal-triggered moves-without-events class
+        # (R1:same_name_hand_reveal) is ineligible; its share of
+        # eligible-plus-reveal units mirrors own_share, with the declared 2
+        # percent soak trigger (above it, protocol work returns to the lead
+        # for a later entrant version) and its one-sided 95 percent bound.
+        "reveal_ineligible": reveal_ineligible,
+        "reveal_share": None if not eligible + reveal_ineligible
+        else reveal_ineligible / (eligible + reveal_ineligible),
+        "reveal_share_over_2pct": None if not eligible + reveal_ineligible
+        else reveal_ineligible / (eligible + reveal_ineligible) > 0.02,
+        "reveal_upper_95": upper_bound_95(reveal_ineligible, eligible + reveal_ineligible),
+        "reveal_max_per_game": reveal_max_per_game,
+        # The original R4 accounting (before ruling 19), report only.
+        "original_c5_faults": original_faults, "original_eligible": original_eligible,
+        "original_c5_share": None if not original_eligible else original_faults / original_eligible,
+        "original_c5_upper_95": upper_bound_95(original_faults, original_eligible),
+        # Shares of all units (denominator `units`: eligible + r3_ineligible +
+        # own_ineligible + reveal_ineligible, a buffered group once). Decisions
+        # without the extension (policy reason "ineligible") are not units;
+        # their count is given beside.
+        "share_of_all_units": {
+            "units": all_units, "r3": of_all(r3_ineligible), "r3b": of_all(own_ineligible),
+            "reveal": of_all(reveal_ineligible), "ineligible": of_all(ineligible), "searched": of_all(searched),
+            "not_attached_decisions": tally["policy:ineligible"]},
         # Amendment 43.1 part 2: every refusal by code and subclass (decisions
         # and group roots); "unclassified" means the bridge sent no subclass.
         "refusals_by_subclass": refusals,
