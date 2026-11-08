@@ -37,9 +37,32 @@ class RevealNativePeerV3(NativePeer):
         self._start()
 
 
+class _CheckedRevealPeerV3:
+    """Validate private framing before inherited neutral code reads it."""
+    def __init__(self, peer):
+        self.peer, self.identity = peer, None
+
+    def __getattr__(self, name):
+        return getattr(self.peer, name)
+
+    def request(self, value):
+        result = self.peer.request(value)
+        if type(result) is not dict:
+            raise ProjectionError("native reveal response must be an object")
+        if value["request_type"] == "hello":
+            identity = result.get("engine")
+            if result.get("response_type") != "hello_ok" or type(identity) is not dict:
+                raise ProjectionError("native reveal bridge did not handshake")
+            if self.identity is not None and identity != self.identity:
+                raise ProjectionError("native reveal bridge identity changed on restart")
+            self.identity = deepcopy(identity)
+        return result
+
+
 class KernelRevealEngineV3(KernelEngine):
     def __init__(self, peer, catalog, *, source_revision=None):
-        super().__init__(peer, catalog, source_revision=source_revision, known_cards=False)
+        super().__init__(_CheckedRevealPeerV3(peer), catalog,
+                         source_revision=source_revision, known_cards=False)
         identity = self.hello["engine"]
         identity["version"] = "pauper-reveal-v3.0.0"
         identity["rules_snapshot_id"] += ":reveal-meaning-v3"

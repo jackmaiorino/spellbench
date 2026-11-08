@@ -161,8 +161,11 @@ def test_malformed_private_envelope_refuses_without_an_attribute_error(broken, f
     assert engine.hand_constraints(0) == engine.hand_constraints(1) == []
 
 
-@pytest.mark.parametrize("io_failure", [False, True])
-def test_failed_restart_terminal_belongs_to_new_reset_with_zero_counts(io_failure):
+@pytest.mark.parametrize("io_failure,bad_hello", [
+    (False, {"response_type": "error"}), (True, None), (False, None), (False, []),
+    (False, {"response_type": "hello_ok", "engine": {"different": "identity"}}),
+])
+def test_failed_restart_terminal_belongs_to_new_reset_with_zero_counts(io_failure, bad_hello):
     engine, peer, request = setup()
     native_request = peer.request
     request["max_steps"] = 1
@@ -175,7 +178,7 @@ def test_failed_restart_terminal_belongs_to_new_reset_with_zero_counts(io_failur
     def restart():
         if io_failure:
             raise OSError("private child diagnostic")
-        peer.request = lambda value: {"response_type": "error"}
+        peer.request = lambda value: bad_hello
 
     peer.restart = restart
     request.update(request_id="new-reset", game_id="new-game")
