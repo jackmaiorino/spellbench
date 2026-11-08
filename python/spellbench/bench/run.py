@@ -404,7 +404,7 @@ def plan_for(
     _hosted_budget_guard(config)
     # Per-bot resources: games differ in cores, and qualification weighs each game by the workers' cores it holds.
     unit = config.per_game_cores()
-    cores = [config.game_cores(*(spec for _, spec in contexts[index].seat_specs)) for index in positions]
+    cores = [config.game_cores(*(spec for _, spec in contexts[index].seat_specs)) for index in positions]         if config.per_bot_resources else []
     measured = qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"],
                                   files=files, job_storage=job_storage, recording=recording)
     try:

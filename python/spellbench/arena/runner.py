@@ -476,13 +476,15 @@ def play_games(
                              launch_files=launch_files, recording=recording)
     if timed:
         play = functools.partial(_timed, play)
-    unit = config.per_game_cores()
-    costs = [config.game_cores(*(spec for _, spec in context.seat_specs)) for context in contexts]
-    budgeted = any(cost != unit for cost in costs)
+    costs, budget = None, None
+    if contexts and config.per_bot_resources:  # without per-bot blocks every game costs the same
+        unit = config.per_game_cores()
+        costs = [config.game_cores(*(spec for _, spec in context.seat_specs)) for context in contexts]
+        costs, budget = (costs, workers * unit) if any(cost != unit for cost in costs) else (None, None)
     return execute(contexts, play, workers=workers, stop_on_violation=stop_on_violation, on_outcome=on_outcome,
                    monitor=monitor, on_warning=on_warning, guard=guard,
                    submission_window=None if recording is None else workers,
-                   costs=costs if budgeted else None, budget=workers * unit if budgeted else None)
+                   costs=costs, budget=budget)
 
 
 # ---------------------------------------------------------------------------
