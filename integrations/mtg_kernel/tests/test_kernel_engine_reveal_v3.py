@@ -137,6 +137,66 @@ def test_invalid_native_batch_halts_without_leaking_or_committing():
     assert engine.hand_constraints(0) == engine.hand_constraints(1) == []
 
 
+@pytest.mark.parametrize("broken", [None, [], "private malformed value"])
+@pytest.mark.parametrize("field", ["extensions", "support", "response"])
+def test_malformed_private_envelope_refuses_without_an_attribute_error(broken, field):
+    engine, peer, request = setup()
+    native_request = peer.request
+
+    def malformed(value):
+        result = native_request(value)
+        if field == "response":
+            return broken
+        if field == "extensions":
+            result["extensions"] = broken
+        else:
+            result["extensions"]["x_kernel_v2_support"] = broken
+        return result
+
+    peer.request = malformed
+    answer = wire.strict_json_loads(engine.handle(wire.canonical_json_dumps(request)))
+    assert answer["response_type"] == "terminal" and answer["classification"] == "halted"
+    assert answer["reason"] == "reveal_projection_failure"
+    assert answer["game_id"] == request["game_id"]
+    assert engine.hand_constraints(0) == engine.hand_constraints(1) == []
+
+
+@pytest.mark.parametrize("io_failure", [False, True])
+def test_failed_restart_terminal_belongs_to_new_reset_with_zero_counts(io_failure):
+    engine, peer, request = setup()
+    native_request = peer.request
+    request["max_steps"] = 1
+    first = wire.strict_json_loads(engine.handle(wire.canonical_json_dumps(request)))
+    sd = first["seat_decision"]
+    cap = engine.step({"request_id": "cap", "game_id": engine.game, "expected_step": 0,
+        "selection": {"candidate_id": 0, "semantic_echo": sd["candidates"][0]["semantic"]}})
+    assert cap["classification"] == "truncated" and engine.current["response_type"] == "decision"
+
+    def restart():
+        if io_failure:
+            raise OSError("private child diagnostic")
+        peer.request = lambda value: {"response_type": "error"}
+
+    peer.restart = restart
+    request.update(request_id="new-reset", game_id="new-game")
+    answer = wire.strict_json_loads(engine.handle(wire.canonical_json_dumps(request)))
+    assert answer["response_type"] == "terminal" and answer["classification"] == "halted"
+    assert answer["game_id"] == "new-game" and answer["request_id"] == "new-reset"
+    assert answer["step_count"] == answer["decision_count"] == 0
+    assert answer["reason"] == "reveal_projection_failure"
+    restarts = []
+
+    def repaired_restart():
+        restarts.append(True)
+        peer.request = native_request
+
+    peer.restart = repaired_restart
+    request.update(request_id="recovered-reset", game_id="recovered-game")
+    recovered = wire.strict_json_loads(engine.handle(wire.canonical_json_dumps(request)))
+    assert recovered["response_type"] == "decision" and recovered["game_id"] == "recovered-game"
+    assert recovered["step"] == 0 and restarts == [True]
+
+
 def test_public_hand_count_bound_refuses_before_draining():
     engine, _, request = setup(hand_count=0)
     result = wire.strict_json_loads(engine.handle(wire.canonical_json_dumps(request)))

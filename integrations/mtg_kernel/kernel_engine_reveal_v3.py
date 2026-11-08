@@ -60,16 +60,31 @@ class KernelRevealEngineV3(KernelEngine):
         base["rules"]["extensions"] = []
         try:
             return super().reset(base)
-        except (ValueError, KeyError, IndexError):
+        except (ValueError, KeyError, IndexError, OSError):
+            # Restart can fail before base reset binds the new game. The
+            # failure still answers this reset, with no decisions performed.
+            self.game = request["game_id"]
+            self.used.add(self.game)
+            self.answered = self.completed = 0
+            self._reveal_game = self.game
+            self.reveal_history = RevealHistoryV3()
+            # The private child is no longer trusted. Base reset restarts a
+            # child left at a decision after a neutral terminal/cap.
+            self.current = {"response_type": "decision"}
             return self.terminal(request["request_id"], "halted", "reveal_projection_failure")
 
     def absorb_history(self):
-        if self.current.get("response_type") not in ("decision", "terminal"):
+        if type(self.current) is not dict or self.current.get("response_type") not in ("decision", "terminal"):
             raise ProjectionError("native reveal response is not a decision or terminal")
         if self._reveal_game != self.game:
             self.reveal_history = RevealHistoryV3()
             self._reveal_game = self.game
-        support = self.current.get("extensions", {}).get("x_kernel_v2_support", {})
+        extensions = self.current.get("extensions")
+        if type(extensions) is not dict:
+            raise ProjectionError("malformed native reveal extensions")
+        support = extensions.get("x_kernel_v2_support")
+        if type(support) is not dict:
+            raise ProjectionError("malformed native reveal support")
         # Consume only the already projected public operation streams. Never
         # infer a hand link or name from the omniscient legacy history slice.
         self.reveal_history.absorb(support.get("reveal_meaning_v3"))
