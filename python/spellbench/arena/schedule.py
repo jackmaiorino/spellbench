@@ -442,4 +442,6 @@ def game_setup(
             run_secret.agent_seed(context.game_index, "p0"),
             run_secret.agent_seed(context.game_index, "p1"),
         ),
+        seat_resources=tuple(config.bot_resources(spec) for _, spec in context.seat_specs)
+        if config.per_bot_resources else None,
     )

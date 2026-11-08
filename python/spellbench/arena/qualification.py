@@ -384,6 +384,7 @@ def plan_allocation(
     cap_bytes: int | None = None,
     rules: QualificationRules | None = None,
     clock: Callable[[], float] = time.monotonic,
+    game_cores: Sequence[int] | None = None,
 ) -> Allocation:
     """Choose how many games run at once, and record why.
 
@@ -402,8 +403,15 @@ def plan_allocation(
     default twice the projection). With ``evidence`` (a local file, never
     published) and ``workload`` (:func:`workload_id`), a compatible earlier
     measurement is reused, and a fresh one is appended. ``clock`` times the
-    qualification. Every input is checked before the first game plays; an
-    empty schedule is refused.
+    qualification. ``game_cores`` gives each scheduled game's declared cores
+    when games differ (per-bot resources): a worker then stands for
+    ``per_game_cores`` cores and ``play`` starts games while their cores fit
+    the workers'. Workers beyond the schedule's total cores are never useful,
+    and the rungs are ranked by wall completion (``worker_selection`` "wall",
+    recorded in the allocation's rules): busy time assumes every worker's
+    cores stay occupied, which games of different sizes started in schedule
+    order do not guarantee. Every input is checked before the first game
+    plays; an empty schedule is refused.
     """
     if type(games_total) is not int or games_total < 1:
         raise ThroughputError(f"the schedule has no games to qualify (games_total={games_total!r})")
@@ -421,11 +429,19 @@ def plan_allocation(
     for label, value in (("pinned_bytes", pinned_bytes), ("cap_bytes", 0 if cap_bytes is None else cap_bytes)):
         if type(value) is not int or value < 0:
             raise ThroughputError(f"{label}: must be a non-negative integer, got {value!r}")
+    useful = games_total
+    if game_cores is not None:
+        if (not isinstance(game_cores, Sequence) or len(game_cores) != games_total
+                or any(type(cores) is not int or cores < 1 for cores in game_cores)):
+            raise ThroughputError("game_cores: must give each scheduled game's cores, a positive integer")
+        useful = -(-sum(game_cores) // per_game_cores)  # the workers' share of every game at once
     order = _sample(sample, games_total)
     note = _placement(placement)
     rules = current_rules() if rules is None else rules
     if not isinstance(rules, QualificationRules):
         raise ThroughputError("rules must be QualificationRules")
+    if game_cores is not None and any(cores != per_game_cores for cores in game_cores):
+        rules = replace(rules, worker_selection="wall")
     if machine is None:
         if volumes is None:
             raise ThroughputError(f"the {RESERVE_BYTES // 2**30} GiB reserve check needs the run_dir and pin_root "
@@ -434,8 +450,9 @@ def plan_allocation(
     if not isinstance(machine, MachineFacts):
         raise ThroughputError("machine: must be MachineFacts (see machine_facts)")
     check_reserve(machine, 0)
-    # More workers than games is never useful (COMPUTE-POLICY.md item 2).
-    bound = min(cap, resource_bound(cpu, per_game_cores), games_total)
+    # More workers than games is never useful (COMPUTE-POLICY.md item 2); with games of different cores, more
+    # workers than the cores of every game at once.
+    bound = min(cap, resource_bound(cpu, per_game_cores), useful)
     indices = _probe_indices(rules, order, games_total, bound)
     if evidence is not None:
         assert workload is not None

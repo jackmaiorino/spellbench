@@ -402,15 +402,18 @@ def plan_for(
         identity["job_storage_budget"] = job_storage.settings
     workload = workload_id(identity)
     _hosted_budget_guard(config)
+    # Per-bot resources: games differ in cores; qualification then bounds and ranks the rungs by cores and wall time.
+    unit = config.per_game_cores()
+    cores = [config.game_cores(*(spec for _, spec in contexts[index].seat_specs)) for index in positions]         if config.per_bot_resources else []
     measured = qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"],
                                   files=files, job_storage=job_storage, recording=recording)
     try:
         allocation = plan_allocation(
-            games_total=len(positions), cap=_worker_cap(config), per_game_cores=config.per_game_cores(),
+            games_total=len(positions), cap=_worker_cap(config), per_game_cores=unit,
             play=measured,
             placement=placement, host=host, sample=ordered_sample, workload=workload,
             evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,
-            rules=rules,
+            rules=rules, game_cores=cores if any(value != unit for value in cores) else None,
         )
     except BaseException as failure:
         try:

@@ -475,15 +475,23 @@ def play_games(
     """Play ``contexts`` (a run's schedule, or any of its games: a qualification sample, a rerun) with ``workers``
     workers through ``executor.execute``: outcomes in the order given, the rest stopped at a violation when
     ``stop_on_violation`` (Decision 6), and any exception reported in the result's ``error`` (spec 11.3). With
-    ``timed``, each outcome is a :class:`TimedOutcome`."""
+    ``timed``, each outcome is a :class:`TimedOutcome`. When the games differ in declared cores (per-bot
+    resources, ``TournamentConfig.game_cores``), ``workers`` stands for ``workers * per_game_cores()`` cores and
+    the games start while their cores fit them (``executor.execute``)."""
     recording = engine_records.settings() if recording is engine_records.FROM_ENV else recording
     play = functools.partial(play_one, config, setup, run_secret_hex=run_secret.hex(), entries=entries,
                              launch_files=launch_files, recording=recording)
     if timed:
         play = functools.partial(_timed, play)
+    costs, budget = None, None
+    if contexts and config.per_bot_resources:  # without per-bot blocks every game costs the same
+        unit = config.per_game_cores()
+        costs = [config.game_cores(*(spec for _, spec in context.seat_specs)) for context in contexts]
+        costs, budget = (costs, workers * unit) if any(cost != unit for cost in costs) else (None, None)
     return execute(contexts, play, workers=workers, stop_on_violation=stop_on_violation, on_outcome=on_outcome,
                    monitor=monitor, on_warning=on_warning, guard=guard,
-                   submission_window=None if recording is None else workers)
+                   submission_window=None if recording is None else workers,
+                   costs=costs, budget=budget)
 
 
 # ---------------------------------------------------------------------------

@@ -115,6 +115,9 @@ class BotSpec:
     registered_at: int = 0
     evaluation_identity: str | None = None
     evaluation_inputs: tuple[str, ...] = ()
+    # The bot's own resources block (spec 11.4); None inherits the config's board block. Only subprocess bots
+    # declare one: a builtin plays inside the host process.
+    resources: Resources | None = None
 
     def registry_entry(self, *, checkpoint_path: str | None = None) -> registry.RegistryEntry:
         """This bot's registry entry. The descriptor records the command as
@@ -159,6 +162,8 @@ class BotSpec:
             doc["evaluation_identity"] = self.evaluation_identity
         if self.evaluation_inputs:
             doc["evaluation_inputs"] = list(self.evaluation_inputs)
+        if self.resources is not None:  # written only when declared, so existing configs keep their bytes
+            doc["resources"] = self.resources.to_json()
         return doc
 
 
@@ -190,6 +195,7 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
         "registered_at",
         "evaluation_identity",
         "evaluation_inputs",
+        "resources",
     }
     required = {"name", "version", "type"}
     missing = required - set(value)
@@ -234,6 +240,8 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
             )
         if command is not None or checkpoint is not None:
             raise TournamentError(f"{context}: builtin bots take no command/checkpoint")
+        if "resources" in value:
+            raise TournamentError(f"{context}.resources: builtin bots play inside the host and declare no resources")
         return BotSpec(
             name=name,
             version=version,
@@ -250,6 +258,7 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
         raise TournamentError(f"{context}.command: subprocess bots require a nonempty command list")
     if checkpoint is not None:
         _req_str(checkpoint, f"{context}.checkpoint")
+    resources = _spec_block(Resources, value["resources"], f"{context}.resources") if "resources" in value else None
     return BotSpec(
         name=name,
         version=version,
@@ -263,6 +272,7 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
         registered_at=registered_at,
         evaluation_identity=identity,
         evaluation_inputs=tuple(inputs),
+        resources=resources,
     )
 
 
@@ -442,10 +452,47 @@ class TournamentConfig:
         assert ordered is not None
         return tuple(dict.fromkeys(ordered))
 
+    @property
+    def per_bot_resources(self) -> bool:
+        """Whether any bot declares its own resources block; otherwise every game reserves the same cores."""
+        return any(spec.resources is not None for spec in self.bots)
+
+    def bot_resources(self, spec: BotSpec) -> Resources:
+        """The resources a bot plays under (spec 11.4): its own block, else the board block."""
+        return self.resources if spec.resources is None else spec.resources
+
+    def game_cores(self, first: BotSpec, second: BotSpec) -> int:
+        """Cores one game between these two bots reserves (spec 11.4).
+
+        Without per-bot resources every game reserves :meth:`per_game_cores`. With them, each subprocess seat
+        holds its own effective ``cpus`` (a builtin seat plays inside the host and holds none) beside the engine's
+        ``engine_cpus``: ``concurrent`` accounting adds them up, ``sequential`` accounting takes the largest.
+        """
+        if not self.per_bot_resources:
+            return self.per_game_cores()
+        seats = [self.bot_resources(spec).cpus for spec in (first, second) if spec.type == "subprocess"]
+        if self.core_accounting == "sequential":
+            return max([self.resources.engine_cpus, *seats])
+        return self.resources.engine_cpus + sum(seats)
+
+    def scheduled_pairs(self) -> tuple[tuple[BotSpec, BotSpec], ...]:
+        """The bot pairs the schedule plays: ``matchups`` when given, else the round robin (spec 11.6)."""
+        if self.matchups is not None:
+            by_name = {spec.name: spec for spec in self.bots}
+            return tuple((by_name[a], by_name[b]) for a, b in self.matchups)
+        return tuple((a, self.bots[j]) for i, a in enumerate(self.bots) for j in range(i, len(self.bots))
+                     if self.include_self_play or i != j)
+
     def per_game_cores(self) -> int:
         """Cores one game needs (spec 11.4): with ``concurrent`` accounting the engine's plus two per-seat shares when
         a bot is a subprocess; with ``sequential`` accounting the larger of the engine's and one seat's, since the
-        engine and the two seats take turns and only one of them works at a time."""
+        engine and the two seats take turns and only one of them works at a time.
+
+        With per-bot resources games differ in cost (:meth:`game_cores`), and this is the cheapest scheduled
+        game's: the unit a worker stands for. A run with ``workers`` workers then plays games at once while their
+        cores fit ``workers * per_game_cores()`` (``executor.execute``)."""
+        if self.per_bot_resources:
+            return min(self.game_cores(a, b) for a, b in self.scheduled_pairs())
         subprocess_seats = any(spec.type == "subprocess" for spec in self.bots)
         if self.core_accounting == "sequential":
             return max(self.resources.engine_cpus, self.resources.cpus if subprocess_seats else 0)
@@ -684,6 +731,12 @@ class TournamentConfig:
         resources = _spec_block(
             Resources, value.get("resources", DEFAULT_RESOURCES.to_json()), f"{context}.resources"
         )
+        for index, spec in enumerate(bots):
+            if spec.resources is not None and spec.resources.engine_cpus != resources.engine_cpus:
+                raise TournamentError(
+                    f"{context}.bots[{index}].resources.engine_cpus: both seats share one engine, so a bot's "
+                    f"engine_cpus must equal the board's ({resources.engine_cpus})"
+                )
         bootstrap_replicates = _req_uint(
             value.get("bootstrap_replicates", DEFAULT_BOOTSTRAP_REPLICATES),
             f"{context}.bootstrap_replicates",

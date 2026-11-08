@@ -53,10 +53,16 @@ def checked_label(label: Any) -> str:
     return label
 
 
-def bot_inputs(spec: BotSpec) -> dict[str, Any]:
+def bot_inputs(spec: BotSpec, config: TournamentConfig) -> dict[str, Any]:
+    """What a block's player must share with the current roster entry: its arena entry without the registry
+    metadata, and its effective resources (spec 11.4) where they differ from ``config``'s board block, which the
+    contract compares. A bot declaring the board block plays exactly as one inheriting it."""
     doc = spec.to_json()
     for key in ("training_style_tags", "registered_at"):
         doc.pop(key)
+    doc.pop("resources", None)
+    if config.bot_resources(spec) != config.resources:
+        doc["resources"] = config.bot_resources(spec).to_json()
     return doc
 
 
@@ -76,7 +82,8 @@ def contract(config: TournamentConfig) -> dict[str, Any]:
         # A ladder block is one matchup under these conditions; select_blocks matches both players' inputs. The
         # rungs, band and entrant lists only schedule matchups, so adding a rung or an entrant reuses every block.
         return {**conditions, "schedule": "ladder"}
-    return {**conditions, "references": {name: bot_inputs(by_name[name]) for name in sorted(config.opponent_panel)}}
+    return {**conditions, "references": {name: bot_inputs(by_name[name], config)
+                                         for name in sorted(config.opponent_panel)}}
 
 
 def required_matchups(config: TournamentConfig) -> tuple[tuple[str, str], ...]:
@@ -161,7 +168,7 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
             continue
         by_name = {bot.name: bot for bot in source.config.bots}
         for pair in wanted & source.blocks().keys():
-            if all(bot_inputs(by_name[name]) == bot_inputs(current[name]) for name in pair):
+            if all(bot_inputs(by_name[name], source.config) == bot_inputs(current[name], config) for name in pair):
                 selected[pair] = source
     return selected
 
@@ -190,7 +197,8 @@ def dropped_ladder_blocks(config: TournamentConfig, sources: Sequence[Source]) -
             continue
         by_name = {bot.name: bot for bot in source.config.bots}
         for pair in source.blocks().keys() - wanted:
-            if set(pair) <= rungs and all(bot_inputs(by_name[name]) == bot_inputs(current[name]) for name in pair):
+            if set(pair) <= rungs and all(bot_inputs(by_name[name], source.config) == bot_inputs(current[name], config)
+                                          for name in pair):
                 dropped.add(pair)
     return sorted(dropped)
 
@@ -223,7 +231,7 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
         if contract(source.config) != expected:
             raise SnapshotError(f"source {source.path.name} has incompatible evaluation conditions")
         by_name = {bot.name: bot for bot in source.config.bots}
-        if any(bot_inputs(by_name[name]) != bot_inputs(specs[name]) for name in pair):
+        if any(bot_inputs(by_name[name], source.config) != bot_inputs(specs[name], config) for name in pair):
             raise SnapshotError(f"source {source.path.name} has incompatible entrant inputs")
         if rated_only and not source.manifest["run"]["rated"]:
             raise SnapshotError(f"source {source.path.name} is not rated")
