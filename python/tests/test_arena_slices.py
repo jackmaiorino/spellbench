@@ -164,15 +164,23 @@ def test_a_slice_without_a_rated_anchor_is_reported_not_raised() -> None:
     assert "skipped: fit_failed" in markdown
 
 
-def test_mixed_seat_decks_get_a_versus_label() -> None:
+def test_off_mirror_pairings_leave_the_slices_for_the_deck_grid() -> None:
+    # A ledger with an off-mirror game (an all_pairs board) slices its mirror pairings only;
+    # the deck grid reports the off-mirror ones.
     rows = _ledger([
         _row(0, 0, 0, ALPHA, BETA, ("Faeries", "Affinity"), "a"),
         _row(0, 0, 1, ALPHA, BETA, ("Faeries", "Affinity"), "b"),
         _row(0, 1, 0, ALPHA, BETA, ("Burn", "Burn"), "a"),
         _row(0, 1, 1, ALPHA, BETA, ("Burn", "Burn"), "a"),
+        _row(0, 2, 0, ALPHA, BETA, ("Elves", "Elves"), "b"),
+        _row(0, 2, 1, ALPHA, BETA, ("Elves", "Elves"), "a"),
     ])
-    document, _ = _build(rows)
-    assert [s["label"] for s in document["slices"]["deck"]] == ["Burn", "Faeries vs Affinity"]
+    document, markdown = _build(rows)
+    assert [s["label"] for s in document["slices"]["deck"]] == ["Burn", "Elves"]
+    cells = document["deck_grid"]["reports"][0]["cells"]
+    assert [(cell["deck"], cell["opponent"], cell["score"]) for cell in cells] == [
+        ("Faeries", "Affinity", {"num": 4, "den": 4})]  # Faeries (p0) won both games, once with each pilot
+    assert "## Deck grid" in markdown
 
 
 def test_a_decklist_deck_is_labeled_by_its_name() -> None:

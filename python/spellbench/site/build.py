@@ -804,6 +804,8 @@ def _benchmark_view(benchmark: definition.Benchmark, run: _Run, stale: frozenset
         "deck_tables": [_deck_table(deck_slice, anchor_id, display) for deck_slice in board["slices"]["deck"]],
         "style_tables": [{"tag": tag, "rows": [row for row in overall if tag in row["tags"]]} for tag in tags],
         "grid": _grid(board["rows"], board["matchups"], display),
+        "deck_pairing": run.config.deck_pairing if run.config is not None else "mirror",
+        "deck_grid": _deck_grid(board.get("deck_grid"), display),
     }
 
 
@@ -1002,6 +1004,57 @@ def _grid(
         "descriptions": [display[row["name"]]["description"] for row in rows],
         "cells": cells,
     }
+
+
+def _share(value: Mapping[str, int] | None) -> float | None:
+    return None if value is None else value["num"] / value["den"]
+
+
+def _deck_grid(grid: Mapping[str, Any] | None, display: Mapping[str, Mapping[str, Any]]) -> dict[str, Any] | None:
+    """The leaderboard's ``deck_grid`` for the page: full matrices, deck Elo rows and robustness scores.
+
+    A stored cell holds the earlier deck's score; the page shows both halves, the later deck's as the complement
+    (its interval mirrored). None when the board has no grid or the grid was skipped.
+    """
+    if grid is None or grid["status"] != "ok":
+        return None
+    decks = grid["decks"]
+    position = {deck: index for index, deck in enumerate(decks)}
+    reports = []
+    for report in grid["reports"]:
+        if report["status"] != "ok":
+            continue
+        cells: list[list[dict[str, Any] | None]] = [[None] * len(decks) for _ in decks]
+        for cell in report["cells"]:
+            if cell["score"] is None:
+                continue
+            i, j = position[cell["deck"]], position[cell["opponent"]]
+            score = _share(cell["score"])
+            ci = cell["score_ci95"]
+            low, high = (None, None) if ci is None else (_share(ci["lower"]), _share(ci["upper"]))
+            base = {"games": cell["games"], "complete_pairs": cell["complete_pairs"]}
+            cells[i][j] = {**base, "score": score, "low": low, "high": high}
+            cells[j][i] = {**base, "score": 1 - score, "low": None if high is None else 1 - high,
+                           "high": None if low is None else 1 - low}
+        deck_ratings = report["deck_ratings"]
+        rated = deck_ratings is not None and deck_ratings["status"] == "ok"
+        reports.append({
+            "pilots": report["pilots"],
+            "cells": cells,
+            "ratings": [{"deck": row["deck"], "elo_milli": row["elo_milli"], "ci95_elo_milli": row["ci95_elo_milli"]}
+                        for row in deck_ratings["rows"]] if rated else [],
+            "residual": None if not rated or deck_ratings["residual_rms_e6"] is None
+            else deck_ratings["residual_rms_e6"] / 1_000_000,
+        })
+    robustness = []
+    for bot in grid["robustness"]:
+        shown = display.get(bot["name"], {"label": bot["name"], "description": ""})
+        robustness.append({
+            "name": bot["name"], "label": shown["label"], "description": shown["description"],
+            **{field: [None if record["games"] == 0 else (2 * record["wins"] + record["draws"]) / (2 * record["games"])
+                       for record in bot[field]] for field in ("by_own_deck", "by_opponent_deck")},
+        })
+    return {"decks": decks, "reports": reports, "robustness": robustness}
 
 
 # ---------------- writing ----------------
