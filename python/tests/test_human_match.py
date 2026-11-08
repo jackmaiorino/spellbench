@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from spellbench.arena.config import TournamentConfig
+from spellbench.arena.config import TournamentConfig, TournamentError
 from spellbench.human import match, relay
 from spellbench.human.match import GamePlan, GameReport
 from spellbench.human.server import Hub, make_server
@@ -89,9 +89,22 @@ def test_a_flag_ends_the_match_as_a_loss_for_the_player_who_flagged() -> None:
     assert summary["winner"] == "b512" and summary["ended_by"] == "flag" and summary["flags"] == ["search"]
     assert summary["game_wins"] == {"search": 1, "b512": 1}
     assert summary["bank_remaining_ms"]["search"] == 0
-    assert [game["flag"] for game in games] == [None, "search"]
+    assert [game["flags"] for game in games] == [[], ["search"]]
     assert games[1]["bank_ms"]["p1"] == {"player": "search", "before_ms": BANK - 900_000, "after_ms": 0}
     assert [plan.game_index for plan in script.plans] == [6, 7]             # 3 * match + game
+
+
+def test_a_bank_spent_exactly_on_a_winning_game_is_still_a_flag() -> None:
+    """Running out of bank loses, whatever the game: a decision may use exactly the bank, and that leaves 0."""
+    script = Script([({"b512": BANK}, "b512")])
+    summary = match.play_match(0, PLAYERS, "Burn", BANK, script)
+    assert len(script.plans) == 1 and summary["flags"] == ["b512"] and summary["winner"] == "search"
+    assert summary["game_wins"] == {"search": 0, "b512": 1} and summary["ended_by"] == "flag"
+
+
+def test_both_banks_at_zero_draw_the_match() -> None:
+    summary = match.play_match(0, PLAYERS, "Burn", BANK, Script([({"search": BANK, "b512": BANK}, "draw")]))
+    assert summary["flags"] == ["search", "b512"] and summary["winner"] is None and summary["result"] == "draw"
 
 
 def test_a_start_timeout_with_bank_left_is_a_game_loss_not_a_flag() -> None:
@@ -137,7 +150,7 @@ def test_run_writes_games_and_matches(tmp_path: Path) -> None:
     games = [json.loads(line) for line in (out / match.GAMES_NAME).read_text(encoding="utf-8").splitlines()]
     assert [game["game_index"] for game in games] == [0, 1, 3, 4]
     assert games[0]["bank_ms"]["p0"] == {"player": "search", "before_ms": BANK, "after_ms": BANK - 10}
-    assert set(games[0]) >= {"outcome", "reason", "classification", "step_count", "row", "flag", "winner"}
+    assert set(games[0]) >= {"outcome", "reason", "classification", "step_count", "row", "flags", "winner"}
     written = json.loads((out / match.MATCHES_NAME).read_text(encoding="utf-8"))
     assert written == document and written["status"] == "complete"
     assert written["run_secret"] == TEST_RUN_SECRET.hex()
@@ -147,6 +160,26 @@ def test_run_writes_games_and_matches(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
         match.run(out, {}, players=PLAYERS, decks=["Burn"], matches=1, bank_ms=BANK, run_secret=TEST_RUN_SECRET,
                   source="test", play=script)
+
+
+def test_after_game_sees_every_record(tmp_path: Path) -> None:
+    seen = []
+    match.run(tmp_path, {}, players=PLAYERS, decks=["Burn"], matches=1, bank_ms=BANK, run_secret=TEST_RUN_SECRET,
+              source="test", play=Script([({}, "search"), ({}, "search")]), after_game=seen.append)
+    assert [record["game_index"] for record in seen] == [0, 1]
+
+
+def test_a_failed_preflight_still_reveals_its_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    roomy_machine(monkeypatch)
+    source = make_config(tmp_path / "src", [builtin("uniform", seed=3), builtin("first")], deck_pool=("Burn",),
+                         pairs=1, engine=tmp_path / "no-such-engine.py")
+    doc, decks = match.match_config(source, players=("uniform", "first"), bank_ms=BANK, run_dir=tmp_path / "run")
+    with pytest.raises(TournamentError):
+        match.run(tmp_path / "out", doc, players=("uniform", "first"), decks=decks, matches=1, bank_ms=BANK,
+                  run_secret=TEST_RUN_SECRET, source="test")
+    written = json.loads((tmp_path / "out" / match.MATCHES_NAME).read_text(encoding="utf-8"))
+    assert written["status"] == "aborted" and written["run_secret"] == TEST_RUN_SECRET.hex()
+    assert written["counts"]["games"] == 0
 
 
 def test_an_interrupted_run_still_reveals_its_secret(tmp_path: Path) -> None:
@@ -195,12 +228,14 @@ def test_a_soak_config_becomes_the_match_config(tmp_path: Path) -> None:
         match.match_config(source, players=("b512", "b512"), bank_ms=BANK, run_dir=tmp_path)
 
 
-def test_the_benchmark_path_adds_decision_logs(tmp_path: Path) -> None:
+def test_decision_logs_are_added_only_on_request(tmp_path: Path) -> None:
     source = soak_shaped(tmp_path / "soak")
     doc, _ = match.match_config(source, players=("b512", "uniform"), bank_ms=BANK, run_dir=tmp_path,
                                 decision_log=tmp_path / "logs")
     assert doc["bots"][0]["command"][-2:] == ["--decision-log", str(tmp_path / "logs")]
     assert "command" not in doc["bots"][1]                                   # a builtin has none
+    doc, _ = match.match_config(source, players=("b512", "uniform"), bank_ms=BANK, run_dir=tmp_path)
+    assert doc["bots"][0]["command"] == ["py", "flat.py", "--name", "b512"]
 
 
 def test_builtin_bots_play_matches_through_the_arena_runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -221,6 +256,20 @@ def test_builtin_bots_play_matches_through_the_arena_runner(tmp_path: Path, monk
             assert 0 < game["bank_ms"][seat]["after_ms"] <= game["bank_ms"][seat]["before_ms"] <= BANK
     first_match = [game for game in games if game["match_index"] == 0]
     assert first_match[1]["bank_ms"]["p1"]["before_ms"] == first_match[0]["bank_ms"]["p0"]["after_ms"]
+
+
+def test_the_page_closes_a_game_the_host_ended_without_its_relay() -> None:
+    """A human timeout closes the relay before its game_over: the page withdraws the decision and records the end."""
+    hub = Hub()
+    hub.game_start({"game_id": "g-1", "seat": "p1", "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    hub.pending = {"seq": 1}
+    terminal = {"outcome": "p0_win", "classification": "forfeit", "winner": "p0", "reason": "forfeit:timeout"}
+    hub.close_game("g-0", terminal)                                          # another game: nothing happens
+    assert hub.results == [] and hub.pending is not None
+    hub.close_game("g-1", terminal)
+    assert hub.pending is None and hub.results[-1]["result"] == "loss" and hub.game_over["reason"] == "forfeit:timeout"
+    hub.close_game("g-1", terminal)                                          # already closed: once only
+    assert len(hub.results) == 1
 
 
 def test_the_person_plays_a_match_through_the_relay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

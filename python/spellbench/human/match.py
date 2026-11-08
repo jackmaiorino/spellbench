@@ -2,9 +2,9 @@
 
 ``python -m spellbench.human.match`` plays ``--matches`` best-of-three matches between two players, either of
 which may be the person (``human``, the play page's relay seat) or any bot entry of the source config. The
-source is an arena tournament config file (``--config``, for example a W1 soak config), whose bot commands are
-used verbatim, or a benchmark definition (``--benchmark`` with ``--local``), built as ``spellbench.human``
-builds it, whose subprocess bots get ``--decision-log``.
+source is an arena tournament config file (``--config``, for example a W1 soak config) or a benchmark definition
+(``--benchmark`` with ``--local``, built as ``spellbench.human`` builds it). Bot commands are used verbatim;
+``--decision-log DIR`` appends ``--decision-log DIR`` to the seated subprocess bots, for bots that take it.
 
 The rules (W1 entrant design v7, sections 2, 12 and 13):
 
@@ -13,8 +13,10 @@ The rules (W1 entrant design v7, sections 2, 12 and 13):
   to the match bank and ``increment_ms`` 0, and each game starts each seat at the bank the previous game left
   (``GameSetup.starting_bank_ms``). Time between games is off the clock: ``startup_ms`` bounds a seat's start,
   the bank does not.
-- A flag is a game's ``forfeit:timeout`` whose loser ended it with 0 bank. It ends the match at once as a loss
-  for the player who flagged. A ``timeout`` at a seat's start, with bank left, is an ordinary game loss.
+- A flag is a bank that reaches 0: a player who ends a game with 0 bank has flagged, whatever that game's result,
+  and loses the match at once. Every ``forfeit:timeout`` against the bank ends with 0 (the host charges a driver
+  timeout its whole budget, the bank, and floors the bank at 0), as does a decision that used exactly the bank. A
+  ``timeout`` at a seat's start, with bank left, is an ordinary game loss. Both players at 0 draw the match.
 - A match ends when a player has 2 game wins, after a flag, or after 3 games. A game that no one wins (a draw,
   a truncated game or a halt) still uses one of the 3 games. After 3 games the player with more game wins wins
   the match; equal wins make the match a draw.
@@ -29,8 +31,10 @@ The rules (W1 entrant design v7, sections 2, 12 and 13):
 Games are played one at a time in this process (no worker pool, no throughput qualification: unrated, like a
 person's session). The output directory gets ``match-config.json`` (the arena config the games play),
 ``games.jsonl`` (per game: the ledger row and each seat's bank before and after), ``diagnostics.jsonl`` (operator
-diagnostics, if any) and ``matches.json`` (per match and in total, rewritten after every game). Bot vs bot needs
-no browser or server; with ``human`` seated the play server starts as in ``spellbench.human``.
+diagnostics, if any) and ``matches.json`` (per match and in total, rewritten after every game, its status
+``running``, then ``complete``, ``stopped`` or ``aborted``). Bot vs bot needs no browser or server; with ``human``
+seated the play server starts as in ``spellbench.human``, and a game the host ended without telling the relay
+(a timeout closes the seat) is closed on the page too.
 """
 
 from __future__ import annotations
@@ -104,13 +108,9 @@ def seat_order(players: tuple[str, str], match_index: int, game_number: int) -> 
     return (first, second) if (match_index + game_number) % 2 == 0 else (second, first)
 
 
-def flagged_seat(row: dict[str, Any], remaining_bank_ms: dict[str, int]) -> str | None:
-    """The seat that flagged: lost a ``forfeit:timeout`` with its bank at 0, else None."""
-    adjudication = row.get("adjudication") or {}
-    if row["reason"] != "forfeit:timeout" or adjudication.get("kind") != "forfeit":
-        return None
-    loser = adjudication["loser_seat"]
-    return loser if remaining_bank_ms[loser] == 0 else None
+def flagged_seats(remaining_bank_ms: dict[str, int]) -> list[str]:
+    """The seats that flagged: those whose bank reached 0."""
+    return [seat for seat in ("p0", "p1") if remaining_bank_ms[seat] == 0]
 
 
 def play_match(match_index: int, players: tuple[str, str], deck: str, bank_ms: int,
@@ -120,7 +120,7 @@ def play_match(match_index: int, players: tuple[str, str], deck: str, bank_ms: i
     banks = {name: bank_ms for name in players}
     wins = dict.fromkeys(players, 0)
     games: list[dict[str, Any]] = []
-    flagged: str | None = None
+    flagged: list[str] = []
     for game_number in range(GAMES_PER_MATCH):
         seats = seat_order(players, match_index, game_number)
         plan = GamePlan(match_index=match_index, game_number=game_number,
@@ -136,13 +136,13 @@ def play_match(match_index: int, players: tuple[str, str], deck: str, bank_ms: i
         winner = by_seat[row["winner"]] if row["winner"] is not None else None
         if winner is not None:
             wins[winner] += 1
-        flag_seat = flagged_seat(row, report.remaining_bank_ms)
+        flags = [by_seat[seat] for seat in flagged_seats(report.remaining_bank_ms)]
         record = {
             "match_index": match_index, "game_number": game_number, "game_index": plan.game_index,
             "game_id": row["game_id"], "deck": deck, "seats": by_seat, "outcome": row["outcome"],
             "classification": row["classification"], "reason": row["reason"], "winner_seat": row["winner"],
             "winner": winner, "step_count": row["step_count"], "decision_count": row["decision_count"],
-            "flag": None if flag_seat is None else by_seat[flag_seat], "bank_ms": bank, "row": row,
+            "flags": flags, "bank_ms": bank, "row": row,
         }
         games.append(record)
         if on_game is not None:
@@ -150,14 +150,14 @@ def play_match(match_index: int, players: tuple[str, str], deck: str, bank_ms: i
         if report.violation is not None:
             raise MatchStopped(f"game {plan.game_index} ({row['game_id']}) halted on a live-validation violation: "
                                f"{report.violation.get('rule')}")
-        if flag_seat is not None:
-            flagged = by_seat[flag_seat]
+        if flags:
+            flagged = flags
             break
         if max(wins.values()) >= WINS_NEEDED:
             break
     first, second = players
-    if flagged is not None:
-        winner, ended_by = (second if flagged == first else first), "flag"
+    if flagged:
+        winner, ended_by = (None if len(flagged) == 2 else second if flagged == [first] else first), "flag"
     elif max(wins.values()) >= WINS_NEEDED:
         winner, ended_by = max(players, key=lambda name: wins[name]), "wins"
     else:
@@ -168,7 +168,7 @@ def play_match(match_index: int, players: tuple[str, str], deck: str, bank_ms: i
         "game_ids": [game["game_id"] for game in games], "game_wins": wins,
         "non_decisive_games": sum(1 for game in games if game["winner"] is None),
         "winner": winner, "result": "draw" if winner is None else "win", "ended_by": ended_by,
-        "flags": [] if flagged is None else [flagged],
+        "flags": flagged,
         "bank_used_ms": {name: bank_ms - banks[name] for name in players},
         "bank_remaining_ms": dict(banks),
     }
@@ -220,8 +220,8 @@ def match_config(source: dict[str, Any], *, players: tuple[str, str], bank_ms: i
 
     The bots are the two players (``human`` is the relay seat), the deck pool the decks the matches use, one worker,
     and the time control the match bank: ``bank_ms`` and ``max_decision_ms`` equal to it and no increment, so a
-    decision may use the whole remaining bank. ``decision_log`` adds ``--decision-log`` to subprocess bots (the
-    benchmark path); otherwise bot commands stay verbatim.
+    decision may use the whole remaining bank. Bot commands stay verbatim unless ``decision_log`` is given, which
+    appends ``--decision-log`` to the seated subprocess bots.
     """
     if len(players) != 2 or players[0] == players[1]:
         raise SystemExit(f"--players needs two different players, got {list(players)}")
@@ -302,8 +302,13 @@ def arena_player(config: TournamentConfig, run_secret: RunSecret) -> Callable[[G
 
 def run(out: Path, config_doc: dict[str, Any], *, players: tuple[str, str], decks: Sequence[str], matches: int,
         bank_ms: int, run_secret: RunSecret, source: str,
-        play: Callable[[GamePlan], GameReport] | None = None) -> dict[str, Any]:
-    """Play the series into ``out`` and return the final ``matches.json`` document (written after every game)."""
+        play: Callable[[GamePlan], GameReport] | None = None,
+        after_game: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
+    """Play the series into ``out`` and return the final ``matches.json`` document (written after every game).
+
+    ``play`` defaults to the arena runner after one preflight; ``after_game`` sees each game's record once written.
+    A failure anywhere, preflight included, still writes ``matches.json`` with the revealed secret.
+    """
     out.mkdir(parents=True, exist_ok=True)
     if (out / MATCHES_NAME).exists() or (out / GAMES_NAME).exists():
         raise SystemExit(f"{out} already holds a match run; choose another --out")
@@ -325,22 +330,22 @@ def run(out: Path, config_doc: dict[str, Any], *, players: tuple[str, str], deck
         played.append(record)
         store.append_ledger_row(out / GAMES_NAME, record)
         write()
+        if after_game is not None:
+            after_game(record)
 
     def on_match(summaries: list[dict[str, Any]]) -> None:
         done[:] = summaries
         write()
 
-    if play is None:
-        play = arena_player(TournamentConfig.from_json(config_doc), run_secret)
-
     def play_logged(plan: GamePlan) -> GameReport:
-        report = play(plan)
+        report = player(plan)
         if report.diagnostics:
             store.append_diagnostics(out / DIAGNOSTICS_NAME, report.row["game_id"], report.diagnostics)
         return report
 
     write()
     try:
+        player = play if play is not None else arena_player(TournamentConfig.from_json(config_doc), run_secret)
         play_series(players, decks, matches, bank_ms, play_logged, on_game=on_game, on_match=on_match)
         document["status"] = "complete"
     except MatchStopped as exc:
@@ -375,6 +380,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="local values file (benchmarks/local.json shape): needed with a benchmark")
     parser.add_argument("--out", type=Path, required=True, help="output directory (must not hold a match run)")
     parser.add_argument("--secret-hex", default=None, help="run secret (64 hex) to replay ids and seeds")
+    parser.add_argument("--decision-log", type=Path, default=None,
+                        help="append --decision-log DIR to the seated subprocess bots (bots that take it)")
     parser.add_argument("--port", type=int, default=8765, help="play server port when the person plays")
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args(argv)
@@ -392,19 +399,20 @@ def main(argv: list[str] | None = None) -> int:
         source_doc = json.loads(args.config.read_text(encoding="utf-8"))
         if local:
             source_doc = session.resolve_local(source_doc, local)
-        source, decision_log = str(args.config.resolve()), None
+        source = str(args.config.resolve())
     else:
         benchmark = args.benchmark or session.REPO / "benchmarks" / "pauper-kernel-v2"
         if args.local is None:
             raise SystemExit("a benchmark source needs --local")
         source_doc = benchmark_source(benchmark, local, out / "run")
-        source, decision_log = str(benchmark.resolve()), out / "decision-logs"
+        source = str(benchmark.resolve())
     config_doc, decks = match_config(source_doc, players=players, bank_ms=args.bank_ms, run_dir=out / "run",
                                      decks=[d.strip() for d in args.decks.split(",")] if args.decks else None,
-                                     python=python, decision_log=decision_log)
+                                     python=python,
+                                     decision_log=None if args.decision_log is None else args.decision_log.resolve())
     run_secret = RunSecret.from_hex(args.secret_hex) if args.secret_hex else RunSecret.generate()
 
-    server = None
+    server = after_game = None
     if HUMAN in players:
         opponent = players[1] if players[0] == HUMAN else players[0]
         hub = Hub(log_dir=out / "decision-logs", games_total=None, opponent=opponent,
@@ -415,6 +423,11 @@ def main(argv: list[str] | None = None) -> int:
         os.environ[relay.URL_ENV] = f"http://{host}:{port}"
         os.environ[relay.TOKEN_ENV] = server.token
         threading.Thread(target=server.serve_forever, daemon=True).start()
+
+        def after_game(record: dict[str, Any]) -> None:  # a timeout closes the relay before its game_over
+            hub.close_game(record["game_id"], {key: record["row"][key] for key in (
+                "outcome", "classification", "winner", "reason")})
+
         url = f"http://{host}:{port}/?t={server.token}"
         print(f"\n  Play here: {url}\n", flush=True)
         if not args.no_browser:
@@ -422,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  out: {out}", flush=True)
     try:
         document = run(out, config_doc, players=players, decks=decks, matches=args.matches, bank_ms=args.bank_ms,
-                       run_secret=run_secret, source=source)
+                       run_secret=run_secret, source=source, after_game=after_game)
     finally:
         if server is not None:
             server.shutdown()

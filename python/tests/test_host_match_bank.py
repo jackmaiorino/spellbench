@@ -66,11 +66,11 @@ def test_an_answer_over_the_remaining_bank_flags_with_zero_left() -> None:
 
 
 def test_a_driver_timeout_flags_with_zero_left() -> None:
-    """The driver gave up at the budget (the remaining bank): the bank is spent, floored at 0."""
+    """The driver gave up at the budget (the remaining bank): the whole bank is spent even if its timer fired early."""
     now = [0]
     engine, _ = scripted(FIRST)
     timeout = SeatFailure("timeout", "no answer to choose within 500 ms")
-    p0 = Seat(ticking(501, now, lambda decision: fail(timeout)))
+    p0 = Seat(ticking(498, now, lambda decision: fail(timeout)))
     result = play_game(setup(time_control=MATCH, starting_bank_ms=(500, 10000)), engine=engine,
                        seats={"p0": p0, "p1": Seat()}, clock_ns=lambda: now[0])
     assert (result.reason, result.adjudication["loser_seat"]) == ("forfeit:timeout", "p0") and p0.closed

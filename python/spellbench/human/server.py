@@ -141,6 +141,13 @@ class Hub:
             self.pending = None
             self._bump()
 
+    def close_game(self, game_id: str, terminal: Mapping[str, Any]) -> None:
+        """End game ``game_id`` on the page if its relay never sent ``game_over`` (the host closed the seat after a
+        timeout or a failed process): a pending decision is withdrawn and the page offers the next game."""
+        with self.cond:  # a reentrant lock: game_end takes it again
+            if self.game is not None and self.game.get("game_id") == game_id and self.game_over is None:
+                self.game_end({"game_id": game_id, "terminal": dict(terminal)})
+
     def choose(self, request: Mapping[str, Any]) -> int:
         decision = request.get("decision") or {}
         with self.cond:

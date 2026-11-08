@@ -30,8 +30,8 @@ Clocks and caps (spec 11.4, Task 29) run through three hooks. Each seat has a Fi
 is bounded by ``_budget_ms``, the smaller of the bank and ``max_decision_ms``; ``_charge``
 then charges the answer's wall time, in whole milliseconds rounded up, and an answer over
 either limit is a ``timeout`` forfeit even though it arrived. A decision that ends the game as
-a ``timeout`` or ``transport_error`` forfeit is still charged its wall time, the bank floored
-at 0, so a seat that ran out of bank ends with 0. ``GameSetup.starting_bank_ms`` starts each
+a ``timeout`` or ``transport_error`` forfeit is still charged its wall time (a driver timeout at
+least its whole budget), the bank floored at 0, so a seat that ran out of bank ends with 0. ``GameSetup.starting_bank_ms`` starts each
 seat's bank where an earlier game of a match left it, and only then does the result report
 each seat's remaining bank (``GameResult.remaining_bank_ms``). ``_after_answer`` counts every
 answered decision toward the seat's caps and the stalling window over both seats' last 250
@@ -261,7 +261,8 @@ class _Game:
             choice = self.seats[seat].choose(payload, timeout_s=budget_ms / 1000)
         except SeatFailure as failure:
             if failure.cause in _SILENCING_CAUSES:
-                self._spend(seat, self._elapsed_ms(started_ns))
+                # A timeout ran out the whole budget, the bank itself when the bank was the tighter limit.
+                self._spend(seat, max(budget_ms if failure.cause == "timeout" else 0, self._elapsed_ms(started_ns)))
                 self._silence(seat)
                 return self._forfeit(seat, failure)
             # Spec 11.4: a decision that exceeds its budget is a timeout, whatever came back. The peer's write and
