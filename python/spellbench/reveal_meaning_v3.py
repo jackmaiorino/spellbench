@@ -80,6 +80,10 @@ class RevealReducerV3:
                 for (owner, name), count in sorted(self._bounds(self._arrivals, self._present).items())]
 
     def absorb(self, transcript: Any) -> None:
+        self._commit(self._prepare(transcript))
+
+    def _prepare(self, transcript: Any) -> tuple:
+        """Stage a batch without mutation, for atomic adapter/host validation."""
         _fields(transcript, {"schema", "operations"})
         if transcript["schema"] != SCHEMA or type(transcript["operations"]) is not list:
             raise RevealMeaningError("unsupported reveal transcript")
@@ -105,6 +109,11 @@ class RevealReducerV3:
             self._operation(sequence, operation["events"], arrivals, present)
             accepted[sequence] = canonical
             next_sequence += 1
+        return arrivals, present, accepted, next_sequence
+
+    def _commit(self, prepared: tuple) -> None:
+        # Internal callers commit only their own immediately prepared batch.
+        arrivals, present, accepted, next_sequence = prepared
         self._arrivals, self._present = arrivals, present
         self._seen.update(accepted)
         self._next = next_sequence

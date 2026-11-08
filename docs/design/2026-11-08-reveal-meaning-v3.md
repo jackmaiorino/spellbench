@@ -38,6 +38,21 @@ departures and atomic rejection. They are not native two-world tests.
 Remaining #543 work: event-time visible evidence in the kernel producer;
 integration with the actual Spellbench adapter and schema validator; the
 kernel reducer consuming the same stream; four reveal-class end-to-end and
-paired-world tests; and exact frozen W1 byte-compatibility checks. No existing
-engine or entrant imports this core, and this change alone does not lift R1
-refusals or replace fallback D.
+paired-world tests; and exact frozen W1 byte-compatibility checks. This change
+alone does not lift R1 refusals or replace fallback D.
+
+The actual live host now validates the extension when reset rules explicitly
+enable it. Each viewer has a separate reducer; every decision must carry a
+batch, possibly empty. Stream validation is part of V1, and the prepared
+update commits only after V1 through V10 pass. Existing decisions without this
+extension keep their validation path and output.
+
+`integrations/mtg_kernel/kernel_reveal_v3.py` consumes the native producer's
+`kernel-reveal-support/v3` envelope containing both already projected viewer
+batches. It validates both before committing either, queues each public
+operation once, and remaps native owner seats to wire seats without changing
+tokens. It never accepts native object IDs or reconstructs meaning from
+omniscient history. Its four reveal-class tests use supplied public operations;
+they do not establish the native producer's visibility proof. Wiring this
+intake into a successor neutral engine and comparing native paired worlds
+remain required before #543 closure.

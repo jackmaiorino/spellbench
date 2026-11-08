@@ -69,6 +69,7 @@ from .hidden import check_hidden_zones
 from .refs import check_face_down, check_references, check_seat
 from .tracking import GroupTracker, IdTracker
 from .violation import ValidatorViolation
+from ..reveal_meaning_v3 import SCHEMA as REVEAL_SCHEMA_V3, RevealReducerV3
 
 VALIDATOR_VERSION = "spellbench-live-validator/2.0"
 # Spec 7.5: the normalized subtypes a choose_name "basic_land_type" may name.
@@ -259,6 +260,8 @@ class LiveValidator:
         self._provenance = hello.engine.provenance()
         self._groups = GroupTracker()
         self._ids = IdTracker()
+        self._reveal_v3 = ({seat: RevealReducerV3() for seat in ("p0", "p1")}
+                           if REVEAL_SCHEMA_V3 in rules.extensions else None)
         self.decisions_checked = 0
 
     @property
@@ -284,6 +287,12 @@ class LiveValidator:
 
     def _check(self, decision: Decision) -> dict:
         sd = validate_seat_decision_schema(decision.seat_decision, self._rules)        # V1
+        reveal_update = None
+        if self._reveal_v3 is not None:
+            if REVEAL_SCHEMA_V3 not in sd["extensions"]:
+                raise ValidationError("enabled reveal transcript is missing")
+            reveal_update = self._reveal_v3[sd["acting_seat"]]._prepare(
+                sd["extensions"][REVEAL_SCHEMA_V3])                                  # V1, opt-in stream
         check_seat(sd)                                                                 # V2
         self._groups.check(sd)                                                         # V3 counters
         check_group_shape(sd)                                                          # V3 group shapes (R2-7)
@@ -298,6 +307,8 @@ class LiveValidator:
         check_declarations(sd, self._profile, self._rules)                             # V8
         check_context(sd)                                                              # V9
         self._check_provenance(decision.provenance)                                    # V10
+        if reveal_update is not None:
+            self._reveal_v3[sd["acting_seat"]]._commit(reveal_update)
         return sd
 
     def answered(self, sd: Mapping[str, Any], candidate_id: int) -> None:
