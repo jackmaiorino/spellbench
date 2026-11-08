@@ -1337,7 +1337,7 @@ Note on native ids: identities that persist across zone changes can reveal copie
 
 A fixed-deck ("bring your own deck") benchmark rates entries, where an entry is a pilot plus a deck. It is reserved: specified here, and required when the first benchmark that needs it ships.
 
-- **Definition.** The benchmark declares `pairing: "fixed_deck"` (rotating benchmarks are `rotating_pool`). It lists entries `{"entry", "bot", "deck", "display"}` instead of a deck pool; `deck` is `{name, decklist}` or `{name, catalog_id}`.
+- **Definition.** The benchmark declares `pairing: "fixed_deck"` (rotating benchmarks are `rotating_pool`, which plays each pool deck in both seats, or `all_pairs`, which plays every ordered pairing of pool decks). It lists entries `{"entry", "bot", "deck", "display"}` instead of a deck pool; `deck` is `{name, decklist}` or `{name, catalog_id}`.
 - **Schedule.**
   - Every pair of entries plays seat-swapped game pairs, and each entry always plays its own deck.
   - Entries that share a pilot or an author never meet, so no author can throw games between their own entries.

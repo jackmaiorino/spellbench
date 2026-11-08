@@ -29,7 +29,10 @@ Conventions (declared in the artifact's ``notes``):
   same ledger: only rated games where BOTH seats carry the tag.
 - Deck slices (when the ledger holds two or more deck pairings) rebuild the
   leaderboard from each pairing's games alone, with the same anchor and
-  prior, through the same code path as the overall table.
+  prior, through the same code path as the overall table. A ledger with an
+  off-mirror game (an ``all_pairs`` board) slices its mirror pairings only and
+  adds ``deck_grid`` (``deck_grid.py``): deck-vs-deck scores, deck ratings
+  and per-bot robustness. Mirror-only ledgers get neither change.
 
 Two schemas: ``spellbench-leaderboard/v1`` reproduces the v1 artifacts byte
 for byte; ``spellbench-leaderboard/v2`` adds per-bot attribution to every row
@@ -57,7 +60,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Sequence
 
-from . import ratings, registry, store
+from . import deck_grid, ratings, registry, store
 
 if TYPE_CHECKING:  # annotations only; legacy_v1 imports this module
     from .ledger import LedgerRow
@@ -361,6 +364,10 @@ def build_leaderboard(
         format=format,
         schema=schema,
     )
+    grid = deck_grid.build_deck_grid(
+        rows, document["rows"], base_seed=base_seed, bootstrap_replicates=bootstrap_replicates)
+    if grid is not None:  # absent for mirror-only ledgers, so their artifacts keep their bytes
+        document["deck_grid"] = grid
     document["slices"] = {
         "deck": _deck_slices(
             rows,
@@ -565,12 +572,7 @@ def _build_document(
     return document
 
 
-def _deck_label(deck: dict[str, Any]) -> str:
-    if "deck_id" in deck:  # a v2 deck entry labels by its deck name
-        return deck["name"]
-    if "catalog_id" in deck:
-        return deck["catalog_id"]
-    return "decklist " + store.sha256_hex(store.canonical_bytes(deck))[:12]
+_deck_label = deck_grid.deck_label
 
 
 def _pairing_label(decks: Sequence[dict[str, Any]]) -> str:
@@ -591,10 +593,13 @@ def _deck_slices(
     """Per-deck-pairing ratings; empty unless the ledger holds two or more pairings."""
     groups: dict[bytes, list[_Row]] = {}
     decks_by_key: dict[bytes, list[dict[str, Any]]] = {}
+    mirrors_only = deck_grid.has_off_mirror(rows)  # a full grid slices its mirrors; deck_grid covers the rest
     for row in rows:
         # v2 rows carry LedgerDeck dataclasses, which canonical_bytes rejects:
         # normalize each row's decks once and use them everywhere (R2-8).
-        decks = [deck.to_json() if hasattr(deck, "to_json") else deck for deck in row.decks]
+        decks = deck_grid.row_decks(row)
+        if mirrors_only and decks[0] != decks[1]:
+            continue
         key = store.canonical_bytes(decks)
         groups.setdefault(key, []).append(row)
         decks_by_key.setdefault(key, decks)
@@ -815,6 +820,12 @@ def render_markdown(document: dict[str, Any]) -> str:
             lines += [_TABLE_HEADER, _TABLE_RULE]
             lines += [_table_row(row) for row in deck_slice["rows"]]
             lines.append("")
+    if "deck_grid" in document:
+        lines += deck_grid.render_markdown(document["deck_grid"])
+        while lines[-1] == "":
+            lines.pop()
+        if document["schema"] != LEADERBOARD_SCHEMA_V2:
+            lines.append("")
     if document["schema"] == LEADERBOARD_SCHEMA_V2:
         if lines[-1]:  # the deck slices and subratings end with a blank line; the matchup table does not
             lines.append("")
@@ -832,6 +843,6 @@ def render_markdown(document: dict[str, Any]) -> str:
             )
         lines.append("")
     lines += ["## Notes", ""]
-    lines += [f"- {note}" for note in document["notes"]]
+    lines += [f"- {note}" for note in document["notes"] + document.get("deck_grid", {}).get("notes", [])]
     lines.append("")
     return "\n".join(lines)

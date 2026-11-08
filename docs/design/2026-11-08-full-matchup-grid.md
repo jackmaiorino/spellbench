@@ -1,6 +1,6 @@
 # Full matchup grid: all 36 deck pairings (design)
 
-Status: proposal, 2026-11-08. Prompted by inkling_6 on the MTGRL Discord: expand the
+Status: implemented 2026-11-08 (board `pauper-grid-v1`, first run pending). Prompted by inkling_6 on the MTGRL Discord: expand the
 Pauper boards from deck mirrors to every pairing in the 8-deck pool, and rate the decks.
 
 ## Today
@@ -13,12 +13,15 @@ about deck strength or about how a bot copes with an opponent on another deck.
 
 ## Schedule: deck-swapped blocks
 
-A new pool mode, `"deck_schedule": "all-pairs"` (default `"mirror"`, so existing
-boards and committed runs are unchanged). For bots A and B, each unordered deck
-pairing gets one block:
+A benchmark sets `"pairing": "all_pairs"` (the arena config gets
+`"deck_pairing": "all_pairs"`; the default stays mirrors, so existing boards and
+committed runs are unchanged). Pairs cycle through every ordered deck pairing
+(X on p0, Y on p1). Decks stay with seats, so a seat-swapped pair already gives
+each bot both decks; the reversed pairing (Y, X) puts the other deck on the play.
+Per unordered pairing:
 
-- mirror X/X: 2 games (A:X vs B:X, both seat orders), as today;
-- off-mirror X/Y: 4 games (A:X vs B:Y and A:Y vs B:X, each in both seat orders).
+- mirror X/X: one pair, 2 games, as today;
+- off-mirror X/Y: pairs (X, Y) and (Y, X), 4 games: A:X vs B:Y and A:Y vs B:X, each in both seat orders.
 
 One cycle is 8 x 2 + 28 x 4 = **128 games per bot matchup, the ladder's current
 budget**. Because every block gives each bot both decks and both seats, deck and
@@ -58,17 +61,22 @@ become 36 thin slices; they are replaced by 8 per-deck slices plus the matrix.
 
 ## Implementation
 
-1. Config: `deck_schedule` on benchmark and tournament configs; `preflight_deck_pairs`
-   returns all 36 pairings in all-pairs mode.
-2. Schedule: block order within a matchup is deterministic (mirrors first, then
-   off-mirror pairings in `combinations` order); `game_id` and seeds unchanged in kind.
-3. Bootstrap: resample whole blocks (2 or 4 games) instead of seat pairs, so every
-   replicate stays deck-balanced.
-4. Leaderboard: `matchup_matrix`, `deck_ratings` and per-bot robustness sections;
-   arena version bump (validate re-derives committed runs).
-5. Site: an 8x8 heatmap with CIs and a per-bot robustness strip.
-6. A new board `pauper-ladder-v3` (or a v2 rerun) in all-pairs mode; mirror boards stay
-   as published.
+1. Config: `pairing: "all_pairs"` (benchmark) and `deck_pairing` (arena config);
+   `pairs_per_deck` must be a multiple of the pool size. Preflight resets each of the
+   36 unordered pairings once.
+2. Schedule: the cycle is `combinations_with_replacement` over the pool, an
+   off-mirror pairing as (X, Y) then (Y, X); game ids and seeds unchanged in kind.
+3. Bootstrap: unchanged for bots, since every seat-swapped pair is already
+   deck-balanced. Deck cells resample pairs within the cell.
+4. Leaderboard: a `deck_grid` section (`arena/deck_grid.py`) with the matrix for all
+   games and strong pilots, centered deck Elo with a transitivity residual, and
+   robustness. It appears only when the ledger holds an off-mirror game, and deck
+   slices then cover the mirror pairings only, so committed mirror runs re-derive
+   byte for byte and need no arena version bump.
+5. Site: a Deck matchups section with tinted matrices (CIs on hover), deck Elo and
+   robustness tables.
+6. Board `pauper-grid-v1`: the ladder v1 engine pin, rungs, band and clock in
+   all-pairs mode, 1920 games like the ladder run. Mirror boards stay as published.
 
 Cost: one cycle on the ladder roster equals the 2026-11-01 run (about 12.5 core-seconds
 per game, 1920 games). Compute placement follows COMPUTE-POLICY as usual.

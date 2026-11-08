@@ -28,7 +28,9 @@ The schedule is the v1 round robin: matchups in
 (mirrors included unless ``include_self_play`` is false), each matchup
 ``pairs_per_matchup`` seat-swapped pairs (``pair_slot`` 0 then 1), pair ``p``
 playing ``deck_pool[p % len(deck_pool)]`` in both seats, or the fixed
-``decks``. ``game_index`` counts from 0 in schedule order and
+``decks``; with ``deck_pairing: "all_pairs"`` pair ``p`` plays the (p0, p1)
+decks ``config.deck_cycle()[p % len(pool) ** 2]``, every ordered pool
+pairing (a seat-swapped pair gives each bot both decks). ``game_index`` counts from 0 in schedule order and
 ``game_id = run_secret.game_id(game_index)`` (spec 11.6: opaque ids), so the
 same config and run secret give the same schedule, ids and seeds on every
 machine.

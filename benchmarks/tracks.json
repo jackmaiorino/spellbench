@@ -4,7 +4,7 @@
     {
       "id": "pauper-constructed",
       "title": "Pauper constructed",
-      "benchmarks": ["pauper-kernel-v2", "pauper-ladder-v1"]
+      "benchmarks": ["pauper-kernel-v2", "pauper-ladder-v1", "pauper-grid-v1"]
     },
     {
       "id": "fdn-limited",

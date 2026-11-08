@@ -447,6 +447,7 @@ def paired_rating_bootstrap(
     bootstrap_seed: int,
     bootstrap_replicates: int,
     virtual_draws: int = 0,
+    center: bool = False,
 ) -> RatingBootstrap:
     """Resample pair units per matchup, refit BT, and take percentile CIs.
 
@@ -456,7 +457,9 @@ def paired_rating_bootstrap(
     that many drawn games to every matchup of every refit, the same prior
     the point fit uses. Replicate fits that fail closed (a degenerate or
     disconnected resample) are skipped and counted; if more than half fail,
-    the whole bootstrap fails closed.
+    the whole bootstrap fails closed. ``center`` measures every replicate's
+    ratings from that replicate's mean rating instead of from the reference
+    (deck ratings are centered on the average deck).
     """
     if type(virtual_draws) is not int or virtual_draws < 0:
         raise ValueError("virtual_draws must be a nonnegative integer")
@@ -487,8 +490,9 @@ def paired_rating_bootstrap(
         except BtRatingError:
             failed += 1
             continue
+        shift = math.fsum(rating for _, rating in fit.ratings_log_units) / len(fit.ratings_log_units) if center else 0.0
         for model_id, rating in fit.ratings_log_units:
-            samples.setdefault(model_id, []).append(rating)
+            samples.setdefault(model_id, []).append(rating - shift)
     if failed * 2 > bootstrap_replicates:
         raise BtRatingError(
             f"paired rating bootstrap degenerate: {failed}/{bootstrap_replicates} replicate fits failed"
