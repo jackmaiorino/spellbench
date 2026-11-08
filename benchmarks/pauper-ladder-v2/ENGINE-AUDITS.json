@@ -3,18 +3,20 @@
   "benchmark": "pauper-ladder-v2",
   "engine": {
     "name": "mtg-kernel",
-    "source_revision": "89fb69a9550289e97981e6943bd3a02e5e8e4426",
+    "source_revision": "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
     "pull_requests": ["mtg-kernel#462", "mtg-kernel#476"],
-    "later_pull_requests": "mtg-kernel#466, #488, #489, #496, #497 and #505 add the W1 information-set extension (x_kernel_infoset_v1), which this board does not enable; the bridge without it behaves as at 63a019dc9 (the two-world audit and the gorge-ar8 replay below)",
-    "build": "cargo build --release --locked -p mtg-kernel (Windows x86_64 MSVC, rust 1.94.1, rust-lld linker)",
-    "host": "second build host (Windows, Zen 2), under a 3-core slot claim",
-    "date": "2026-11-03"
+    "later_pull_requests": "4fccd3ebc is the frozen W1 engine. The board now enables x_kernel_infoset_v1 (mtg-kernel#466, #488, #489, #496, #497, #505 and the W1 export repairs through #541) through integrations/mtg_kernel/kernel_engine_infoset_v2.py; mtg-kernel#540 changes the order of equipment effects in the observation (public battlefield order, not arena ids)",
+    "adapter": "integrations/mtg_kernel/kernel_engine_infoset_v2.py (placeholder MTG_KERNEL_V2_INFOSET_ENGINE), which imports kernel_engine_v2.py and kernel_g6_digest.py; both are evaluation_engine_inputs",
+    "build": "cargo build --release --locked -p mtg-kernel with CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64, CARGO_PROFILE_RELEASE_INCREMENTAL=false, rust-lld (Windows x86_64 MSVC, rust 1.94.1): the W1 soak binaries, pinned in E:/pinned-binaries/w1-soak-20261106",
+    "qualify_build": "spellbench_qualify_v1.exe built later from the same checkout, target directory and profile; agent_bridge_v1.exe rebuilt in the same invocation differs from the pinned one only in 14 bytes (the PE link timestamp and debug-directory id), same size",
+    "host": "second build host (Windows, Zen 2), under slot claims of 3 to 10 cores",
+    "date": "2026-11-08"
   },
   "pinned_files": {
-    "agent_bridge_v1.exe": {"sha256": "3b81f391155f7213b72bfc7f135229e5299eadd66ac10709b2ddfa685f62f8b0", "bytes": 47147008},
-    "spellbench_scorer_v1.exe": {"sha256": "cbde1c49edf846b03fdf6a6a186f32410f256d9cac42fb47308c72cff22e819d", "bytes": 5694464},
-    "spellbench_qualify_v1.exe": {"sha256": "ada6a2056244881de65c33ed9e21fcab521a7db74b4e1212d847f81b2982c45a", "bytes": 51237376},
-    "pauper-v2-catalog.json": {"sha256": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e", "bytes": 56975, "note": "byte-identical to pauper-v2-omen-92ec2393.json"}
+    "agent_bridge_v1.exe": {"sha256": "3338b4d809a3eada3f6abffd21a8085491ba42500ea0d6caeccad98871cfae03", "bytes": 79480320},
+    "spellbench_scorer_v1.exe": {"sha256": "b7deed4df80431f446176d20f469449f1dbf133caa7d6de3c14c7db9840ebb76", "bytes": 6599680},
+    "spellbench_qualify_v1.exe": {"sha256": "09ad25110b9bc4da008ddfccf7466380ce2a5e04c0df5a081dcda48eb1d89426", "bytes": 84010496},
+    "pauper-v2-catalog.json": {"sha256": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e", "bytes": 56975, "note": "byte-identical to pauper-v2-omen-92ec2393.json, unchanged since 89fb69a95"}
   },
   "audits": {
     "history_two_world": {
@@ -27,11 +29,12 @@
       "identical_to_63a019dc9_record": true
     },
     "check_engine_v2": {
-      "tool": "integrations/mtg_kernel/check_engine_v2.py",
+      "tool": "integrations/mtg_kernel/check_engine_v2.py, without extensions and again with --extension x_kernel_flat_v4 --extension x_public_history_v1",
       "binary": "agent_bridge_v1.exe above",
       "result": "pass",
       "decks": 8,
-      "buffer_cap_reset_equals_fresh": true
+      "buffer_cap_reset_equals_fresh": true,
+      "traces_identical_to_89fb69a95": "true for the run without extensions (every record, trace_sha256 included)"
     },
     "check_private_preview_v2": {
       "tool": "integrations/mtg_kernel/check_private_preview_v2.py",
@@ -43,18 +46,20 @@
       }
     },
     "gorge_ar8_smoke": {
-      "matchup": "c12 vs gorge-ar8, 8 pairs (16 games), unrated",
+      "matchup": "c12 vs gorge-ar8, 8 pairs (16 games), unrated, on this board's engine command (the infoset adapter) with all three extensions enabled",
       "binary": "agent_bridge_v1.exe and spellbench_scorer_v1.exe above",
       "result": "pass",
       "games": 16,
       "halted": 0,
       "truncated": 0,
       "forfeit": 0,
-      "replay_at_this_pin": "the 16 games of the 63a019dc9 run replayed from its revealed secret (bench rerun) on the binaries above: every ledger field equal, game_digest included, except c12's bot_id (and winner_bot_id where c12 won), which hashes c12's scorer binary"
+      "validator": "pass, 5162 decisions checked, 0 violations",
+      "replay_at_this_pin": "the 16 games replayed from the run's revealed secret (bench rerun): every ledger field equal, game_digest included",
+      "replay_of_63a019dc9_run": "the 16 games of the 63a019dc9 run (kernel_engine_v2.py, two extensions) replayed on the binaries above: 15 equal in every ledger field except c12's bot_id (and winner_bot_id where c12 won), which hashes c12's scorer binary; game 5, an Affinity mirror, has the same steps (74), decisions (73) and winner but a different game_digest, which chains the engine traffic. The 89fb69a95 replay matched all 16, so the change lies in 89fb69a95..4fccd3ebc, consistent with mtg-kernel#540's equipment-effect observation order (Affinity plays equipment)"
     },
     "v4_visibility": {
       "tool": "cargo test --release -p mtg-kernel --lib -- --ignored spellbench_v4_visibility_audit --nocapture",
-      "commit": "89fb69a9550289e97981e6943bd3a02e5e8e4426",
+      "commit": "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
       "result": "pass",
       "what_it_tests": "At every decision of neutral private-support games on the eight board decks, the acting seat's V4 boundary and x_kernel_flat_v4 encoding are unchanged when the search sampler redeterminizes every hidden card the engine's knowledge tables mark as unknown to that seat; and every place one player learned hidden cards of the other (library look or reveal, hand reveal, library reorder revealed to the opponent) is a reviewed site marked in the source. It is a consistency check against the engine's own knowledge tables plus a pinned enumeration of reveal sites, not a proof against a fact the tables wrongly mark as known.",
       "games": 16,
@@ -69,18 +74,25 @@
         "hand mtg-kernel/src/effect.rs:14386",
         "hand mtg-kernel/src/effect.rs:16261",
         "hand mtg-kernel/src/effect.rs:18056",
-        "hand mtg-kernel/src/engine.rs:28428",
-        "hand mtg-kernel/src/event.rs:7414",
+        "hand mtg-kernel/src/engine.rs:28822",
         "hand mtg-kernel/src/event.rs:7426",
+        "hand mtg-kernel/src/event.rs:7438",
         "hand mtg-kernel/src/spell_costs_v1.rs:54",
         "library mtg-kernel/src/effect.rs:9329",
         "library mtg-kernel/src/effect.rs:15736",
         "library mtg-kernel/src/effect.rs:16715",
         "library mtg-kernel/src/effect.rs:16716",
         "library mtg-kernel/src/effect.rs:19907",
-        "library mtg-kernel/src/event.rs:7402"
+        "library mtg-kernel/src/event.rs:7414"
       ],
-      "coverage": "The audit exercised 6 of the 21 marked library-reveal calls and 8 of the 35 marked hand-reveal calls; the rest rest on the static enumeration reviewed in mtg-kernel #462 and #476. Every current library reorder reveals only to its owner."
+      "same_sites_as_89fb69a95": "the same 14 calls; engine.rs and event.rs lines moved with mtg-kernel#465 and #467",
+      "coverage": "The audit exercised 6 of the 25 marked library-reveal calls and 8 of the 36 marked hand-reveal calls. The 21 and 35 present at 89fb69a95 rest on the static enumeration reviewed in mtg-kernel #462 and #476; the 4 library and 1 hand marked calls added since are premodern card code from mtg-kernel #465 and #467, outside this board's pool. No library reorder call is marked as revealing to the opponent."
+    },
+    "adapter_tests": {
+      "tool": "pytest integrations/mtg_kernel (adapter contract tests, the infoset adapter's included) and python/tools/generate_goldens_v2.py --check, at this change's spellbench commit",
+      "result": "pass",
+      "tests": "229 passed, 1 skipped",
+      "goldens": "all OK"
     }
   },
   "rule": "Rerun every audit above on the pinned binaries, and replace this receipt, whenever the engine behind this board changes. The board rates no games on an engine without a passing receipt."

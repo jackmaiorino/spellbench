@@ -27,13 +27,23 @@ kernel's `spellbench_qualify_v1` replay check.
 built from the mtg-kernel 92ec2393 line. `pauper-ladder-v2` runs them built
 from mtg-kernel main at the commit named by its `--source-revision`, which
 carries the same bridge (mtg-kernel PRs #462 and #476). The pin moved from
-63a019dc9 to 89fb69a95 (mtg-kernel #505's merge) for the W1 search entrant;
-the later bridge changes add only the `x_kernel_infoset_v1` extension, which
-the board does not enable. Build at that commit with:
+63a019dc9 to 89fb69a95 (mtg-kernel #505's merge), then to 4fccd3ebc, the
+frozen W1 engine. Since 4fccd3ebc the board enables `x_kernel_infoset_v1`
+for the W1 search entrant, so its engine is `kernel_engine_infoset_v2.py`,
+named by its own placeholder `${MTG_KERNEL_V2_INFOSET_ENGINE}` (the other
+boards keep `${MTG_KERNEL_V2_ENGINE}` for `kernel_engine_v2.py`). The
+adapter imports `kernel_engine_v2.py` and `kernel_g6_digest.py`, so both
+are in `evaluation_engine_inputs` and their bytes join the evaluation
+engine identity. Build at that commit with the W1 soak profile:
 
+    CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64 \
+    CARGO_PROFILE_RELEASE_INCREMENTAL=false \
+    CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=rust-lld \
     cargo build --release --locked -p mtg-kernel --bin agent_bridge_v1 \
-        --bin spellbench_scorer_v1 --bin spellbench_kernel_catalog
-    target/release/spellbench_kernel_catalog > pauper-v2-catalog.json
+        --bin spellbench_scorer_v1 --bin spellbench_qualify_v1
+
+The catalog stays the 89fb69a95 one (sha256 `af8e1b91...`, byte-identical to
+`pauper-v2-omen-92ec2393.json`).
 
 Every engine change behind a board needs fresh audits on the pinned binary
 before that board rates games: the history two-world audit, the
