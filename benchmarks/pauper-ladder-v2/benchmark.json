@@ -8,13 +8,13 @@
     "name": "mtg-kernel",
     "command": [
       "${PYTHON}",
-      "${MTG_KERNEL_V2_ENGINE}",
+      "${MTG_KERNEL_V2_INFOSET_ENGINE}",
       "--bridge",
       "${MTG_KERNEL_V2_BRIDGE}",
       "--catalog",
       "${MTG_KERNEL_PUBLIC_CATALOG}",
       "--source-revision",
-      "89fb69a9550289e97981e6943bd3a02e5e8e4426",
+      "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
       "--known-cards"
     ]
   },
@@ -46,12 +46,15 @@
   },
   "extensions": [
     "x_kernel_flat_v4",
-    "x_public_history_v1"
+    "x_public_history_v1",
+    "x_kernel_infoset_v1"
   ],
   "native_id_audits": {
     "x_kernel_flat_v4": "docs/pauper-luna-panel-20261003.md#visibility-and-policy-inputs"
   },
   "evaluation_engine_inputs": [
+    "${MTG_KERNEL_V2_ENGINE}",
+    "${MTG_KERNEL_V2_G6_DIGEST}",
     "${MTG_KERNEL_V2_OBSERVATION}",
     "${MTG_KERNEL_V2_SEMANTICS}",
     "${MTG_KERNEL_V2_COMBAT}",
