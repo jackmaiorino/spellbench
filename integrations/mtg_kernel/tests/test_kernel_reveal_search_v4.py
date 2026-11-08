@@ -26,6 +26,10 @@ def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+def row_key(value):
+    return digest(value)[:16]
+
+
 def configured(first="p0", *, group=False, minimum=1, offset=0):
     previous, peer, request = setup(first, native_offset=offset)
     request["rules"]["extensions"] = [SCHEMA, INFOSET]
@@ -46,13 +50,13 @@ def configured(first="p0", *, group=False, minimum=1, offset=0):
                 row["semantic"]["pending_sources"] = [{"object_id": f"native-{i}",
                     "zone": "battlefield", "card_name": "Island"} for i in range(3)]
             ids = root["extensions"][FLAT]["row_candidate_ids"]
-            keys = [digest(f"key-{row}") for row in ids]
+            keys = [row_key(f"key-{row}") for row in ids]
         else:
             observation = json.loads(extensions["x_kernel_v5"]["observation_json"])
             stable = observation["own_hand"][0]["stable"]
             result["candidates"].append({"candidate_id": 1, "semantic": {"kind": "play_land",
                 "source": {"object_id": legacy_id(stable), "card_name": "Island", "zone": "hand"}}})
-            ids, keys = [1, 0], [digest("land"), digest("pass")]
+            ids, keys = [1, 0], [row_key("land"), row_key("pass")]
         extensions[FLAT]["row_candidate_ids"] = ids
         extensions[INFOSET] = {"schema": INFOSET, "payload_json": json.dumps(payload),
                               "live_rows": list(range(len(ids))), "row_keys": keys}
@@ -135,9 +139,9 @@ def test_buffered_trigger_search_commits_the_chosen_native_completion_once():
     assert extension["schema"] == WIRE_SCHEMA
     table = extension["composition"]
     assert len(table["completions"]) == 6
-    wanted_key = digest("key-3")
+    wanted_key = row_key("key-3")
     completion = next(row for row in table["completions"] if table["keys"][row["native"][0]] == wanted_key)
-    pool = Pool([wanted_key, digest("unused-key")])
+    pool = Pool([wanted_key, row_key("unused-key")])
     bot = entrant(pool, request, "p0")
 
     first_pick = choose(bot, first)
@@ -160,7 +164,7 @@ def test_buffered_commit_rejects_a_changed_key_or_point_before_native_step(chang
     first = reply(engine, request)
     table = first["seat_decision"]["extensions"][INFOSET]["composition"]
     selected = next(row for row in table["completions"]
-                    if table["keys"][row["native"][0]] == digest("key-3"))
+                    if table["keys"][row["native"][0]] == row_key("key-3"))
     first_pick, last_pick = selected["wire"]
     second = reply(engine, step(first, first_pick))
     assert second["response_type"] == "decision"
@@ -168,12 +172,12 @@ def test_buffered_commit_rejects_a_changed_key_or_point_before_native_step(chang
         trajectory = engine.trajectory
 
         def altered(plan):
-            return [(view, candidate, digest("changed-key")) for view, candidate, _ in trajectory(plan)]
+            return [(view, candidate, row_key("changed-key")) for view, candidate, _ in trajectory(plan)]
 
         engine.trajectory = altered
     elif changed == "live_key":
         row = engine.current["extensions"][FLAT]["row_candidate_ids"].index(3)
-        engine.current["extensions"][INFOSET]["row_keys"][row] = digest("changed-key")
+        engine.current["extensions"][INFOSET]["row_keys"][row] = row_key("changed-key")
     elif changed == "other_candidate":
         engine.current["candidates"][0]["semantic"]["order"] = [0, 1, 2]
     else:
@@ -194,10 +198,10 @@ def test_later_live_rows_use_the_group_root_key_map():
     later = deepcopy(engine.root)
     later["step"] += 1
     row_keys = later["extensions"][INFOSET]["row_keys"]
-    later["extensions"][INFOSET]["row_keys"] = [digest("new-point-map")] * len(row_keys)
+    later["extensions"][INFOSET]["row_keys"] = [row_key("new-point-map")] * len(row_keys)
     proof = {"root_step": engine.root["step"], "row_keys": row_keys}
     later["extensions"]["x_kernel_v2_support"]["reveal_v4_group_rows"] = proof
-    assert engine._live_key(later, 3) == digest("key-3")
+    assert engine._live_key(later, 3) == row_key("key-3")
     proof["root_step"] += 1
     with pytest.raises(ProjectionError, match="published root"):
         engine._live_key(later, 3)
@@ -209,3 +213,19 @@ def test_successor_cannot_emit_closed_list_payloads_on_a_hidden_decklist_board()
     request["rules"]["opponent_decklist"] = "hidden"
     assert reply(engine, request)["error"]["code"] == "unsupported_rule"
     assert not [call for call in peer.calls if call["request_type"] == "reset"]
+
+
+@pytest.mark.parametrize("bad", ["a" * 15, "a" * 17, "a" * 64, "g" * 16, 7])
+def test_native_row_keys_have_their_own_fixed_width_contract(bad):
+    from kernel_engine_reveal_search_v4 import is_digest, is_row_key
+    from kernel_search_reveal_v4 import group_completions
+
+    assert is_row_key(row_key("native"))
+    assert not is_digest(row_key("native"))
+    assert is_digest(digest("payload"))
+    assert not is_row_key(digest("payload"))
+    view = {"extensions": {FLAT: {"row_candidate_ids": [0]}}}
+    with pytest.raises(ProjectionError, match="row keys"):
+        KernelRevealSearchEngineV4._checked_row_keys(view, [bad])
+    with pytest.raises(ProjectionError, match="completion table"):
+        group_completions({"keys": [bad], "completions": [{"wire": [0], "native": [0]}]}, {0})

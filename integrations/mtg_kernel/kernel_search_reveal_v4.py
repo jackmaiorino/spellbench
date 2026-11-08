@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 from kernel_engine_reveal_search_v4 import (
-    INFOSET, WIRE_SCHEMA, ProjectionError, checked_payload, is_digest, opponent_hand,
+    INFOSET, WIRE_SCHEMA, ProjectionError, checked_payload, is_row_key, opponent_hand,
 )
 from kernel_search_bot import BotError, PoolProcess, point_line, search_line, spend
 from spellbench.bot import serve
@@ -44,7 +44,7 @@ def group_completions(value, offered):
     if type(value) is not dict or set(value) != {"keys", "completions"}:
         raise ProjectionError("malformed reveal search composition")
     keys, rows = value["keys"], value["completions"]
-    if (type(keys) is not list or not all(map(is_digest, keys)) or len(keys) != len(set(keys)) or
+    if (type(keys) is not list or not all(map(is_row_key, keys)) or len(keys) != len(set(keys)) or
             type(rows) is not list or not 0 < len(rows) <= 512):
         raise ProjectionError("malformed reveal search completion table")
     choices, seen = [], set()
@@ -134,7 +134,7 @@ class RevealSearchBotV4(UniformBot):
             self.tally["group_point_unavailable"] += 1
             return None
         keys = point.get("keys")
-        if type(keys) is not list or not keys or not all(map(is_digest, keys)):
+        if type(keys) is not list or not keys or not all(map(is_row_key, keys)):
             self.tally["group_keys_unavailable"] += 1
             return None
         usable = [index for index, key in enumerate(keys) if key in compatible]

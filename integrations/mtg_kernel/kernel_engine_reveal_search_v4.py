@@ -22,6 +22,9 @@ INFOSET = "x_kernel_infoset_reveal_v4"
 WIRE_SCHEMA = "mtg-kernel-spellbench-infoset-reveal/v4"
 BRIDGE_FLAG = "--x-kernel-infoset-reveal-v4"
 _DIGEST = re.compile(r"[a-f0-9]{64}\Z")
+# Native infoset_v1::order retains sixteen hexadecimal digits per row key.
+# Payload/state SHA-256 identities remain full-width and use _DIGEST.
+_ROW_KEY = re.compile(r"[a-f0-9]{16}\Z")
 _PRIVATE_SUPPORT = "x_kernel_v2_support"
 _LIVE_GROUP_ROWS = "reveal_v4_group_rows"
 _POINT_SIDEBANDS = {"history", "reveal_meaning_v3", _LIVE_GROUP_ROWS}
@@ -36,6 +39,10 @@ _REFUSALS = {
 
 def is_digest(value):
     return type(value) is str and _DIGEST.fullmatch(value) is not None
+
+
+def is_row_key(value):
+    return type(value) is str and _ROW_KEY.fullmatch(value) is not None
 
 
 def checked_payload(text, hand, viewer=None):
@@ -110,7 +117,7 @@ class KernelRevealSearchEngineV4(KernelRevealEngineV3):
         if keys is None:
             return None
         ids = view["extensions"][FLAT]["row_candidate_ids"]
-        if type(keys) is not list or len(keys) != len(ids) or not all(map(is_digest, keys)):
+        if type(keys) is not list or len(keys) != len(ids) or not all(map(is_row_key, keys)):
             raise ProjectionError("malformed reveal search row keys")
         return keys
 
