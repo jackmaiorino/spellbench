@@ -1,9 +1,10 @@
 """The deck grid: deck-vs-deck scores, deck ratings and per-bot robustness.
 
-A leaderboard gains ``deck_grid`` when its ledger holds an off-mirror game
-(two different decks), which happens on ``all_pairs`` boards. Mirror-only
-ledgers, every board committed before the grid, get no section, so their
-artifacts keep their bytes.
+A leaderboard gains ``deck_grid`` when its ledger holds more than one deck
+pairing and at least one off-mirror game (two different decks), which happens
+on ``all_pairs`` boards. Mirror-only ledgers (every board committed before the
+grid) and fixed-deck ledgers (one pairing, even an off-mirror one) get no
+section, so their artifacts keep their bytes.
 
 The unit is the seat-swapped pair, as for bot ratings. A pair with decks
 (X on p0, Y on p1) gives each bot X once and Y once, so pilot skill cancels
@@ -72,10 +73,10 @@ def row_decks(row: Any) -> list[dict[str, Any]]:
     return [deck.to_json() if hasattr(deck, "to_json") else deck for deck in row.decks]
 
 
-def has_off_mirror(rows: Sequence[Any]) -> bool:
-    """True when some game paired two different decks."""
-    return any(store.canonical_bytes(decks[0]) != store.canonical_bytes(decks[1])
-               for decks in (row_decks(row) for row in rows))
+def is_grid(rows: Sequence[Any]) -> bool:
+    """True when the ledger holds more than one deck pairing and some game paired two different decks."""
+    pairings = {tuple(store.canonical_bytes(deck) for deck in row_decks(row)) for row in rows}
+    return len(pairings) > 1 and any(first != second for first, second in pairings)
 
 
 def _seed(base_seed: int, domain: int, ordinal: int) -> int:
@@ -120,7 +121,7 @@ def build_deck_grid(
 
     ``table_rows`` are the overall leaderboard rows, ranked; they pick the strong pilots.
     """
-    if not has_off_mirror(rows):
+    if not is_grid(rows):
         return None
     ordered = sorted(rows, key=lambda row: row.game_index)
     keys: dict[bytes, str] = {}

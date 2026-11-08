@@ -73,7 +73,10 @@ def build_config(*, benchmark_dir: Path, local: dict[str, str], opponent: str, g
         if missing:
             raise SystemExit(f"decks {missing} are not in the pool {sorted(pool)}")
         doc["deck_pool"] = [pool[deck] for deck in decks]
-    # Every deck plays equally often (the arena requires it): whole rotations of seat-swapped pairs.
+    # A human session plays pool mirrors, even on an all_pairs board: its 64-pair rotation would turn a short
+    # session into 128 games. Every deck plays equally often (the arena requires it): whole rotations of
+    # seat-swapped pairs.
+    doc.pop("deck_pairing", None)
     rotations = max(1, math.ceil(games / (2 * len(doc["deck_pool"]))))
     doc["pairs_per_matchup"] = rotations * len(doc["deck_pool"])
     doc["workers"] = 1

@@ -29,8 +29,9 @@ Conventions (declared in the artifact's ``notes``):
   same ledger: only rated games where BOTH seats carry the tag.
 - Deck slices (when the ledger holds two or more deck pairings) rebuild the
   leaderboard from each pairing's games alone, with the same anchor and
-  prior, through the same code path as the overall table. A ledger with an
-  off-mirror game (an ``all_pairs`` board) slices its mirror pairings only and
+  prior, through the same code path as the overall table. A ledger with more
+  than one pairing and an off-mirror game (an ``all_pairs`` board) slices its
+  mirror pairings only and
   adds ``deck_grid`` (``deck_grid.py``): deck-vs-deck scores, deck ratings
   and per-bot robustness. Mirror-only ledgers get neither change.
 
@@ -593,7 +594,7 @@ def _deck_slices(
     """Per-deck-pairing ratings; empty unless the ledger holds two or more pairings."""
     groups: dict[bytes, list[_Row]] = {}
     decks_by_key: dict[bytes, list[dict[str, Any]]] = {}
-    mirrors_only = deck_grid.has_off_mirror(rows)  # a full grid slices its mirrors; deck_grid covers the rest
+    mirrors_only = deck_grid.is_grid(rows)  # a full grid slices its mirrors; deck_grid covers the rest
     for row in rows:
         # v2 rows carry LedgerDeck dataclasses, which canonical_bytes rejects:
         # normalize each row's decks once and use them everywhere (R2-8).

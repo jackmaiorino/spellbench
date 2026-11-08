@@ -712,6 +712,15 @@ class TournamentConfig:
                 f"pairs (limit {ratings.MAX_BOOTSTRAP_DRAWS}, at most {ratings.MAX_PAIR_COUNT} pairs per "
                 "matchup); lower bootstrap_replicates or pairs_per_matchup"
             )
+        if deck_pairing == "all_pairs":
+            # The deck grid bootstraps every off-mirror pair at once, self-play pairs included.
+            scheduled = len(matchups) if matchups is not None else (
+                len(bots) * (len(bots) - 1) // 2 + (len(bots) if include_self_play else 0))
+            grid_pairs = scheduled * pairs_per_matchup
+            if grid_pairs * bootstrap_replicates > ratings.MAX_BOOTSTRAP_DRAWS:
+                raise TournamentError(
+                    f"{context}: the deck grid's bootstrap would draw {grid_pairs * bootstrap_replicates} pairs "
+                    f"(limit {ratings.MAX_BOOTSTRAP_DRAWS}); lower bootstrap_replicates or pairs_per_matchup")
         return cls(
             tournament_dir=tournament_dir,
             format=format_,

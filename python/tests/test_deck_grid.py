@@ -234,3 +234,47 @@ def test_the_page_shows_deck_matchups_only_for_a_grid_board() -> None:
     assert 'title="Burn vs Elves: 75% of the points, over 2 complete pairs (4 games), 95% interval 50% to 100%"' in page
     assert "Deck Elo (the average deck is 1500)" in page and "1550 to 1640" in page
     assert "differ from what the deck Elo predicts by 1.2 points" in page
+
+
+# ---------------- review findings (Sol, 7036c4e) ----------------
+
+
+def test_a_fixed_off_mirror_ledger_keeps_its_old_artifacts() -> None:
+    # One pairing, even an off-mirror one, is a fixed-deck tournament: no grid, as before all_pairs existed.
+    rows = [row for row in _rows(lambda first, second, p0: "p0") if (row.decks[0]["name"], row.decks[1]["name"]) == (
+        "Burn", "Elves")]
+    assert rows and deck_grid.build_deck_grid(rows, TABLE, base_seed=1, bootstrap_replicates=1000) is None
+
+
+def test_the_snapshot_contract_tells_the_pairings_apart() -> None:
+    from dataclasses import replace
+    from spellbench.arena import snapshot
+
+    benchmark = load_benchmark(REPO / "benchmarks" / "pauper-grid-v1")
+    config = TournamentConfig.from_json(benchmark.tournament_config("benchmarks/pauper-grid-v1/runs/check"))
+    config = replace(config, bots=tuple(replace(bot, evaluation_identity="0" * 64) for bot in config.bots))
+    grid, mirror = snapshot.contract(config), snapshot.contract(replace(config, deck_pairing="mirror"))
+    assert grid["deck_pairing"] == "all_pairs" and "deck_pairing" not in mirror and grid != mirror
+
+
+def test_self_play_counts_toward_the_grid_bootstrap_budget(tmp_path: Path) -> None:
+    document = make_config(tmp_path / "t", [builtin("uniform"), builtin("first")], deck_pool=("Burn", "Elves"),
+                           pairs=20_000, deck_pairing="all_pairs", bootstrap_replicates=2000)
+    with pytest.raises(TournamentError, match="deck grid's bootstrap"):
+        TournamentConfig.from_json(document)
+
+
+def test_a_human_session_on_an_all_pairs_board_plays_mirrors(monkeypatch: Any) -> None:
+    import re
+    from dataclasses import replace
+    from spellbench.human import session
+
+    board = replace(load_benchmark(REPO / "benchmarks" / "pauper-grid-v1"), ladder=None)
+    monkeypatch.setattr(session.definition, "load_benchmark", lambda path: board)
+    text = json.dumps(board.tournament_config("check"))
+    local = {name: "placeholder" for name in re.findall(r"\$\{([A-Za-z0-9_]+)\}", text)}
+    document = session.build_config(benchmark_dir=REPO / "benchmarks" / "pauper-grid-v1", local=local, opponent="g115",
+                                    games=16, run_dir=Path("check"), python="python",
+                                    decision_log=Path("log.jsonl"), bank_minutes=60)
+    assert "deck_pairing" not in document and document["pairs_per_matchup"] == 8
+    assert TournamentConfig.from_json(document).deck_pairing == "mirror"
