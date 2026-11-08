@@ -48,7 +48,6 @@ import hashlib
 import math
 import time
 from dataclasses import replace
-from fractions import Fraction
 from pathlib import Path
 from typing import Any, Callable, Hashable, Mapping, Sequence
 
@@ -165,14 +164,8 @@ def _combined_digest(digests: Sequence[str]) -> str:
     return "sha256:" + hashlib.sha256("".join(digest + "\n" for digest in digests).encode("ascii")).hexdigest()
 
 
-def _trial(play: Play, workers: int, indices: tuple[int, ...],
-           shares: Sequence[Fraction] | None = None) -> tuple[Trial, tuple[str, ...]]:
-    """Play the games once; returns the trial and the games' own digests, in order.
-
-    ``shares`` (one per schedule position: a game's cores over the cores one worker stands for) weights each
-    game's time in the busy time by the workers it holds: its share, capped at ``workers``, since a game larger
-    than the whole budget runs alone. The busy rate ``workers * games / busy`` then stays the completed games
-    per unit of time with every worker's cores occupied, as with equal games."""
+def _trial(play: Play, workers: int, indices: tuple[int, ...]) -> tuple[Trial, tuple[str, ...]]:
+    """Play the games once; returns the trial and the games' own digests, in order."""
     context = f"playing {len(indices)} games with {workers} worker{'s' if workers != 1 else ''}"
     result = play(workers, indices)  # its own errors propagate unchanged
     try:
@@ -195,9 +188,7 @@ def _trial(play: Play, workers: int, indices: tuple[int, ...],
     try:
         trial = Trial(
             workers=workers, games=len(indices), seconds_milli=round(wall * 1000), outputs_digest=_combined_digest(digests),
-            busy_milli=round(sum(game.seconds for game in games) * 1000) if shares is None else
-            round(sum(Fraction(game.seconds) * min(shares[game.index], workers) for game in games) * 1000),
-            row_bytes=sum(game.row_bytes for game in games),
+            busy_milli=round(sum(game.seconds for game in games) * 1000), row_bytes=sum(game.row_bytes for game in games),
             indices=indices,
         )
     except ValidationError as exc:
@@ -414,11 +405,13 @@ def plan_allocation(
     measurement is reused, and a fresh one is appended. ``clock`` times the
     qualification. ``game_cores`` gives each scheduled game's declared cores
     when games differ (per-bot resources): a worker then stands for
-    ``per_game_cores`` cores, ``play`` starts games while their cores fit the
-    workers', and each game's time counts toward a trial's busy time by the
-    workers' cores it holds (``_trial``), so the busy rate stays comparable
-    across rungs. Every input is checked before the first game plays; an
-    empty schedule is refused.
+    ``per_game_cores`` cores and ``play`` starts games while their cores fit
+    the workers'. Workers beyond the schedule's total cores are never useful,
+    and the rungs are ranked by wall completion (``worker_selection`` "wall",
+    recorded in the allocation's rules): busy time assumes every worker's
+    cores stay occupied, which games of different sizes started in schedule
+    order do not guarantee. Every input is checked before the first game
+    plays; an empty schedule is refused.
     """
     if type(games_total) is not int or games_total < 1:
         raise ThroughputError(f"the schedule has no games to qualify (games_total={games_total!r})")
@@ -436,17 +429,19 @@ def plan_allocation(
     for label, value in (("pinned_bytes", pinned_bytes), ("cap_bytes", 0 if cap_bytes is None else cap_bytes)):
         if type(value) is not int or value < 0:
             raise ThroughputError(f"{label}: must be a non-negative integer, got {value!r}")
-    shares = None
+    useful = games_total
     if game_cores is not None:
         if (not isinstance(game_cores, Sequence) or len(game_cores) != games_total
                 or any(type(cores) is not int or cores < 1 for cores in game_cores)):
             raise ThroughputError("game_cores: must give each scheduled game's cores, a positive integer")
-        shares = tuple(Fraction(cores, per_game_cores) for cores in game_cores)
+        useful = -(-sum(game_cores) // per_game_cores)  # the workers' share of every game at once
     order = _sample(sample, games_total)
     note = _placement(placement)
     rules = current_rules() if rules is None else rules
     if not isinstance(rules, QualificationRules):
         raise ThroughputError("rules must be QualificationRules")
+    if game_cores is not None and any(cores != per_game_cores for cores in game_cores):
+        rules = replace(rules, worker_selection="wall")
     if machine is None:
         if volumes is None:
             raise ThroughputError(f"the {RESERVE_BYTES // 2**30} GiB reserve check needs the run_dir and pin_root "
@@ -455,8 +450,9 @@ def plan_allocation(
     if not isinstance(machine, MachineFacts):
         raise ThroughputError("machine: must be MachineFacts (see machine_facts)")
     check_reserve(machine, 0)
-    # More workers than games is never useful (COMPUTE-POLICY.md item 2).
-    bound = min(cap, resource_bound(cpu, per_game_cores), games_total)
+    # More workers than games is never useful (COMPUTE-POLICY.md item 2); with games of different cores, more
+    # workers than the cores of every game at once.
+    bound = min(cap, resource_bound(cpu, per_game_cores), useful)
     indices = _probe_indices(rules, order, games_total, bound)
     if evidence is not None:
         assert workload is not None
@@ -469,7 +465,7 @@ def plan_allocation(
             return _reused(prior, games_total=games_total, placement=note, machine=machine, pinned_bytes=pinned_bytes,
                            cap_bytes=cap_bytes)
     started = clock()
-    probe, probe_digests = _trial(play, 1, indices, shares)
+    probe, probe_digests = _trial(play, 1, indices)
     projected = projected_seconds(probe, games_total)
     budget = _budget(probe, games_total, pinned_bytes, cap_bytes)
     check_reserve(machine, budget.projected_bytes)
@@ -485,7 +481,7 @@ def plan_allocation(
             raise ThroughputError(_placement_needed(projected))
         trials, rung_digests = [probe], [probe_digests]
         for workers in rules.ladder(bound, games_total)[1:]:
-            trial, digests = _trial(play, workers, indices, shares)
+            trial, digests = _trial(play, workers, indices)
             trials.append(trial)
             rung_digests.append(digests)
         identical, outputs_note = _outputs(play, indices, rung_digests)

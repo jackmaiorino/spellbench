@@ -402,7 +402,7 @@ def plan_for(
         identity["job_storage_budget"] = job_storage.settings
     workload = workload_id(identity)
     _hosted_budget_guard(config)
-    # Per-bot resources: games differ in cores, and qualification weighs each game by the workers' cores it holds.
+    # Per-bot resources: games differ in cores; qualification then bounds and ranks the rungs by cores and wall time.
     unit = config.per_game_cores()
     cores = [config.game_cores(*(spec for _, spec in contexts[index].seat_specs)) for index in positions]         if config.per_bot_resources else []
     measured = qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"],

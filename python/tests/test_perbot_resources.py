@@ -234,21 +234,25 @@ def _play(seconds: float):
     return play
 
 
-def test_qualification_weighs_each_game_by_the_workers_it_holds() -> None:
+def test_qualification_ranks_mixed_rungs_by_wall_and_records_it() -> None:
+    from spellbench.arena.allocation import Allocation
+
     plan = {"games_total": 4, "cap": 4, "per_game_cores": 1, "placement": PLACEMENT, "cpu_count": 8, "host": "h",
             "machine": MACHINE}
     plain = plan_allocation(play=_play(2.0), **plan)
-    same = plan_allocation(play=_play(2.0), game_cores=[1, 1, 1, 1], **plan)
-    assert plain == same and plain.probe.busy_milli == 2000 * plain.probe.games
-    weighted = plan_allocation(play=_play(2.0), game_cores=[1, 4, 1, 4], **plan)
-    # The serial probe holds one worker whatever the game's cores (a larger game runs alone): unweighted.
-    assert weighted.probe == plain.probe and weighted.projected_serial_seconds == plain.projected_serial_seconds
+    assert plan_allocation(play=_play(2.0), game_cores=[1, 1, 1, 1], **plan) == plain
+    mixed = plan_allocation(play=_play(2.0), game_cores=[1, 4, 1, 4], **plan)
+    assert plain.rules.worker_selection == "busy" and mixed.rules.worker_selection == "wall"
+    assert mixed.probe == plain.probe and Allocation.from_json(mixed.to_json()) == mixed
 
 
-def test_a_rung_counts_a_large_game_as_several_workers_games() -> None:
-    trial, _ = qualification._trial(_play(1.0), 4, (0, 1, 2), shares=(qualification.Fraction(1),
-                                    qualification.Fraction(4), qualification.Fraction(8)))
-    assert trial.busy_milli == 1000 + 4000 + 4000  # capped at the rung's four workers
+def test_the_worker_bound_counts_cores_not_games() -> None:
+    # Rerunning two 4-core games of a schedule whose cheapest game holds one core: both fit eight cores at once.
+    two = plan_allocation(games_total=2, cap=8, per_game_cores=1, play=_play(1.0), placement=None, cpu_count=8,
+                          host="h", machine=MACHINE, game_cores=[4, 4])
+    assert two.kind == "small" and two.workers == 8
+    assert plan_allocation(games_total=2, cap=8, per_game_cores=1, play=_play(1.0), placement=None, cpu_count=8,
+                           host="h", machine=MACHINE).workers == 2
 
 
 @pytest.mark.parametrize("cores", [[1, 1, 1], [1, 0, 1, 1], [1, True, 1, 1], "1111"])
