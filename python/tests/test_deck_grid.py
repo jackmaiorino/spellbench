@@ -278,3 +278,10 @@ def test_a_human_session_on_an_all_pairs_board_plays_mirrors(monkeypatch: Any) -
                                     decision_log=Path("log.jsonl"), bank_minutes=60)
     assert "deck_pairing" not in document and document["pairs_per_matchup"] == 8
     assert TournamentConfig.from_json(document).deck_pairing == "mirror"
+
+
+def test_mirror_pairs_stay_out_of_the_grid_bootstrap_budget(tmp_path: Path) -> None:
+    # 3 matchups (self-play on) x 12,000 pairs, half of them off-mirror: 36 million draws, under the limit.
+    document = make_config(tmp_path / "t", [builtin("uniform"), builtin("first")], deck_pool=("Burn", "Elves"),
+                           pairs=12_000, deck_pairing="all_pairs", bootstrap_replicates=2000)
+    assert TournamentConfig.from_json(document).deck_pairing == "all_pairs"
