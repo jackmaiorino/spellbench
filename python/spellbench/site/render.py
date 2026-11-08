@@ -512,7 +512,7 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         [
             f"engine {_e(engine['name'])} {_e(engine['version'])}",
             _count(len(view["decks"]), "deck"),
-            "same deck in both seats",
+            "every deck pairing" if view.get("deck_pairing") == "all_pairs" else "same deck in both seats",
             _protocol_label(view["protocol"]),
         ]
     )
@@ -525,6 +525,7 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
            "</figure>"] if view.get("chart") else []),
         _leaderboards(view),
         _grid(view["grid"], _panel_opponents(view)),
+        *([_deck_grid(view["deck_grid"])] if view.get("deck_grid") else []),
         '<section class="about">',
         "<h2>About this run</h2>",
         _run_box(view["run"]),
@@ -1281,7 +1282,11 @@ def _leaderboards(view: Mapping[str, Any]) -> str:
     by_deck = ['<h2 class="panel-title">By deck</h2>']
     if view["deck_tables"]:
         pairs = _count(view["pairs_per_deck"], "seat-swapped pair")
-        by_deck.append(_note(f"Each deck is rated on its own games ({pairs} per matchup), still anchored on the random bot."))
+        if view.get("deck_pairing") == "all_pairs":
+            by_deck.append(_note("Each deck's mirror games, rated on their own and still anchored on the random bot. "
+                                 "Off-mirror games are under Deck matchups."))
+        else:
+            by_deck.append(_note(f"Each deck is rated on its own games ({pairs} per matchup), still anchored on the random bot."))
         by_deck += [_deck_section(table) for table in view["deck_tables"]]
     else:
         by_deck.append(_note("This benchmark uses one deck pairing; see Overall."))
@@ -1524,6 +1529,77 @@ def _grid_cell(row: tuple[str, str], col: tuple[str, str], cell: Mapping[str, An
     return f'<td {position} title="{sample}"{tint}>{share}</td>'
 
 
+def _deck_grid(grid: Mapping[str, Any]) -> str:
+    """Deck matchups: each report's deck-vs-deck matrix and deck Elo, then each bot's score by deck.
+
+    Matrix cells reuse the matchup grid's tint; their title adds the 95% interval. The robustness tables tint each
+    bot's score against even, by its own deck and by its opponent's.
+    """
+    decks = grid["decks"]
+    head = "".join(f'<th scope="col">{_e(deck)}</th>' for deck in decks)
+    parts = ['<section class="matchups deck-grid">', "<h2>Deck matchups</h2>",
+             _note("Every pairing of the pool's decks, with each bot piloting both sides of every pair, so pilot skill "
+                   "cancels. Each cell is the row deck's share of the points against the column deck.")]
+    for report in grid["reports"]:
+        title = "All games" if report["pilots"] == "all" else "Strong pilots (top half of the table)"
+        rows = []
+        for i, deck in enumerate(decks):
+            tds = "".join(_deck_cell(deck, decks[j], report["cells"][i][j], i == j) for j in range(len(decks)))
+            rows.append(f'<tr><th scope="row">{_e(deck)}</th>{tds}</tr>')
+        parts += [f"<h3>{title}</h3>", '<div class="table-wrap">', '<table class="grid">',
+                  f'<thead><tr><th scope="col"><span class="sr-only">Deck</span></th>{head}</tr></thead>',
+                  "<tbody>", *rows, "</tbody>", "</table>", "</div>"]
+        if report["ratings"]:
+            body = []
+            for row in report["ratings"]:
+                ci = row["ci95_elo_milli"]
+                interval = "" if ci is None else f"{format_elo(ci[0])} to {format_elo(ci[1])}"
+                body.append(f'<tr><td>{_e(row["deck"])}</td><td class="num">{format_elo(row["elo_milli"])}</td>'
+                            f'<td class="num">{interval}</td></tr>')
+            parts += ['<div class="table-wrap">', '<table class="deck-elo">',
+                      "<caption>Deck Elo (the average deck is 1500)</caption>",
+                      '<thead><tr><th scope="col">Deck</th><th scope="col" class="num">Elo</th>'
+                      '<th scope="col" class="num">95% interval</th></tr></thead>',
+                      "<tbody>", *body, "</tbody>", "</table>", "</div>"]
+            if report["residual"] is not None:
+                parts.append(_note(f"Matchups are not fully transitive: the observed shares differ from what the "
+                                   f"deck Elo predicts by {report['residual'] * 100:.1f} points (RMS)."))
+    if grid["robustness"]:
+        for field, caption in (("by_own_deck", "Each bot's share of the points by its own deck"),
+                               ("by_opponent_deck", "Each bot's share of the points by its opponent's deck")):
+            rows = []
+            for bot in grid["robustness"]:
+                tds = "".join(_deck_cell(bot["label"], deck, None if value is None else {"score": value}, False)
+                              for deck, value in zip(decks, bot[field]))
+                link = _model_link("../../", bot["name"], bot["label"], bot["description"])
+                rows.append(f'<tr><th scope="row">{link}</th>{tds}</tr>')
+            parts += [f"<h3>{caption}</h3>", '<div class="table-wrap">', '<table class="grid">',
+                      f'<thead><tr><th scope="col"><span class="sr-only">Bot</span></th>{head}</tr></thead>',
+                      "<tbody>", *rows, "</tbody>", "</table>", "</div>"]
+    parts.append("</section>")
+    return "\n".join(parts)
+
+
+def _deck_cell(row: str, col: str, cell: Mapping[str, Any] | None, self_cell: bool) -> str:
+    """One deck-grid cell, tinted like a matchup cell; titled with its sample and interval when it has them."""
+    position = f'data-row="{_e(row)}" data-col="{_e(col)}"'
+    if cell is None:
+        return f'<td {position} class="{"self" if self_cell else "none"}"></td>'
+    percent = round(cell["score"] * 100)
+    strength = abs(percent - 50) * _TINT_MAX // 50
+    tint = ""
+    if strength:
+        tone = "accent" if percent > 50 else "warn"
+        tint = f' style="background: color-mix(in srgb, var(--{tone}) {strength}%, transparent)"'
+    share = format_share(cell["score"])
+    title = f"{_e(row)} vs {_e(col)}: {share} of the points"
+    if "complete_pairs" in cell:
+        title += f", over {_count(cell['complete_pairs'], 'complete pair')} ({_count(2 * cell['complete_pairs'], 'game')})"
+    if cell.get("low") is not None:
+        title += f", 95% interval {format_share(cell['low'])} to {format_share(cell['high'])}"
+    return f'<td {position} title="{title}"{tint}>{share}</td>'
+
+
 def _details(view: Mapping[str, Any]) -> str:
     """The run's setup with the engine identity, and how to re-check the run."""
     engine, run = view["engine"], view["run"]
@@ -1532,7 +1608,9 @@ def _details(view: Mapping[str, Any]) -> str:
         ("Protocol", _protocol_id(view["protocol"])),
         ("Format", _e(view["format"])),
         ("Decks", ", ".join(_e(deck) for deck in view["decks"])),
-        ("Schedule", f"{_count(view['pairs_per_deck'], 'seat-swapped pair')} per deck in each matchup"),
+        ("Schedule", f"{_count(view['pairs_per_deck'] // len(view['decks']), 'seat-swapped pair')} per ordered deck "
+                     "pairing in each matchup" if view.get("deck_pairing") == "all_pairs"
+         else f"{_count(view['pairs_per_deck'], 'seat-swapped pair')} per deck in each matchup"),
         *[(_e(rule["term"]), _e(rule["value"])) for rule in view["setup_rules"]],
         ("Engine", _e(engine["name"])),
         ("Engine version", _e(engine["version"])),

@@ -16,6 +16,7 @@ hosts never enable the probe (spec 9.7, 12.2).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import combinations_with_replacement
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,7 @@ DEFAULT_WORKERS = 1
 # How a game's declared cores add up (spec 11.4): "concurrent" reserves the engine's and both seats' cores at once;
 # "sequential" reserves the larger share, since the engine and the seats take turns.
 CORE_ACCOUNTING = ("concurrent", "sequential")
+DECK_PAIRINGS = ("mirror", "all_pairs")  # deck_pairing: pool decks in both seats, or every pool deck pairing
 
 BOT_TYPES = frozenset({"builtin", "subprocess"})
 
@@ -408,21 +410,41 @@ class TournamentConfig:
     evaluation_engine_inputs: tuple[str, ...] = ()
     core_accounting: str = "concurrent"
     ladder: Ladder | None = None
+    deck_pairing: str = "mirror"
+
+    def deck_cycle(self) -> tuple[tuple[DeckSpec, DeckSpec], ...]:
+        """The (p0, p1) deck pairings that pairs cycle through, in schedule order.
+
+        ``mirror``: each pool deck in both seats. ``all_pairs``: every pool deck pairing, in
+        ``combinations_with_replacement`` order over the pool, an off-mirror pairing as (X, Y) then (Y, X);
+        a seat-swapped pair already gives each bot both decks, and the reversed pair puts the other deck on
+        the play. One cycle is ``len(deck_pool) ** 2`` pairs.
+        """
+        if self.deck_pool is None:
+            assert self.decks is not None
+            return (self.decks,)
+        if self.deck_pairing == "mirror":
+            return tuple((deck, deck) for deck in self.deck_pool)
+        cycle: list[tuple[DeckSpec, DeckSpec]] = []
+        for first, second in combinations_with_replacement(self.deck_pool, 2):
+            cycle.append((first, second))
+            if first != second:
+                cycle.append((second, first))
+        return tuple(cycle)
 
     def decks_for_pair(self, pair_index: int) -> tuple[DeckSpec, DeckSpec]:
         """The (p0, p1) decks of both games of pair ``pair_index``."""
         if self.deck_pool is None:
             assert self.decks is not None
             return self.decks
-        deck = self.deck_pool[pair_index % len(self.deck_pool)]
-        return (deck, deck)
+        cycle = self.deck_cycle()
+        return cycle[pair_index % len(cycle)]
 
     def preflight_deck_pairs(self) -> tuple[tuple[DeckSpec, DeckSpec], ...]:
-        """Every deck pairing the schedule uses, in first-use order."""
-        if self.deck_pool is None:
-            assert self.decks is not None
-            return (self.decks,)
-        return tuple((deck, deck) for deck in self.deck_pool)
+        """Every deck pairing the schedule uses, in first-use order; a reversed pairing is the same reset."""
+        if self.deck_pool is None or self.deck_pairing == "mirror":
+            return self.deck_cycle()
+        return tuple(combinations_with_replacement(self.deck_pool, 2))
 
     def deck_specs(self) -> tuple[DeckSpec, ...]:
         """The distinct decks the schedule uses, in first-use order."""
@@ -501,6 +523,8 @@ class TournamentConfig:
         }
         if self.core_accounting != "concurrent":  # the default stays unwritten, so existing configs keep their bytes
             doc["core_accounting"] = self.core_accounting
+        if self.deck_pairing != "mirror":  # likewise
+            doc["deck_pairing"] = self.deck_pairing
         if self.deck_pool is None:
             assert self.decks is not None
             doc["decks"] = [deck.to_json() for deck in self.decks]
@@ -558,6 +582,7 @@ class TournamentConfig:
             "evaluation_engine_inputs",
             "core_accounting",
             "ladder",
+            "deck_pairing",
         }
         required = {
             "schema",
@@ -622,10 +647,20 @@ class TournamentConfig:
         if len(set(names)) != len(names):
             raise TournamentError(f"{context}.bots: names must be unique, got {names}")
         pairs_per_matchup = _req_uint(value["pairs_per_matchup"], f"{context}.pairs_per_matchup", minimum=1)
-        if deck_pool is not None and pairs_per_matchup % len(deck_pool):
+        deck_pairing = value.get("deck_pairing", "mirror")
+        if deck_pairing not in DECK_PAIRINGS:
+            raise TournamentError(f"{context}.deck_pairing: must be one of {', '.join(DECK_PAIRINGS)}")
+        if deck_pairing != "mirror" and deck_pool is None:
+            raise TournamentError(f"{context}.deck_pairing: {deck_pairing} needs a deck_pool")
+        if deck_pool is not None and deck_pairing == "mirror" and pairs_per_matchup % len(deck_pool):
             raise TournamentError(
                 f"{context}.pairs_per_matchup: {pairs_per_matchup} is not a multiple of the "
                 f"{len(deck_pool)} deck_pool decks (every matchup plays every deck equally)"
+            )
+        if deck_pool is not None and deck_pairing == "all_pairs" and pairs_per_matchup % len(deck_pool) ** 2:
+            raise TournamentError(
+                f"{context}.pairs_per_matchup: {pairs_per_matchup} is not a multiple of {len(deck_pool) ** 2}, "
+                f"the {len(deck_pool)}x{len(deck_pool)} deck pairings (every matchup plays every pairing equally)"
             )
         include_self_play = value.get("include_self_play", True)
         if type(include_self_play) is not bool:
@@ -730,6 +765,17 @@ class TournamentConfig:
                 f"pairs (limit {ratings.MAX_BOOTSTRAP_DRAWS}, at most {ratings.MAX_PAIR_COUNT} pairs per "
                 "matchup); lower bootstrap_replicates or pairs_per_matchup"
             )
+        if deck_pairing == "all_pairs":
+            # The deck grid bootstraps every off-mirror pair at once, self-play pairs included; mirror pairs, one
+            # in every len(deck_pool) of each cycle, stay out of it.
+            assert deck_pool is not None
+            scheduled = len(matchups) if matchups is not None else (
+                len(bots) * (len(bots) - 1) // 2 + (len(bots) if include_self_play else 0))
+            grid_pairs = scheduled * pairs_per_matchup * (len(deck_pool) - 1) // len(deck_pool)
+            if grid_pairs * bootstrap_replicates > ratings.MAX_BOOTSTRAP_DRAWS:
+                raise TournamentError(
+                    f"{context}: the deck grid's bootstrap would draw {grid_pairs * bootstrap_replicates} pairs "
+                    f"(limit {ratings.MAX_BOOTSTRAP_DRAWS}); lower bootstrap_replicates or pairs_per_matchup")
         return cls(
             tournament_dir=tournament_dir,
             format=format_,
@@ -756,4 +802,5 @@ class TournamentConfig:
             evaluation_engine_inputs=tuple(engine_inputs),
             core_accounting=core_accounting,
             ladder=ladder,
+            deck_pairing=deck_pairing,
         )

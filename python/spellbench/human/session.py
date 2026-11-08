@@ -73,7 +73,10 @@ def build_config(*, benchmark_dir: Path, local: dict[str, str], opponent: str, g
         if missing:
             raise SystemExit(f"decks {missing} are not in the pool {sorted(pool)}")
         doc["deck_pool"] = [pool[deck] for deck in decks]
-    # Every deck plays equally often (the arena requires it): whole rotations of seat-swapped pairs.
+    # A human session plays pool mirrors, even on an all_pairs board: its 64-pair rotation would turn a short
+    # session into 128 games. Every deck plays equally often (the arena requires it): whole rotations of
+    # seat-swapped pairs.
+    doc.pop("deck_pairing", None)
     rotations = max(1, math.ceil(games / (2 * len(doc["deck_pool"]))))
     doc["pairs_per_matchup"] = rotations * len(doc["deck_pool"])
     doc["workers"] = 1
@@ -81,6 +84,12 @@ def build_config(*, benchmark_dir: Path, local: dict[str, str], opponent: str, g
     # startup_ms also bounds the human seat's hello, which waits for "next game" between games.
     doc["time_control"] = {**doc["time_control"], "startup_ms": 4 * 3_600_000, "bank_ms": bank,
                            "max_decision_ms": bank}
+    return resolve_local(doc, local)
+
+
+def resolve_local(doc: dict[str, Any], local: dict[str, str]) -> dict[str, Any]:
+    """``doc`` with every ``${NAME}`` placeholder replaced from the local values file (an environment variable of a
+    name the file lists wins); a placeholder left without a value stops the session."""
     values = {**local, **{k: v for k, v in os.environ.items() if k in local}}
 
     def resolve(node: Any) -> Any:

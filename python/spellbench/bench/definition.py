@@ -9,7 +9,9 @@ a day has no suffix, later ones ``-2``, ``-3``, and so on. The site shows the
 latest published run.
 
 Benchmarks fix their information rules (spec 12.2): the opponent's decklist
-is visible, since both seats of a rotating pool play the same list; the
+is visible, since both seats of a rotating pool play the same list (an
+``all_pairs`` benchmark, which plays every pool deck pairing, shows it too:
+its pool is public); the
 mulligan is ``auto``, London where the engine supports it and none
 otherwise; and the host assigns the start to seat ``p0``, since
 seat-swapped pairs already balance play and draw. The probe stays off (spec
@@ -84,6 +86,7 @@ RUN_NAME_PATTERN = re.compile(r"([0-9]{4}-[0-9]{2}-[0-9]{2})(?:-([2-9]|[1-9][0-9
 _V1_SCHEMA = "spellbench-benchmark/v1"
 _ROTATING_POOL = "rotating_pool"
 _FIXED_DECK = "fixed_deck"
+_ALL_PAIRS = "all_pairs"  # every pool deck pairing, not only mirrors
 _ID_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 _NAME_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _REQUIRED_FIELDS = (
@@ -195,6 +198,7 @@ class Benchmark:
     core_accounting: str = "concurrent"
     ladder: Ladder | None = None
     excluded_runs: tuple[tuple[str, str], ...] = ()  # (run name, reason)
+    pairing: str = _ROTATING_POOL  # rotating_pool plays pool mirrors; all_pairs plays every pool deck pairing
 
     def qualification_rules(self):
         from ..arena.qualification import current_rules
@@ -238,6 +242,8 @@ class Benchmark:
         }
         if self.core_accounting != "concurrent":
             document["core_accounting"] = self.core_accounting
+        if self.pairing == _ALL_PAIRS:
+            document["deck_pairing"] = _ALL_PAIRS
         if self.opponent_panel:
             targets = {bot.name for bot in self.bots} if self.evaluation_targets is None else set(self.evaluation_targets)
             active = set(self.opponent_panel) | targets | {ANCHOR_BOT}
@@ -372,8 +378,8 @@ def _refuse_fixed_deck(document: dict[str, Any], context: str) -> None:
         raise BenchmarkError(f"{context}.pairing: {reserved}")
     if "entries" in document:
         raise BenchmarkError(f"{context}.entries: {reserved}; a benchmark rotates its deck_pool")
-    if pairing != _ROTATING_POOL:
-        raise BenchmarkError(f'{context}.pairing: must be "{_ROTATING_POOL}"; {reserved}')
+    if pairing not in (_ROTATING_POOL, _ALL_PAIRS):
+        raise BenchmarkError(f'{context}.pairing: must be "{_ROTATING_POOL}" or "{_ALL_PAIRS}"; {reserved}')
 
 
 def _refuse_v1(document: dict[str, Any], context: str) -> None:
@@ -664,7 +670,12 @@ def parse_benchmark(value: Any) -> Benchmark:
         evaluation_engine_inputs=tuple(_strings(document["evaluation_engine_inputs"], "benchmark.evaluation_engine_inputs")) if "evaluation_engine_inputs" in document else (),
         ladder=ladder,
         excluded_runs=tuple((item["run"], item["reason"]) for item in excluded),
+        pairing=document.get("pairing", _ROTATING_POOL),
     )
+    if benchmark.pairing == _ALL_PAIRS and benchmark.pairs_per_deck % len(benchmark.deck_pool):
+        raise BenchmarkError(
+            f"{context}.pairs_per_deck: all_pairs plays every one of the {len(benchmark.deck_pool) ** 2} ordered deck "
+            f"pairings equally, so pairs_per_deck must be a multiple of the {len(benchmark.deck_pool)} pool decks")
     _check_placeholders(benchmark, context)
     _check_arena_config(benchmark, context)
     return benchmark

@@ -75,7 +75,8 @@ def contract(config: TournamentConfig) -> dict[str, Any]:
     doc = config.to_json()
     keys = ("format", "engine", "deck_pool", "decks", "pairs_per_matchup", "rules", "extensions",
             "native_id_audits", "time_control", "limits", "resources", "rating_anchor",
-            "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs")
+            "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs",
+            "deck_pairing")  # written only for all_pairs, so mirror boards keep their contract
     conditions = {key: doc[key] for key in keys if key in doc}
     if config.ladder is not None:
         # A ladder block is one matchup under these conditions; select_blocks matches both players' inputs. The
