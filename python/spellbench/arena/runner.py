@@ -282,6 +282,7 @@ def play_one(
     entries: dict[str, RegistryEntry],
     launch_files: Sequence[EngineFile] = (),
     recording: dict | None = None,
+    starting_bank_ms: tuple[int, int] | None = None,
 ) -> GameOutcome:
     """Play one scheduled game in its own engine process and seat drivers; returns its ledger row.
 
@@ -290,11 +291,15 @@ def play_one(
     caller checks against the run's pin (R3-5). The engine gets ``startup_ms``
     to start and answer ``hello``; one that does not halts this game only
     (spec 11.5, R3-23). A host fault from ``play_game`` propagates, and every
-    process is closed whatever happens.
+    process is closed whatever happens. ``starting_bank_ms`` (p0, p1) starts each
+    seat's bank where an earlier game of a match left it (``GameSetup``); the
+    outcome then reports each seat's remaining bank. The arena never passes it.
     """
     verify_files(launch_files)
     engine_records.assert_current(recording)
     game = game_setup(config, setup, context, RunSecret.from_hex(run_secret_hex))
+    if starting_bank_ms is not None:
+        game = dataclasses.replace(game, starting_bank_ms=starting_bank_ms)
     with contextlib.ExitStack() as stack:
         capture = None if recording is None else engine_records.EngineRecord(recording, context)
         if capture is not None:
@@ -364,6 +369,7 @@ def _unstarted(
         adjudication={"kind": "halt", "detail": detail}, step_count=0, decision_count=0, decisions_checked=0,
         last_selection_seat=None, game_digest=digest.value(), violation=None,
         diagnostics=(f"engine start: {type(exc).__name__}: {exc}",),
+        remaining_bank_ms=None if game.starting_bank_ms is None else dict(zip(("p0", "p1"), game.starting_bank_ms)),
     )
     return _outcome(config, setup, context, entries, result, setup.engine)
 
@@ -417,7 +423,8 @@ def _outcome(
     violation = None
     if result.violation is not None:
         violation = {"game_index": context.game_index, "game_id": context.game_id, **result.violation}
-    return GameOutcome(row=row, diagnostics=result.diagnostics, violation=violation, engine=identity.to_json())
+    return GameOutcome(row=row, diagnostics=result.diagnostics, violation=violation, engine=identity.to_json(),
+                       remaining_bank_ms=result.remaining_bank_ms)
 
 
 @dataclass(frozen=True)

@@ -90,6 +90,29 @@ published value remains exact. Smaller values retain integer fields.
   A script that calls `run_tournament` with `workers` above 1 needs an
   `if __name__ == "__main__":` guard.
 
+## Match mode
+
+`python -m spellbench.human.match` plays best-of-three matches between two
+players, a bot entry or `human` (the play page). Each player has one bank
+(default 1,500,000 ms, no increment) for the whole match, and a decision may
+use all of what is left. A bank that reaches 0 is a flag and loses the match.
+A match ends at 2 game wins, a flag, or after 3 games (draws and halts use a
+game; equal wins then draw the match). Seats alternate every game; match `m`
+is a mirror on deck `m` of `--decks` (default: the source's pool). Time
+between games is off the clock. Results go to `games.jsonl` (each game's row
+and both banks) and `matches.json` (per match and totals, including
+`flags_total`). Games are unrated and play one at a time.
+
+Bots come verbatim from an arena config (`--config`) or from a benchmark
+(`--benchmark` with `--local`); `--decision-log DIR` adds that flag to the
+seated subprocess bots. For example, eight matches of a search
+entrant against its base policy, from a soak config, with no browser:
+
+```bash
+python -m spellbench.human.match --config soak-config.json \
+  --players w1-16k-k4,oh2-r2s1-b512 --matches 8 --out runs/ac5b-match
+```
+
 ## Benchmarks
 
 For LLM entries, [reference panels](docs/reference-panels.md) support adding

@@ -29,7 +29,11 @@ Clocks and caps (spec 11.4, Task 29) run through three hooks. Each seat has a Fi
 (``host.clock.SeatClock``): ``choose`` shows the bank as it stands before that decision and
 is bounded by ``_budget_ms``, the smaller of the bank and ``max_decision_ms``; ``_charge``
 then charges the answer's wall time, in whole milliseconds rounded up, and an answer over
-either limit is a ``timeout`` forfeit even though it arrived. ``_after_answer`` counts every
+either limit is a ``timeout`` forfeit even though it arrived. A decision that ends the game as
+a ``timeout`` or ``transport_error`` forfeit is still charged its wall time (a driver timeout at
+least its whole budget), the bank floored at 0, so a seat that ran out of bank ends with 0. ``GameSetup.starting_bank_ms`` starts each
+seat's bank where an earlier game of a match left it, and only then does the result report
+each seat's remaining bank (``GameResult.remaining_bank_ms``). ``_after_answer`` counts every
 answered decision toward the seat's caps and the stalling window over both seats' last 250
 answers, that one included. When the answer reaches a cap, the host rules at once, before
 that answer's ``step`` is sent (Decision 5), and ``step_count`` still counts it (R3-12): a
@@ -75,6 +79,8 @@ class GameResult:
     before its ``step`` is sent: Decision 5), and ``decision_count`` the completed groups
     the validator counted (R3-12). ``last_selection_seat`` is the seat of the last
     answered decision for a halted or truncated game, else ``None``.
+    ``remaining_bank_ms`` is ``{"p0": ms, "p1": ms}``, each seat's bank when the game ended,
+    when the setup gave ``starting_bank_ms``; otherwise ``None``.
     """
 
     outcome: str
@@ -89,6 +95,7 @@ class GameResult:
     game_digest: str
     violation: dict[str, str] | None
     diagnostics: tuple[str, ...]
+    remaining_bank_ms: dict[str, int] | None = None
 
 
 def _other(seat: str) -> str:
@@ -138,6 +145,11 @@ class _Game:
         time_control, limits = setup.time_control, setup.limits
         self.clocks = {seat: SeatClock(time_control.bank_ms, time_control.increment_ms, time_control.max_decision_ms)
                        for seat in SEATS}
+        if setup.starting_bank_ms is not None:
+            for seat, bank_ms in zip(SEATS, setup.starting_bank_ms):
+                if type(bank_ms) is not int or bank_ms < 0:
+                    raise ValueError(f"starting_bank_ms for {seat} must be an integer at least 0, got {bank_ms!r}")
+                self.clocks[seat].remaining_ms = bank_ms
         self.caps = SeatCaps(per_turn=limits.max_seat_decisions_per_turn,
                              groups_per_game=limits.max_seat_decisions_per_game,
                              steps_per_game=limits.max_seat_steps_per_game)
@@ -249,6 +261,8 @@ class _Game:
             choice = self.seats[seat].choose(payload, timeout_s=budget_ms / 1000)
         except SeatFailure as failure:
             if failure.cause in _SILENCING_CAUSES:
+                # A timeout ran out the whole budget, the bank itself when the bank was the tighter limit.
+                self._spend(seat, max(budget_ms if failure.cause == "timeout" else 0, self._elapsed_ms(started_ns)))
                 self._silence(seat)
                 return self._forfeit(seat, failure)
             # Spec 11.4: a decision that exceeds its budget is a timeout, whatever came back. The peer's write and
@@ -352,8 +366,14 @@ class _Game:
         """Charge an answer's time to the seat's bank; over ``max_decision_ms`` or the bank, it forfeits ``timeout``."""
         if self.clocks[seat].charge(elapsed_ms):
             return None
+        self._spend(seat, elapsed_ms)
         return self._forfeit_for(seat, "timeout",
                                  f"the answer to choose at seat step {sd['seat_step']} exceeded the seat's clock")
+
+    def _spend(self, seat: str, elapsed_ms: int) -> None:
+        """Charge a decision that ends the game; the bank floors at 0 (module docstring)."""
+        clock = self.clocks[seat]
+        clock.remaining_ms = max(0, clock.remaining_ms - elapsed_ms)
 
     def _after_answer(self, seat: str, sd: Mapping[str, Any], candidate_id: int) -> GameResult | None:
         """Count the answer toward the stalling window and the seat's caps; rule at once if it reaches a cap.
@@ -460,6 +480,8 @@ class _Game:
             step_count=self.validator.answered_steps, decision_count=self.validator.completed_groups,
             decisions_checked=self.validator.decisions_checked, last_selection_seat=last_selection_seat,
             game_digest=self.digest.value(), violation=violation, diagnostics=tuple(self.diagnostics),
+            remaining_bank_ms=None if self.setup.starting_bank_ms is None else {
+                seat: self.clocks[seat].remaining_ms for seat in SEATS},
         )
 
 

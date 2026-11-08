@@ -18,6 +18,10 @@ class GameSetup:
 
     ``game_secret_hex`` is declared ``field(repr=False)`` (R3-28): the dataclass repr never
     prints it, so logging or erroring on a ``GameSetup`` cannot leak the secret.
+
+    ``starting_bank_ms`` is ``(p0, p1)``: each seat's bank when this game starts, for a match
+    whose bank carries across games (``spellbench.human.match``). ``None``, the default, starts
+    both seats at ``time_control.bank_ms``, as every arena game does.
     """
 
     game_index: int
@@ -31,3 +35,4 @@ class GameSetup:
     limits: Limits
     resources: Resources
     agent_seeds: tuple[int, int]
+    starting_bank_ms: tuple[int, int] | None = None

@@ -84,6 +84,12 @@ def build_config(*, benchmark_dir: Path, local: dict[str, str], opponent: str, g
     # startup_ms also bounds the human seat's hello, which waits for "next game" between games.
     doc["time_control"] = {**doc["time_control"], "startup_ms": 4 * 3_600_000, "bank_ms": bank,
                            "max_decision_ms": bank}
+    return resolve_local(doc, local)
+
+
+def resolve_local(doc: dict[str, Any], local: dict[str, str]) -> dict[str, Any]:
+    """``doc`` with every ``${NAME}`` placeholder replaced from the local values file (an environment variable of a
+    name the file lists wins); a placeholder left without a value stops the session."""
     values = {**local, **{k: v for k, v in os.environ.items() if k in local}}
 
     def resolve(node: Any) -> Any:

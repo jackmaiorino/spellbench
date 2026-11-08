@@ -26,7 +26,7 @@ from __future__ import annotations
 import multiprocessing
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import islice
 from typing import Callable, Sequence, TypeVar
 
@@ -46,13 +46,16 @@ class GameOutcome:
 
     ``violation`` is ``{"game_index", "game_id", "rule", "detail"}`` when live
     validation halted the game (spec 11.3), else None; ``engine`` is the
-    identity the game's engine process reported.
+    identity the game's engine process reported. ``remaining_bank_ms`` is each seat's bank when
+    the game ended (``host.game.GameResult``) for a game started with a per-seat bank, else None;
+    it never enters the ledger row.
     """
 
     row: LedgerRow
     diagnostics: tuple[str, ...]
     violation: dict | None
     engine: dict
+    remaining_bank_ms: dict | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True)
