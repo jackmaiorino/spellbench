@@ -22,6 +22,9 @@ INFOSET = "x_kernel_infoset_reveal_v4"
 WIRE_SCHEMA = "mtg-kernel-spellbench-infoset-reveal/v4"
 BRIDGE_FLAG = "--x-kernel-infoset-reveal-v4"
 _DIGEST = re.compile(r"[a-f0-9]{64}\Z")
+_PRIVATE_SUPPORT = "x_kernel_v2_support"
+_LIVE_GROUP_ROWS = "reveal_v4_group_rows"
+_POINT_SIDEBANDS = {"history", "reveal_meaning_v3", _LIVE_GROUP_ROWS}
 _REFUSALS = {
     "R1": R1_SUBCLASSES | R1_REVEAL_SUBCLASSES,
     "R2": R2_SURFACE_SUBCLASSES | {"export"},
@@ -90,7 +93,8 @@ class KernelRevealSearchEngineV4(KernelRevealEngineV3):
                                rules_snapshot_id=identity["rules_snapshot_id"])
         self.hello["extensions"].append({"name": INFOSET, "native_ids": False})
         EnvHelloOk.from_json(self.hello)
-        self._group_search = False
+        self._group_keys = None
+        self._group_wire = ()
         self._expected_commit = None
 
     def reset(self, request):
@@ -102,25 +106,53 @@ class KernelRevealSearchEngineV4(KernelRevealEngineV3):
         return super().reset({**request, "rules": {**request["rules"], "extensions": [SCHEMA]}})
 
     @staticmethod
-    def _row_keys(view):
+    def _checked_row_keys(view, keys):
+        if keys is None:
+            return None
+        ids = view["extensions"][FLAT]["row_candidate_ids"]
+        if type(keys) is not list or len(keys) != len(ids) or not all(map(is_digest, keys)):
+            raise ProjectionError("malformed reveal search row keys")
+        return keys
+
+    @classmethod
+    def _row_keys(cls, view):
         ext = view["extensions"].get(INFOSET)
         if ext is None:
             return None
         if type(ext) is not dict or ext.get("schema") != INFOSET:
             raise ProjectionError("unknown reveal search preview schema")
-        keys = ext.get("row_keys")
+        return cls._checked_row_keys(view, ext.get("row_keys"))
+
+    def _live_key(self, view, candidate):
+        if view["step"] == self.root["step"]:
+            keys = self._row_keys(view)
+        else:
+            proof = view["extensions"][_PRIVATE_SUPPORT].get(_LIVE_GROUP_ROWS)
+            if (type(proof) is not dict or set(proof) != {"root_step", "row_keys"} or
+                    type(proof["root_step"]) is not int or proof["root_step"] != self.root["step"]):
+                raise ProjectionError("live reveal search rows do not bind the published root")
+            keys = self._checked_row_keys(view, proof["row_keys"])
         if keys is None:
-            return None
+            raise ProjectionError("live reveal search row keys unavailable")
         ids = view["extensions"][FLAT]["row_candidate_ids"]
-        if type(keys) is not list or len(keys) != len(ids) or not all(map(is_digest, keys)):
-            raise ProjectionError("malformed reveal search preview row keys")
-        return keys
+        if ids.count(candidate) != 1:
+            raise ProjectionError("selected native row is ambiguous")
+        return keys[ids.index(candidate)]
+
+    @staticmethod
+    def _point(view):
+        extensions = view["extensions"]
+        support = {key: value for key, value in extensions[_PRIVATE_SUPPORT].items()
+                   if key not in _POINT_SIDEBANDS}
+        point = {key: value for key, value in view.items() if key not in {"request_id", "extensions"}}
+        return point, extensions["x_kernel_v5"], extensions[FLAT], support
 
     def pose(self, request_id):
         opened = self.buffer is None
         response = super().pose(request_id)
         if opened:
-            self._group_search = False
+            self._group_keys = None
+            self._group_wire = ()
         if self.buffer is not None and not opened:
             return response
         sd = response["seat_decision"]
@@ -158,30 +190,45 @@ class KernelRevealSearchEngineV4(KernelRevealEngineV3):
             extension["composition"] = composition
             if unavailable is not None:
                 extension["composition_unavailable"] = unavailable
-            self._group_search = composition is not None
+            if composition is not None:
+                keys = composition["keys"]
+                self._group_keys = {tuple(row["wire"]): tuple(keys[index] for index in row["native"])
+                                    for row in composition["completions"]}
         sd["extensions"][INFOSET] = extension
         return response
 
+    def step(self, request):
+        if self._group_keys is None:
+            return super().step(request)
+        previous = self._group_wire
+        self._group_wire = (*previous, request["selection"]["candidate_id"])
+        result = super().step(request)
+        if result["response_type"] == "error":
+            self._group_wire = previous
+        return result
+
     def commit_buffer(self):
-        if self._group_search:
-            planned = self.trajectory(self.buffer)
-            if planned is None:
-                raise ProjectionError("reveal search lost a buffered completion")
-            self._expected_commit = iter(planned)
         try:
+            if self._group_keys is not None:
+                expected = self._group_keys.get(self._group_wire)
+                planned = self.trajectory(self.buffer)
+                if expected is None or planned is None or tuple(key for _, _, key in planned) != expected:
+                    raise ProjectionError("buffered preview keys differ from the published completion")
+                self._expected_commit = iter(planned)
             super().commit_buffer()
             if self._expected_commit is not None and next(self._expected_commit, None) is not None:
                 raise ProjectionError("reveal search committed a shorter buffered completion")
         finally:
             self._expected_commit = None
-            self._group_search = False
+            self._group_keys = None
+            self._group_wire = ()
 
     def native_step(self, candidate):
         if self._expected_commit is not None:
             expected = next(self._expected_commit, None)
             if (expected is None or candidate != expected[1] or
-                    self.current["step"] != expected[0]["step"] or
-                    self.current["candidates"][candidate] != expected[0]["candidates"][candidate]):
+                    self._point(self.current) != self._point(expected[0]) or
+                    self._live_key(self.current, candidate) != expected[2]):
                 raise ProjectionError("reveal search buffered commit differs from the preview")
         super().native_step(candidate)
 
