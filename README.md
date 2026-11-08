@@ -215,5 +215,7 @@ engine and decks: seven reference rungs from uniform to oh2-r2s1-b512, each
 playing the rungs nearest it, so a new entrant gets a rating from games
 against 3 rungs near its strength. Its b512-argmax rung is within noise of
 b512 (+22 Elo, 95% CI [-21, +67], in the unrated pass that sized the
-ladder; +10, [-36, +54], in the rated run). Luna's proposed two-deck XMage benchmark has no rated result
+ladder; +10, [-36, +54], in the rated run). `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
+decks, not only mirrors, and adds a deck matchup matrix, deck Elo and each
+bot's score by deck; its first rated run is 2026-11-08. Luna's proposed two-deck XMage benchmark has no rated result
 yet; `docs/llm-rated-entry.md` tracks its remaining live checks and publication.
