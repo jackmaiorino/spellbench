@@ -230,7 +230,7 @@ class _Game:
             game_id=self.setup.game_id, seat=seat, format=self.setup.format, own_deck=self.setup.own_decks[index],
             opponent_deck=opponent_deck, rules=self.setup.rules, engine=self.hello.engine,
             engine_profile=self.hello.profile, time_control=self.setup.time_control, limits=self.setup.limits,
-            resources=self.setup.resources, agent_seed=self.setup.agent_seeds[index],
+            resources=self.setup.resources_for(index), agent_seed=self.setup.agent_seeds[index],
         )
 
     # -- asking the acting seat ----------------------------------------------

@@ -303,6 +303,9 @@ def manifest_body(
             "bots": [entry.to_json() for entry in entries],
             # Written only when it is not the default, so manifests of concurrent accounting keep their bytes.
             **({"core_accounting": config.core_accounting} if config.core_accounting != "concurrent" else {}),
+            # Each bot's effective resources (spec 11.4), written only when a bot declares its own block.
+            **({"bot_resources": {spec.name: config.bot_resources(spec).to_json() for spec in config.bots}}
+               if config.per_bot_resources else {}),
         },
         "engine": engine.to_json(),
         "engine_profile": profile.to_json(),

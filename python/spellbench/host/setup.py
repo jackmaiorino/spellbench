@@ -18,6 +18,9 @@ class GameSetup:
 
     ``game_secret_hex`` is declared ``field(repr=False)`` (R3-28): the dataclass repr never
     prints it, so logging or erroring on a ``GameSetup`` cannot leak the secret.
+
+    ``seat_resources`` is ``(p0, p1)``: each seat's own resources block when the config declares per-bot
+    resources (spec 11.4). ``None``, the default, gives both seats ``resources``.
     """
 
     game_index: int
@@ -31,3 +34,8 @@ class GameSetup:
     limits: Limits
     resources: Resources
     agent_seeds: tuple[int, int]
+    seat_resources: tuple[Resources, Resources] | None = None
+
+    def resources_for(self, index: int) -> Resources:
+        """The resources block seat ``index`` (0 for p0) receives in ``game_start``."""
+        return self.resources if self.seat_resources is None else self.seat_resources[index]
