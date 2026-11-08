@@ -1,19 +1,35 @@
 {
   "schema": "spellbench-kernel-search-entrant/v1",
   "name": "oh2-r2s1-b512-s4a-4k-k1",
-  "status": "provisional",
-  "note": "W1 design v7 section 3 [P] values (B, A_K and a_units from the provisional grid table, whose arithmetic uses 4k = 4,000). TC on the frozen load profile replaces every number here before AC1 and the soaks (design 13, 14).",
+  "status": "frozen",
+  "note": "W1 design v7 constants frozen by timing calibration (TC) under the frozen rule; no constant was chosen around the result. The tc block records the inputs; c_K, a_K and r are nearest-rank p99 values.",
   "design": "collab LANES/lead/W1-ENTRANT-DESIGN.md v7 a133528d",
   "network": "oh2-r2s1-b512",
   "model_state_sha256": "662aad1a (scorer config oh2-r2s1-b512.scorer.json)",
   "workers": 1,
   "budget": 4000,
-  "allowance": 330000,
-  "a_units": 306,
-  "group_cap": 8612,
+  "allowance": 535424,
+  "a_units": 204,
+  "group_cap": 8408,
   "seed_model": "w1-entrant-v1",
   "pick": "pick-v2",
   "policy": "sampled-wide-v1",
   "game_time_basis_seconds": 500,
-  "allowance_margin_m": 1.5
+  "allowance_margin_m": 1.5,
+  "tc": {
+    "basis": "TC grid basis 2026-11-08: i7-13700K P-core threads 8-15 in one timing claim at normal priority (K = 4 workers pinned to CPUs 8, 10, 12 and 14; K = 1 to CPU 8), under the frozen load profile (human client session, relay, engine adapter and bridge, idle b512 bot and scorer, one page) in a 2-CPU claim on CPUs 22 and 23; kernel 4fccd3ebc bins, spellbench 27c9009bb; 128 positions from AC0-P's game set",
+    "rule": "design v7 sections 2 and 3: A_K = floor((T - m r) / (m c_K)), a_units = ceil(a_K / c_K), group_cap = 2 (B + a_units); (K, B) defined iff the per-tree median root simulations at B/K >= 8 and (B + a_units) E <= A_K; the largest defined B per K is selected",
+    "c_K_ms_p99": 0.6138,
+    "a_K_s_p99": 0.1248,
+    "r_s_p99": 4.6827,
+    "E": 67.62,
+    "tree_root_sims_median": 37.5,
+    "need_over_allowance": 0.53,
+    "peak_rss_mib": {
+      "worker": 326,
+      "pool": 142,
+      "entrant_total": 468
+    },
+    "other_candidates": "16k-k1 needs 2.05 x A_1; 64k-k1 needs 8.11 x A_1"
+  }
 }
