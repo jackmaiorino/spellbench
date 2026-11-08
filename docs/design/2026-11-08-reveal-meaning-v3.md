@@ -35,11 +35,11 @@ The producer/reducer tests check this protocol core for both owner seats,
 repeated reveals, named arrivals, explicit search outcomes, invalid links,
 departures and atomic rejection. They are not native two-world tests.
 
-Remaining #543 work: event-time visible evidence in the kernel producer;
-integration with the actual Spellbench adapter and schema validator; the
-kernel reducer consuming the same stream; four reveal-class end-to-end and
-paired-world tests; and exact frozen W1 byte-compatibility checks. This change
-alone does not lift R1 refusals or replace fallback D.
+Remaining #543 work: qualifying event-time visible evidence in the kernel
+producer and compiled native-to-neutral path; the native fair-search consumer
+using the same stream; native paired-world tests; and exact frozen W1
+byte-compatibility checks. This change alone does not lift R1 refusals or
+replace fallback D.
 
 The actual live host now validates the extension when reset rules explicitly
 enable it. Each viewer has a separate reducer; every decision must carry a
@@ -53,6 +53,24 @@ batches. It validates both before committing either, queues each public
 operation once, and remaps native owner seats to wire seats without changing
 tokens. It never accepts native object IDs or reconstructs meaning from
 omniscient history. Its four reveal-class tests use supplied public operations;
-they do not establish the native producer's visibility proof. Wiring this
-intake into a successor neutral engine and comparing native paired worlds
-remain required before #543 closure.
+they do not establish the native producer's visibility proof.
+
+`integrations/mtg_kernel/kernel_engine_reveal_v3.py` is a separate opt-in
+neutral entrypoint. Its child bridge requires `--reveal-meaning-v3`, including
+after a restart. It requires exactly this extension at reset, consumes both
+viewer batches on production decisions and terminals, and delivers only the
+acting viewer's queued operations. Buffered neutral substeps do not repeat
+the batch. Public hand counts bound the reduced name constraints. The host
+independently reduces the delivered transcript. Neither reducer consults the
+legacy omniscient history to infer hand correspondence.
+
+This profile has its own engine and rules identity. It supplies reveal-derived
+constraints through the extension and does not declare complete historical
+`known_cards` support. It does not forward legacy public history or native
+FlatV4 tensors. Existing v2 modules and frozen entrant entrypoints are
+unchanged. The new reset/step tests traverse the actual neutral adapter,
+projection, host validator and reducer for both seats and starting-seat maps,
+including duplicates, terminal updates, buffered groups, invalid native
+batches and hidden native-ID permutations. Their native messages are supplied
+fixtures, so compiled producer qualification and native paired worlds remain
+required before #543 closure.
