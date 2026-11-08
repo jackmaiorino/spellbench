@@ -12,12 +12,15 @@ from copy import deepcopy
 import json
 from typing import Any
 
+from . import _schema
+from .errors import ValidationError
+
 SCHEMA = "x_reveal_meaning_v3"
-SEATS = frozenset({"p0", "p1"})
+SEATS = frozenset(_schema.SEATS)
 PUBLIC_SOURCES = frozenset({"battlefield", "graveyard", "stack", "exile", "command"})
 
 
-class RevealMeaningError(ValueError):
+class RevealMeaningError(ValidationError):
     pass
 
 
@@ -28,15 +31,17 @@ def _fields(value: Any, expected: set[str]) -> dict:
 
 
 def _integer(value: Any) -> int:
-    if type(value) is not int or not 0 <= value < 2**64:
-        raise RevealMeaningError("invalid public sequence or count")
-    return value
+    try:
+        return _schema.safe_int(value, "reveal sequence or count")
+    except ValidationError as exc:
+        raise RevealMeaningError(str(exc)) from exc
 
 
 def _name(value: Any) -> str:
-    if type(value) is not str or not value.strip():
-        raise RevealMeaningError("invalid public card name")
-    return value
+    try:
+        return _schema.card_name(value, "reveal card name")
+    except ValidationError as exc:
+        raise RevealMeaningError(str(exc)) from exc
 
 
 def _owner(value: Any) -> str:

@@ -84,6 +84,9 @@ def test_named_and_unknown_departures_keep_conservative_survivor_counts():
     [dict(arrival(), evidence=dict(kind="anonymous_draw"))],
     [dict(arrival(), evidence=dict(kind="public_transfer", from_zone="library"))],
     [dict(kind="hand_departure", owner_seat="p1", card_name=None, count=True)],
+    [dict(kind="hand_departure", owner_seat="p1", card_name=None, count=2**53)],
+    [present(name="Lim-Du\u0302l's Vault")],
+    [present(name="\ud800")],
     [dict(kind=[])],
 ])
 def test_unjustified_or_private_link_payloads_refuse(bad):
