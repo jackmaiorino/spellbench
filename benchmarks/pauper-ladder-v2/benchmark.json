@@ -42,7 +42,13 @@
   "evaluation_version": "pauper-ladder-v2.0.0",
   "ladder": {
     "band": 3,
-    "entrants": {}
+    "entrants": {
+      "oh2-r2s1-b512-s4a-16k-k4": [
+        "g115",
+        "oh2-r2s1-b512",
+        "oh2-r2s1-b512-argmax"
+      ]
+    }
   },
   "extensions": [
     "x_kernel_flat_v4",
@@ -265,6 +271,53 @@
         "description": "The same checkpoint as Basilisk 1 (oh2-r2s1-b512), choosing the highest-scoring candidate (argmax-first-v1) instead of sampling. No search. A ladder rung comparing selection methods."
       },
       "evaluation_identity": "7973d6c3a1e66df14f3801b1182db803500deb9fe12817770784e1d217225e77"
+    },
+    {
+      "name": "oh2-r2s1-b512-s4a-16k-k4",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning",
+        "search"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_SEARCH_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${OH2R2S1B512_SCORER_CONFIG}",
+        "--pool",
+        "${MTG_KERNEL_REGRET_CENSUS}",
+        "--entrant",
+        "${OH2R2S1B512_S4A_16K_K4_ENTRANT}",
+        "--name",
+        "oh2-r2s1-b512-s4a-16k-k4",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "662aad1a2c01089f4b5405c0bee73f17a4c3e13c57afb989e56fc21a0c269934"
+      ],
+      "checkpoint": "${OH2R2S1B512_CHECKPOINT}",
+      "evaluation_inputs": [
+        "${MTG_KERNEL_V2_BOT}",
+        "${MTG_KERNEL_V2_G6_DIGEST}"
+      ],
+      "resources": {
+        "cpus": 4,
+        "memory_mb": 8192,
+        "gpu": false,
+        "engine_cpus": 1
+      },
+      "display": {
+        "label": "Basilisk 1 + search (16k, 4 workers)",
+        "author": "mipo",
+        "url": null,
+        "description": "The Basilisk 1 policy (oh2-r2s1-b512) with root-parallel s4a search: 4 single-threaded trees share 16,000 native transitions per searched decision, under a per-game allowance metered in transitions, never the clock, so reruns are identical on any host. It searches only the information-set payload the engine attaches (x_kernel_infoset_v1), never hidden state, and plays the sampled policy on every refusal, fault or allowance shortfall. The W1 search entrant; its constants are frozen in integrations/mtg_kernel/entrants/oh2-r2s1-b512-s4a-16k-k4.json. Placed on the 3 rungs nearest its unrated soak against b512 (61-67, provisional 1503)."
+      },
+      "evaluation_identity": "0b0fea989fd6ec03b84ac620f574cb37f9c71626b88ec940a24dd23b92de0122"
     }
   ],
   "job_storage_budget": {
@@ -274,73 +327,22 @@
   "evaluation_engine_identity": "8476a87d7cc4d9a5724ecf27821f7276d56a1021280d87becc245a6157f8aa9d",
   "evaluation_matchups": [
     [
-      "c12",
-      "g115"
-    ],
-    [
-      "c12",
-      "gorge-ar8"
-    ],
-    [
-      "c12",
-      "heuristic"
-    ],
-    [
-      "c12",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "c12",
-      "uniform"
-    ],
-    [
       "g115",
-      "gorge-ar8"
-    ],
-    [
-      "g115",
-      "heuristic"
-    ],
-    [
-      "g115",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "g115",
-      "oh2-r2s1-b512-argmax"
-    ],
-    [
-      "gorge-ar8",
-      "heuristic"
-    ],
-    [
-      "gorge-ar8",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "gorge-ar8",
-      "oh2-r2s1-b512-argmax"
-    ],
-    [
-      "gorge-ar8",
-      "uniform"
-    ],
-    [
-      "heuristic",
-      "uniform"
+      "oh2-r2s1-b512-s4a-16k-k4"
     ],
     [
       "oh2-r2s1-b512",
-      "oh2-r2s1-b512-argmax"
+      "oh2-r2s1-b512-s4a-16k-k4"
+    ],
+    [
+      "oh2-r2s1-b512-argmax",
+      "oh2-r2s1-b512-s4a-16k-k4"
     ]
   ],
   "evaluation_targets": [
-    "c12",
     "g115",
-    "gorge-ar8",
-    "heuristic",
     "oh2-r2s1-b512",
     "oh2-r2s1-b512-argmax",
-    "uniform"
+    "oh2-r2s1-b512-s4a-16k-k4"
   ]
 }
