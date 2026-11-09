@@ -316,7 +316,8 @@
         "author": "mipo",
         "url": null,
         "description": "The Basilisk 1 policy (oh2-r2s1-b512) with root-parallel s4a search: 4 single-threaded trees share 16,000 native transitions per searched decision, under a per-game allowance metered in transitions, never the clock, so reruns are identical on any host. It searches only the information-set payload the engine attaches (x_kernel_infoset_v1), never hidden state, and plays the sampled policy on every refusal, fault or allowance shortfall. The W1 search entrant; its constants are frozen in integrations/mtg_kernel/entrants/oh2-r2s1-b512-s4a-16k-k4.json. Placed on the 3 rungs nearest its unrated soak against b512 (61-67, provisional 1503)."
-      }
+      },
+      "evaluation_identity": "0b0fea989fd6ec03b84ac620f574cb37f9c71626b88ec940a24dd23b92de0122"
     }
   ],
   "job_storage_budget": {
@@ -326,73 +327,22 @@
   "evaluation_engine_identity": "8476a87d7cc4d9a5724ecf27821f7276d56a1021280d87becc245a6157f8aa9d",
   "evaluation_matchups": [
     [
-      "c12",
-      "g115"
-    ],
-    [
-      "c12",
-      "gorge-ar8"
-    ],
-    [
-      "c12",
-      "heuristic"
-    ],
-    [
-      "c12",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "c12",
-      "uniform"
-    ],
-    [
       "g115",
-      "gorge-ar8"
-    ],
-    [
-      "g115",
-      "heuristic"
-    ],
-    [
-      "g115",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "g115",
-      "oh2-r2s1-b512-argmax"
-    ],
-    [
-      "gorge-ar8",
-      "heuristic"
-    ],
-    [
-      "gorge-ar8",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "gorge-ar8",
-      "oh2-r2s1-b512-argmax"
-    ],
-    [
-      "gorge-ar8",
-      "uniform"
-    ],
-    [
-      "heuristic",
-      "uniform"
+      "oh2-r2s1-b512-s4a-16k-k4"
     ],
     [
       "oh2-r2s1-b512",
-      "oh2-r2s1-b512-argmax"
+      "oh2-r2s1-b512-s4a-16k-k4"
+    ],
+    [
+      "oh2-r2s1-b512-argmax",
+      "oh2-r2s1-b512-s4a-16k-k4"
     ]
   ],
   "evaluation_targets": [
-    "c12",
     "g115",
-    "gorge-ar8",
-    "heuristic",
     "oh2-r2s1-b512",
     "oh2-r2s1-b512-argmax",
-    "uniform"
+    "oh2-r2s1-b512-s4a-16k-k4"
   ]
 }
