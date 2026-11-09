@@ -91,7 +91,8 @@
         "author": "Spellbench",
         "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
         "url": null
-      }
+      },
+      "evaluation_identity": "7ab62d0e73d3ff6063c373c127f37c56d148e82729837bd14b9185dbd29ff22b"
     },
     {
       "name": "heuristic",
@@ -106,7 +107,8 @@
         "author": "Spellbench",
         "description": "Fixed priorities: play a land, cast a spell, activate an ability; attacks with everything and blocks only when it must. A fixed reference line, not a learning bot.",
         "url": null
-      }
+      },
+      "evaluation_identity": "852395180772ab277ef6b8eb90f29643eb09fc75b9a4b0b5db8537c616d2419a"
     },
     {
       "name": "c12",
@@ -137,7 +139,8 @@
         "author": "mipo",
         "description": "mtg-kernel policy network, Phase 1 lineage c block 12 (4,000 updates), sampled, no search. Trained on all 8 of these decks plus Terror. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
         "url": null
-      }
+      },
+      "evaluation_identity": "792201c60243e58a5c1f920d277dfb3bcbe1d947b0a78fd09d3cf6aa2051881a"
     },
     {
       "name": "gorge-ar8",
@@ -164,7 +167,8 @@
         "author": "gorge",
         "description": "gorge's combined lethal attack policy. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
         "url": "https://github.com/adams-shaun/gorge"
-      }
+      },
+      "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
     },
     {
       "name": "g115",
@@ -195,7 +199,8 @@
         "author": "mipo",
         "description": "mtg-kernel policy network, Phase 1 lineage g block 115 (32,400 updates), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
         "url": null
-      }
+      },
+      "evaluation_identity": "25655b24f87e3252bceaae251f72fac6b5babb885af19abc538d8226eb438f72"
     },
     {
       "name": "oh2-r2s1-b512",
@@ -226,7 +231,8 @@
         "author": "mipo",
         "url": null,
         "description": "mtg-kernel policy network: the g115 lineage's r2 seed 1 continued by ordinary self-play RL to dose 512 (OH2, 82,944 updates), sampled, no search. The research program's best scoreboard checkpoint at the v2.3.0 boundary. Trained against a48 (20% of its opponents), so its a48 games are a training-opponent matchup."
-      }
+      },
+      "evaluation_identity": "2f2031631756e10ec24a7bfa8d6f841d5808c6c2518f83f7093ec02705a398bb"
     },
     {
       "name": "oh2-r2s1-b512-argmax",
@@ -257,11 +263,84 @@
         "author": "mipo",
         "url": null,
         "description": "The same checkpoint as Basilisk 1 (oh2-r2s1-b512), choosing the highest-scoring candidate (argmax-first-v1) instead of sampling. No search. A ladder rung comparing selection methods."
-      }
+      },
+      "evaluation_identity": "7973d6c3a1e66df14f3801b1182db803500deb9fe12817770784e1d217225e77"
     }
   ],
   "job_storage_budget": {
     "projected_bytes": 4294967296,
     "cap_bytes": 25769803776
-  }
+  },
+  "evaluation_engine_identity": "8476a87d7cc4d9a5724ecf27821f7276d56a1021280d87becc245a6157f8aa9d",
+  "evaluation_matchups": [
+    [
+      "c12",
+      "g115"
+    ],
+    [
+      "c12",
+      "gorge-ar8"
+    ],
+    [
+      "c12",
+      "heuristic"
+    ],
+    [
+      "c12",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "c12",
+      "uniform"
+    ],
+    [
+      "g115",
+      "gorge-ar8"
+    ],
+    [
+      "g115",
+      "heuristic"
+    ],
+    [
+      "g115",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "g115",
+      "oh2-r2s1-b512-argmax"
+    ],
+    [
+      "gorge-ar8",
+      "heuristic"
+    ],
+    [
+      "gorge-ar8",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "gorge-ar8",
+      "oh2-r2s1-b512-argmax"
+    ],
+    [
+      "gorge-ar8",
+      "uniform"
+    ],
+    [
+      "heuristic",
+      "uniform"
+    ],
+    [
+      "oh2-r2s1-b512",
+      "oh2-r2s1-b512-argmax"
+    ]
+  ],
+  "evaluation_targets": [
+    "c12",
+    "g115",
+    "gorge-ar8",
+    "heuristic",
+    "oh2-r2s1-b512",
+    "oh2-r2s1-b512-argmax",
+    "uniform"
+  ]
 }
