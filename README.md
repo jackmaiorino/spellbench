@@ -215,7 +215,13 @@ engine and decks: seven reference rungs from uniform to oh2-r2s1-b512, each
 playing the rungs nearest it, so a new entrant gets a rating from games
 against 3 rungs near its strength. Its b512-argmax rung is within noise of
 b512 (+22 Elo, 95% CI [-21, +67], in the unrated pass that sized the
-ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on mtg-kernel 4fccd3ebc with the infoset adapter, with every rung re-rated (rated run 2026-11-08, snapshot 2026-11-09); its ratings are not comparable with v1's. 5 of its 1,920 rated-run games halted on an infoset adapter fault in Faeries mirrors, within the ladder's 97% natural-ending rule. `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
+ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on mtg-kernel 4fccd3ebc with the infoset adapter, with every rung re-rated (rated run 2026-11-08, snapshot 2026-11-09); its ratings are not comparable with v1's. 5 of its 1,920 rated-run games halted on an infoset adapter fault in Faeries mirrors, within the ladder's 97% natural-ending rule.
+The `oh2-r2s1-b512-s4a-16k-k4` placement finished at 1473.7 Elo
+(95% CI [1411.2, 1543.8]). It remains a rated entrant. Rung admission
+required 1594.3 Elo because no adjacent rung gap exceeded 200 Elo.
+[Rated snapshot](benchmarks/pauper-ladder-v2/snapshots/2026-11-09-2/LEADERBOARD.md)
+
+`pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
 decks, not only mirrors, and adds a deck matchup matrix, deck Elo and each
 bot's score by deck; its first rated run is 2026-11-08. Luna's proposed two-deck XMage benchmark has no rated result
 yet; `docs/llm-rated-entry.md` tracks its remaining live checks and publication.
