@@ -52,6 +52,7 @@ download.
 
 from __future__ import annotations
 
+import html
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -76,8 +77,11 @@ SITE_MARKER = ".spellbench-site"
 RUN_FILES = (store.MANIFEST_NAME, store.COMMITMENT_NAME, *store.DATA_FILE_NAMES)
 LEGACY_RUN_FILES = (store.MANIFEST_NAME, *store.DATA_FILE_NAMES)
 
+# Google Search Console's HTML-tag verification token for SITE_URL; the home page carries it when set.
+GOOGLE_SITE_VERIFICATION = ""
+SITEMAP_NAME = "sitemap.xml"
 _SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": REPO_URL,
-         "site_url": SITE_URL}
+         "site_url": SITE_URL, "google_site_verification": GOOGLE_SITE_VERIFICATION}
 _MARKER_TEXT = "spellbench site output; rebuilt by spellbench site\n"
 _GAME_COUNTS = ("total", "rated", "forfeit", "truncated", "halted")
 _ANCHOR_WITHOUT_PAIRS = "reference_id has no games"  # the fit's error when the anchor has no complete pair
@@ -245,6 +249,7 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
         for name, data in run.files.items():
             files[f"b/{benchmark.id}/run/{name}"] = data
     files.update(chart_files)
+    files[SITEMAP_NAME] = _sitemap(SITE_URL, [name for name in files if name.endswith(".html")])
     _write_site(out_dir, files)
     return warnings
 
@@ -1058,6 +1063,16 @@ def _deck_grid(grid: Mapping[str, Any] | None, display: Mapping[str, Mapping[str
 
 
 # ---------------- writing ----------------
+
+
+def _sitemap(site_url: str, pages: Iterable[str]) -> bytes:
+    """A sitemap listing every page by its canonical URL (``index.html`` as its directory), for search engines."""
+    urls = sorted(site_url + (page[: -len("index.html")] if page.endswith("index.html") else page) for page in pages)
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+             *(f"<url><loc>{html.escape(url)}</loc></url>" for url in urls),
+             "</urlset>"]
+    return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 def _write_site(out_dir: Path, files: Mapping[str, bytes]) -> None:

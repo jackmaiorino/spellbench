@@ -211,6 +211,32 @@ def test_every_page_has_a_social_card(tree: Path, tmp_path: Path) -> None:
         assert '<meta name="twitter:card" content="summary_large_image">' in text, page
 
 
+def test_every_page_names_its_canonical_url_and_is_in_the_sitemap(tree: Path, tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(tree, out)
+    base = "https://jackmaiorino.github.io/spellbench/"
+    pages = sorted(path.relative_to(out).as_posix() for path in out.rglob("*.html"))
+    canonical = []
+    for page in pages:
+        text = (out / page).read_text(encoding="utf-8")
+        found = re.findall(r'<link rel="canonical" href="([^"]+)">', text)
+        assert len(found) == 1, page
+        assert f'<meta property="og:url" content="{found[0]}">' in text, page
+        canonical.append(found[0])
+    assert base in canonical and f"{base}b/alpha/" in canonical
+    sitemap = (out / "sitemap.xml").read_text(encoding="utf-8")
+    assert sitemap.startswith('<?xml version="1.0" encoding="UTF-8"?>')
+    assert re.findall(r"<loc>([^<]+)</loc>", sitemap) == sorted(canonical)
+
+
+def test_the_home_page_names_spellbench_in_its_heading(tree: Path, tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(tree, out)
+    text = (out / "index.html").read_text(encoding="utf-8")
+    assert re.findall(r"<h1>([^<]+)</h1>", text) == ["Spellbench: a cross-engine Magic: The Gathering bot benchmark"]
+    assert "google-site-verification" not in text  # no token is committed yet
+
+
 def test_every_models_link_resolves_to_a_section(tree: Path, tmp_path: Path) -> None:
     out = tmp_path / "site"
     build_site(tree, out)
