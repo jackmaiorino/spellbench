@@ -450,6 +450,7 @@ def test_rendering_is_deterministic() -> None:
 def test_no_external_resources() -> None:
     for name, page in _pages().items():
         assert not re.search(r'\bsrc="(?:https?:)?//', page), name
+        page = re.sub(r'<link rel="canonical" href="https://[^"]+">', "", page)  # names the page; loads nothing
         assert "<link" not in page and "@import" not in page, name
 
 
@@ -1020,3 +1021,10 @@ def test_the_models_page_opens_with_a_jump_list() -> None:
     assert [name for name in re.findall(r'href="#model-([^"]+)"', jump)] == ["g115", "heuristic", "uniform"]
     assert ">random</a>" in jump
     assert 'class="jump"' not in render.render_models({**MODELS, "models": []})
+
+
+def test_only_the_home_page_carries_a_search_console_token() -> None:
+    site = {**SITE, "google_site_verification": "token-123"}
+    tag = '<meta name="google-site-verification" content="token-123">'
+    assert tag in render.render_home({**HOME, "site": site})
+    assert tag not in render.render_join({**INFO, "site": site})

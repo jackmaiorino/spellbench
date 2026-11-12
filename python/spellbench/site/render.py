@@ -82,6 +82,11 @@ _MODELS_SUBTITLE = (
     "Bot names everywhere on the site link here."
 )
 
+# The home page's opening line: what Spellbench is, in the words people search for.
+_INTRO = (
+    "Spellbench rates Magic: The Gathering AI bots against each other across independently built rules "
+    "engines, with one open wire protocol and Elo ratings re-derived from committed match ledgers."
+)
 _HERO_SUBTITLE = (
     "Each bot's Elo minus the random bot's, averaged over the benchmarks it entered. "
     "Whiskers show 95% intervals. "
@@ -282,6 +287,7 @@ ol.hero > li.axis { position: sticky; top: 0; z-index: 1; padding: 8px 0 4px; ba
 .reference .value { color: var(--muted); }
 .chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: 4px; }
 ol.hero .chips .chip { background: none; box-shadow: inset 0 0 0 1px var(--border); color: var(--muted); font-size: 12px; line-height: 18px; }
+.intro { margin-bottom: 32px; }
 #hero .note { margin-top: 12px; }
 svg { display: block; overflow: visible; }
 svg.bar { grid-area: bar; width: 100%; height: 24px; }
@@ -470,6 +476,10 @@ def render_home(view: Mapping[str, Any]) -> str:
     if not listing:
         listing = ['<p class="empty">No benchmarks yet.</p>']
     main = [
+        '<div class="intro">',
+        f"<h1>{_e(site['title'])}: a cross-engine Magic: The Gathering bot benchmark</h1>",
+        f'<p class="lead">{_INTRO}</p>',
+        "</div>",
         _hero(view["hero"]),
         '<section class="cta">',
         "<div>",
@@ -742,6 +752,10 @@ def _page(
         '<meta name="color-scheme" content="light dark">',
         f'<meta name="description" content="{_e(description)}">',
         f"<title>{_e(title)}</title>",
+        # The canonical URL is the only <link>: it loads nothing, and only a build-made https URL becomes one.
+        *([f'<link rel="canonical" href="{_e(base + path)}">'] if base.startswith("https://") else []),
+        *([f'<meta name="google-site-verification" content="{_e(verification)}">']
+          if (verification := site.get("google_site_verification")) and path == "" else []),
         '<meta property="og:type" content="website">',
         f'<meta property="og:site_name" content="{_e(site["title"])}">',
         f'<meta property="og:title" content="{_e(title)}">',
@@ -900,7 +914,7 @@ def _hero(hero: Mapping[str, Any]) -> str:
     rows = hero["rows"]
     parts = [
         '<section id="hero">',
-        "<h1>Elo above the random bot</h1>",
+        "<h2>Elo above the random bot</h2>",
         f'<p class="lead">{_HERO_SUBTITLE}</p>',
     ]
     if rows:

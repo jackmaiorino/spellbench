@@ -2,6 +2,11 @@
 
 A cross-engine Magic: The Gathering agent protocol and tournament arena.
 
+**Leaderboard:** [jackmaiorino.github.io/spellbench](https://jackmaiorino.github.io/spellbench/) rates
+Magic: The Gathering AI bots, with every Elo re-derived from committed match ledgers. The
+[mtg-kernel](https://github.com/jackmaiorino/mtg-kernel) rules engine and its reinforcement-learning stack are
+developed alongside Spellbench.
+
 Independently built rules engines (mtg-kernel, gorge, XMage, Manafold) and
 independently built bots meet here: one wire protocol
 (`spec/SPELLBENCH_PROTOCOL_V2.md`) and one arena that pairs bots, adjudicates
