@@ -13,9 +13,10 @@ import copy
 import json
 import sys
 
+from spellbench import wire
 from xmage_neural_agent import NeuralAgent, PublicHistory
-from xmage_neural_combat import (CombatPlan as PermittedPlan, combat_request as checked_combat_request,
-                                 select_candidate, validate_result as validate_combat)
+from xmage_neural_combat import (CombatPlan as PermittedPlan, combat_kind, combat_request as checked_combat_request,
+                                 select_candidate, target, validate_result as validate_combat)
 from xmage_neural_decisions import close_resources
 from xmage_neural_rpc import NeuralSession
 from xmage_neural_decisions import decision_hash
@@ -64,7 +65,8 @@ def _receipts(result: dict, calls: int) -> None:
 
 
 UNSUPPORTED = ("search world is unsupported: ", "callback anchor is unsupported: ", "combat world is unsupported: ")
-UNREPRODUCED = ("callback replay observation differs: ", "callback replay diverges: ")
+UNREPRODUCED = ("callback replay observation differs: ", "callback replay diverges: ",
+                "numeric offered range exceeds the actual callback")
 
 
 def declining(decision: dict) -> dict:
@@ -208,6 +210,31 @@ def combat_request(record: dict, settings: dict) -> dict:
     return {**request, "settings": settings}
 
 
+def graph_combat_select(decision: dict, result: dict) -> dict:
+    """Bind a graph combat plan entry, declining when the engine offers another legal set (such as menace)."""
+    try:
+        return select_candidate(decision, result)
+    except ValueError as exc:
+        if str(exc) != "original combat assignment is unoffered or aliased":
+            raise
+    family = combat_kind(decision)
+    keys = []
+    for candidate in decision["candidates"]:
+        selected = candidate["semantic"].get("defender" if family == "attack" else "attacker")
+        if family == "attack":
+            key = wire.canonical_json_dumps(target(selected))
+        elif selected is None:
+            key = "null"
+        elif isinstance(selected, dict) and isinstance(selected.get("object_id"), str):
+            key = wire.canonical_json_dumps(selected["object_id"])
+        else:
+            raise ValueError("original combat assignment is unoffered or aliased")
+        keys.append(key)
+    if len(set(keys)) != len(keys):
+        raise ValueError("original combat assignment is unoffered or aliased")
+    return declining(decision)
+
+
 def combat_result(record: dict, result: dict, settings: dict, calls: int) -> dict:
     settings = validate_settings(settings)
     if (validate_settings(result.get("settings")) != settings or "policy_width" in result
@@ -219,10 +246,12 @@ def combat_result(record: dict, result: dict, settings: dict, calls: int) -> dic
         _receipts(result, calls)
     if len(result.get("graph_search", [])) != len(result["roots"]):
         raise ValueError("graph combat receipts differ from its roots")
-    return {**result, "selection": select_candidate(record["decision"], result)}
+    return {**result, "selection": graph_combat_select(record["decision"], result)}
 
 
 class CombatPlan(PermittedPlan):
+    _select_candidate = staticmethod(graph_combat_select)
+
     def __init__(self, decision: dict, result: dict, *, settings: dict):
         settings = validate_settings(settings)
         combat_result({"decision": decision}, result, settings, result.get("neural_calls"))
@@ -346,6 +375,7 @@ class GraphAgent(NeuralAgent):
     history_factory = GraphHistory
     unsearched_family = staticmethod(declining)
     unreplayable_callback = staticmethod(declining)  # kit policy: an unreplayable callback is not searched
+    rewound_decision = staticmethod(declining)
     original_trigger_order = False  # the graph agent keeps its own unsearched-family answer
     def __init__(self, factory, *, checkpoint: str, settings: dict, audit=None):
         declared = validate_settings(settings)

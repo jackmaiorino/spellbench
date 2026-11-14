@@ -8,6 +8,7 @@ import spellbench.kit.core.Json;
 import spellbench.kit.core.ObsIndex;
 import spellbench.kit.core.Sampler;
 import spellbench.kit.core.Seeds;
+import spellbench.models.magezero.v02.encoder.ActionEncoder;
 import spellbench.models.magezero.v02.search.GameAccess;
 import spellbench.models.magezero.v02.search.MCTSDefaults;
 import spellbench.models.magezero.v02.search.MCTSNode;
@@ -36,6 +37,10 @@ public final class MageZeroSearchMain {
     private static PrintStream out;
     private static long calls;
     private static Object requestId;
+    private static Map<String, Object> currentDecision;
+    private static Map<String, Object> currentObs;
+    private static World currentWorld;
+    private static boolean currentPriority;
     static void bindPipe(BufferedReader input, PrintStream output) { in = input; out = output; }
     static long neuralCalls() { return calls; }
     static Map<String, Object> execute(Map<String, Object> record) {
@@ -183,6 +188,10 @@ public final class MageZeroSearchMain {
         MageZeroSearchReplay.Result callback = null;
         boolean libraryFailToFindExcluded = false;
         Map<String, Object> obs = Json.obj(Json.copy(decision.get("observation")));
+        currentDecision = decision;
+        currentObs = obs;
+        currentPriority = priority;
+        try {
         if (!priority) {
             MageZeroSearchReplay.Result replay = MageZeroSearchReplay.run(record, evaluator, configured, diagnostic);
             callback = replay;
@@ -201,6 +210,7 @@ public final class MageZeroSearchMain {
         spec.mode = WorldBuilder.Mode.PRIORITY; spec.history = Json.obj(decision, "x_history");
         spec.viewerFactory = seat -> player[0] = new SearchPlayer(seat); spec.otherFactory = Puppet::new;
         world = WorldBuilder.build(spec);
+        currentWorld = world;
         world.flags.addAll(nameFlags);
         for (String flag : world.flags) {
             if (flag.startsWith("unsupported:") || flag.startsWith("horizon:")) {
@@ -212,7 +222,7 @@ public final class MageZeroSearchMain {
         chosen = player[0].searchPriority(world.game);
         active = player[0];
         }
-        if (callback != null && callback.loneTarget != null) return loneTarget(decision, world, callback, replayProof);
+        if (callback != null && callback.loneTarget != null) return loneTarget(decision, world, callback, replayProof, graph != null);
         ObsIndex index = new ObsIndex(obs);
         Map<String, Object> semantic = semantic(decision, world, chosen, index, priority, callback);
         Map<String, Object> offered = null;
@@ -263,25 +273,8 @@ public final class MageZeroSearchMain {
                     "mask_reason", masked ? "original " + source + " bestChild resets branches without a legal future" : null));
         }
         Set<String> offeredKeys = new HashSet<>();
-        for (Object c : Json.arr(decision, "candidates")) {
-            Map<String, Object> action = Json.obj(Json.obj(c), "semantic");
-            String key = Json.canonical(action);
-            if (!offeredKeys.add(key)) throw new IllegalArgumentException("aliased MageZero candidate");
-            if (!branchKeys.contains(key) && libraryFailToFindExcluded
-                    && "finish_selection".equals(Json.str(action, "kind")) && "search".equals(Json.str(action, "purpose"))) {
-                branchKeys.add(key);
-                children.add(Json.map("semantic", action, "visits", 0L, "value", null, "pruned", false,
-                        "excluded", true, "reason", "original " + source + " library target expansion requires its minimum before finishing"));
-            }
-            Map<String, Object> shown = branchKeys.contains(key) || !priority ? null : hiddenDuplicate(world, index, action, branchTexts);
-            if (shown != null) {
-                branchKeys.add(key);
-                hiddenDuplicates = true;
-                children.add(Json.map("semantic", action, "visits", 0L, "value", null, "pruned", false,
-                        "excluded", true, "duplicate_of", shown,
-                        "reason", "original " + source + " playable list keeps one ability per rule text"));
-            }
-        }
+        hiddenDuplicates = completeOfferedKeys(decision, world, index, priority, libraryFailToFindExcluded,
+                offeredKeys, branchKeys, branchTexts, children, source);
         if (!offeredKeys.equals(branchKeys)) {
             // Name the differing actions: a coverage sweep only sees this message.
             Set<String> unsearched = new HashSet<>(offeredKeys), unoffered = new HashSet<>(branchKeys);
@@ -314,6 +307,84 @@ public final class MageZeroSearchMain {
             result.put("scope", "graph network search on priority and replayed callback roots; complete-game qualification and ratings unfinished");
         }
         return result;
+        } finally {
+            currentDecision = null;
+            currentObs = null;
+            currentWorld = null;
+            currentPriority = false;
+        }
+    }
+
+    private static boolean completeOfferedKeys(Map<String, Object> decision, World world, ObsIndex index,
+                                               boolean priority, boolean libraryFailToFindExcluded,
+                                               Set<String> offeredKeys, Set<String> branchKeys,
+                                               Map<String, Map<String, Object>> branchTexts,
+                                               List<Object> children, String source) {
+        boolean hiddenDuplicates = false;
+        for (Object c : Json.arr(decision, "candidates")) {
+            Map<String, Object> action = Json.obj(Json.obj(c), "semantic");
+            String key = Json.canonical(action);
+            if (!offeredKeys.add(key)) throw new IllegalArgumentException("aliased MageZero candidate");
+            if (!branchKeys.contains(key) && libraryFailToFindExcluded
+                    && "finish_selection".equals(Json.str(action, "kind")) && "search".equals(Json.str(action, "purpose"))) {
+                branchKeys.add(key);
+                if (children != null) {
+                    children.add(Json.map("semantic", action, "visits", 0L, "value", null, "pruned", false,
+                            "excluded", true, "reason", "original " + source + " library target expansion requires its minimum before finishing"));
+                }
+            }
+            Map<String, Object> shown = branchKeys.contains(key) || !priority ? null : hiddenDuplicate(world, index, action, branchTexts);
+            if (shown != null) {
+                branchKeys.add(key);
+                hiddenDuplicates = true;
+                if (children != null) {
+                    children.add(Json.map("semantic", action, "visits", 0L, "value", null, "pruned", false,
+                            "excluded", true, "duplicate_of", shown,
+                            "reason", "original " + source + " playable list keeps one ability per rule text"));
+                }
+            }
+        }
+        return hiddenDuplicates;
+    }
+
+    /** Refuse unreproduced graph root options before any network inference call (calls == 0). */
+    static void checkGraphRoot(SearchPlayer active, List<MCTSNode> children, ActionEncoder.ActionType type) {
+        MageZeroSearchReplay.Result callback = currentPriority ? null : MageZeroSearchReplay.live;
+        World world = currentPriority ? currentWorld : (callback == null ? null : callback.world);
+        if (currentDecision == null || currentObs == null || world == null) return;
+        ObsIndex index = new ObsIndex(currentObs);
+        boolean libraryFailToFindExcluded = callback != null && callback.libraryFailToFindExcluded;
+        Set<String> branchKeys = new HashSet<>();
+        Map<String, Map<String, Object>> branchTexts = new java.util.HashMap<>();
+        for (MCTSNode child : children) {
+            if (callback != null && callback.modeActions != null
+                    && !callback.modeActions.actions.containsKey(child.getAmountAction())) {
+                int ordinal = child.getAmountAction();
+                if (ordinal < 0 || ordinal >= callback.modeActions.publicIndices.size()) {
+                    throw new IllegalArgumentException("search world is unsupported: unsupported:unreproduced_root_options");
+                }
+                continue;
+            }
+            Map<String, Object> action;
+            try {
+                action = semantic(currentDecision, world, child, index, currentPriority, callback);
+            } catch (IllegalArgumentException e) {
+                if ("aliased callback branch".equals(e.getMessage())) throw e;
+                throw new IllegalArgumentException("search world is unsupported: unsupported:unreproduced_root_options", e);
+            }
+            if (action == null || !branchKeys.add(Json.canonical(action))) {
+                throw new IllegalArgumentException("search world is unsupported: unsupported:unreproduced_root_options");
+            }
+            if (currentPriority && child.getPriorityAction() != null) {
+                branchTexts.put(child.getPriorityAction().toString(), action);
+            }
+        }
+        Set<String> offeredKeys = new HashSet<>();
+        completeOfferedKeys(currentDecision, world, index, currentPriority, libraryFailToFindExcluded,
+                offeredKeys, branchKeys, branchTexts, null, null);
+        if (!offeredKeys.equals(branchKeys)) {
+            throw new IllegalArgumentException("search world is unsupported: unsupported:unreproduced_root_options");
+        }
     }
     static final String LONE_TARGET = "original lone possible target";
     /**
@@ -321,7 +392,8 @@ public final class MageZeroSearchMain {
      * network call (MCTSPlayer.makeChoice); the engine may still offer more, such as a library search's finish.
      */
     private static Map<String, Object> loneTarget(Map<String, Object> decision, World world,
-                                                  MageZeroSearchReplay.Result callback, Map<String, Object> replayProof) {
+                                                  MageZeroSearchReplay.Result callback, Map<String, Object> replayProof,
+                                                  boolean graphMode) {
         if (calls != 0) throw new IllegalStateException("original lone target made a network call");
         Map<String, Object> offered = null;
         for (Object item : Json.arr(decision, "candidates")) {
@@ -333,7 +405,11 @@ public final class MageZeroSearchMain {
                 offered = candidate;
             }
         }
-        if (offered == null) throw new IllegalArgumentException("original lone target is unoffered");
+        if (offered == null) {
+            throw new IllegalArgumentException(graphMode
+                    ? "search world is unsupported: unsupported:unreproduced_root_options"
+                    : "original lone target is unoffered");
+        }
         return Json.map("selection", Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic")),
                 "decision_sha256", decisionHash(decision), "forced", LONE_TARGET, "neural_calls", calls,
                 "world_flags", world.flags, "replay", replayProof);

@@ -33,13 +33,23 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
             "profile", "simulations", "cPuct", "priorTemp", "priorBonus", "discount", "discountUnit",
             "leaf", "opponentPriors", "timeoutSeconds", "maxIterations"));
 
+    public interface RootCheck {
+        void check(SearchPlayer player, List<MCTSNode> children, ActionEncoder.ActionType action);
+    }
+
     private final Map<String, Object> settings;
     private final BenchSearch.Config config;
     private final GraphNet net;
+    private final RootCheck rootCheck;
     private final List<Object> receipts = new ArrayList<>();
 
     public GnnSearch(Map<String, Object> settings, SearchPlayer.GraphPipe pipe) {
+        this(settings, pipe, null);
+    }
+
+    public GnnSearch(Map<String, Object> settings, SearchPlayer.GraphPipe pipe, RootCheck rootCheck) {
         this.settings = checked(settings);
+        this.rootCheck = rootCheck;
         if (pipe == null) throw new IllegalArgumentException("graph search needs its private pipe");
         net = new GraphNet(arrays -> scores(pipe.infer(payload(arrays)), arrays));
         config = new BenchSearch.Config();
@@ -112,6 +122,7 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
 
     @Override public MCTSNode choose(SearchPlayer player, Game game, MCTSNode2 r, ActionEncoder.ActionType action) {
         List<MCTSNode> kids = r.getChildren();
+        if (rootCheck != null) rootCheck.check(player, kids, action);
         if (kids.isEmpty()) return null;
         UUID me = player.getId();
         // keys of MageZero's options, as BenchPlayer takes them before searching

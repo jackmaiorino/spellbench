@@ -364,3 +364,122 @@ def test_a_root_the_copied_game_does_not_reproduce_is_refused_before_any_network
     check = java.index('throw new IllegalArgumentException("search world is unsupported: unsupported:root_state_differs");')
     assert java.index("newRoot.validateState();") < check < java.index("newRoot.expand();") < java.index("return (MCTSNode2) calculateActions(game, actionType);")
     assert "|| !observedRoot.equals(newRoot.stateVector))) {" in java
+
+
+def test_numeric_offered_range_refusal_falls_back_to_declining_at_zero_calls():
+    record, _, settings = fixture()
+    refusal = {"unsupported": "numeric offered range exceeds the actual callback", "neural_calls": 0}
+    with pytest.raises(ValueError, match="priority root"):
+        search.unsupported_result(record, refusal, 0)
+    record["decision"].update(context={"kind": "choice", "rewind": False}, candidates=[
+        {"candidate_id": 2, "semantic": {"kind": "choose_number", "minimum": 0, "maximum": 0, "value": 0}},
+        {"candidate_id": 3, "semantic": {"kind": "choose_number", "minimum": 0, "maximum": 1, "value": 1}}])
+    record.update(anchor={"decision": {}, "selection": {}}, replay={"priority_passes": ["p1"], "earlier": []})
+    peer = Peer([{"id": "1", "operation": "search", "event": "result", "ok": True, "result": refusal}])
+    out = search.BridgeSession(peer, Model()).choose(record, settings=settings, timeout_s=30)
+    assert out["selection"]["candidate_id"] == 2 and out["world_flags"] == ["unreproduced_callback"]
+    with pytest.raises(ValueError):
+        search.unsupported_result(record, {**refusal, "neural_calls": 1}, 0)
+    root = Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage"
+    assert '"numeric offered range exceeds the actual callback"' in (root / "MageZeroSearchReplay.java").read_text()
+    assert '"numeric offered range exceeds the actual callback", "callback replay diverges: "};' in (root / "GnnBridgeMain.java").read_text()
+
+
+def test_unreproduced_root_options_refuse_before_any_graph_call():
+    record, _, settings = fixture()
+    refusal = {"unsupported": "search world is unsupported: unsupported:unreproduced_root_options", "neural_calls": 0}
+    peer = Peer([{"id": "1", "operation": "search", "event": "result", "ok": True, "result": refusal}])
+    out = search.BridgeSession(peer, Model()).choose(record, settings=settings, timeout_s=30)
+    assert out["selection"]["semantic_echo"] == {"kind": "pass"}
+    assert out["world_flags"] == ["unsupported:unreproduced_root_options"]
+    gnn = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/models/magezero/v02/search/GnnSearch.java").read_text()
+    assert "if (rootCheck != null) rootCheck.check(player, kids, action);" in gnn
+    assert gnn.index("if (rootCheck != null)") < gnn.index("if (kids.isEmpty())") < gnn.index("BenchSearch.searchTree(")
+    main = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchMain.java").read_text()
+    assert "static void checkGraphRoot(" in main
+    assert '"original lone target is unoffered"' in main
+    assert "loneTarget(decision, world, callback, replayProof, graph != null)" in main
+    bridge = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/GnnBridgeMain.java").read_text()
+    assert "MageZeroSearchMain::checkGraphRoot" in bridge
+
+
+def test_graph_agent_answers_rewound_decision_with_declining_candidate():
+    from spellbench.agent_messages import Clock
+    from spellbench.bot import Decision, GameStart
+    settings = search.played_settings(2)
+    no_search = type("NoSearch", (), {
+        "model": Model(),
+        "choose": lambda *a, **kw: pytest.fail("rewind must not contact session"),
+        "close": lambda *a, **kw: None,
+    })()
+    agent = search.GraphAgent(lambda: no_search, checkpoint="draftzero-gnn-model", settings=settings)
+    start = GameStart.from_request({
+        "protocol": "spellbench/v2", "request_id": "start", "request_type": "game_start",
+        "game_id": "g-rewind", "seat": "p0", "agent_seed": 1,
+        "own_deck": {"decklist": [{"name": "Swamp", "count": 40}]},
+        "opponent_deck": {"decklist": [{"name": "Forest", "count": 40}]},
+        "rules": {"opponent_decklist": "visible"},
+        "engine_profile": {"observation": {"passed_seats": True, "keywords": True}},
+    })
+    agent.on_game_start(start)
+    rewound = Decision.from_request({
+        "protocol": "spellbench/v2", "request_id": "choose", "request_type": "choose",
+        "game_id": "g-rewind", "clock": Clock(5000, 2000).to_json(),
+        "decision": {"acting_seat": "p0", "seat_step": 0,
+                     "context": {"kind": "priority", "rewind": True},
+                     "observation": {"viewer": "p0", "turn": 1, "phase_step": "precombat_main",
+                                     "passed_seats": [], "stack": [], "players": []},
+                     "candidates": [{"candidate_id": 4, "semantic": {"kind": "play_land", "card_name": "Swamp"}},
+                                    {"candidate_id": 9, "semantic": {"kind": "pass"}}]},
+    })
+    assert agent.choose(rewound) == 9 and not agent.failed and agent.history.anchor is None
+
+
+def test_graph_combat_plan_declines_unoffered_assignment_while_exp1_stays_strict():
+    import xmage_neural_combat as exp1_combat
+    from test_xmage_neural_combat import fixture as combat_fixture, later_decision
+    record, exp1_result = combat_fixture("block")
+    settings = search.played_settings(2)
+    record["game_start"]["seat"] = "p1"
+    record["decision"]["observation"]["players"][0]["battlefield"] = [
+        {"object_id": "own-1", "controller_seat": "p1", "permanent": {"blocking": False}},
+        {"object_id": "own-2", "controller_seat": "p1", "permanent": {"blocking": False}}]
+    record["decision"]["observation"]["players"][1]["battlefield"] = [
+        {"object_id": "other-1", "controller_seat": "p0", "permanent": {"attacking": True}},
+        {"object_id": "other-2", "controller_seat": "p0", "permanent": {"attacking": True}}]
+    exp1_result["decision_sha256"] = decision_hash(record["decision"])
+    gnn_result = copy.deepcopy(exp1_result)
+    for root in gnn_result["roots"]:
+        root.update(requested_minimum=0, search_budget=search.budget(settings))
+    gnn_result.update(settings=settings, search_budget=search.budget(settings),
+                      graph_search=[{"type": "CHOOSE_TARGET", "simulations": 2, "network_calls": 1} for _ in gnn_result["roots"]])
+    # Exp1 stays strict on an unoffered combat assignment.
+    sub0_unoffered = copy.deepcopy(record)
+    sub0_unoffered["decision"]["candidates"] = [
+        {"candidate_id": 19, "semantic": {"kind": "declare_block", "blocker": {"object_id": "own-1"}, "attacker": None}},
+        {"candidate_id": 20, "semantic": {"kind": "declare_block", "blocker": {"object_id": "own-1"}, "attacker": {"object_id": "other-2"}}}]
+    exp1_sub0 = {**copy.deepcopy(exp1_result), "decision_sha256": decision_hash(sub0_unoffered["decision"])}
+    with pytest.raises(ValueError, match="unoffered or aliased"):
+        exp1_combat.CombatPlan(sub0_unoffered["decision"], exp1_sub0, visits=2).select(sub0_unoffered["decision"])
+    gnn_sub0 = {**copy.deepcopy(gnn_result), "decision_sha256": decision_hash(sub0_unoffered["decision"])}
+    out0 = search.combat_result(sub0_unoffered, gnn_sub0, settings, gnn_result["neural_calls"])
+    assert out0["selection"]["candidate_id"] == 19  # declining (attacker is None)
+
+    # Substep 1 with Menace forcing a single non-declining attacker after substep 0 declined.
+    plan = search.CombatPlan(record["decision"], {**copy.deepcopy(gnn_result), "pairs": []}, settings=settings)
+    assert plan.select(record["decision"])["candidate_id"] == 19
+    later = later_decision(record, "block")
+    later["observation"]["players"][0]["battlefield"][0]["permanent"] = {"blocking": False}
+    later["candidates"] = [{"candidate_id": 31, "semantic": {"kind": "declare_block",
+                                                              "blocker": {"object_id": "own-2"},
+                                                              "attacker": {"object_id": "other-1"}}}]
+    exp1_later = {**copy.deepcopy(exp1_result), "pairs": [], "decision_sha256": decision_hash(later)}
+    with pytest.raises(ValueError, match="unoffered or aliased"):
+        exp1_combat.select_candidate(later, exp1_later)
+    assert plan.select(later)["candidate_id"] == 31 and plan.complete
+
+    # Aliased candidates remain rejected.
+    aliased = copy.deepcopy(sub0_unoffered["decision"])
+    aliased["candidates"][1]["semantic"]["attacker"] = None
+    with pytest.raises(ValueError, match="unoffered or aliased"):
+        search.graph_combat_select(aliased, {**copy.deepcopy(gnn_result), "decision_sha256": decision_hash(aliased)})

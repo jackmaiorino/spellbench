@@ -179,6 +179,8 @@ class CombatPlan:
     The engine may hold those choices until the group completes.
     An unexpected public change, skipped substep or rewind poisons this plan.
     """
+    _select_candidate = staticmethod(select_candidate)
+
     def __init__(self, decision: dict, result: dict, *, visits: int,
                  minimum_visits: bool = True, expected_budget: dict | None = None):
         if type(visits) is not int or not 2 <= visits <= 1000:
@@ -269,7 +271,7 @@ class CombatPlan:
             # State and group validation, rather than a new search, authorizes
             # rebinding the original assignment to this later wire substep.
             result = {**self.result, "decision_sha256": decision_hash(decision)}
-            selection = select_candidate(decision, result)
+            selection = self._select_candidate(decision, result)
             semantic = selection["semantic_echo"]
             name, reference = ("attacker", "defender") if self.family == "attack" else ("blocker", "attacker")
             oid = semantic[name]["object_id"]

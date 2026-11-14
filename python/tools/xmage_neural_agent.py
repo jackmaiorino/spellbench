@@ -339,6 +339,13 @@ class PublicHistory:
         elif self.anchor is not None:
             self.earlier.append(entry)
 
+    def rewind(self):
+        """Drop pending pre-rewind action state so the public history can continue."""
+        self.pending_cast = None
+        self.pending_use = None
+        self.activations = [entry for entry in self.activations if entry["confirmed"]]
+        self.anchor, self.earlier = None, []
+
 
 class NeuralAgent:
     """Own one mixed search session through one public game lifecycle."""
@@ -346,6 +353,7 @@ class NeuralAgent:
     # Opt-in (the graph agent): a function answering decisions no search root family supports.
     unsearched_family = None
     unreplayable_callback = None  # the answer to a callback without a public replay anchor; None refuses
+    rewound_decision = None  # opt-in (the graph agent): answer a rewound decision instead of failing
     # The original Exp1 ComputerPlayer.chooseTriggeredAbility returns abilities.get(0), no search.
     original_trigger_order = True
     def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
@@ -416,7 +424,8 @@ class NeuralAgent:
             if (type(decision.seat_step) is not int or not 0 <= decision.seat_step <= wire.MAX_JSON_INT
                     or self.step is not None and decision.seat_step != self.step + 1):
                 raise ValueError("neural decision seat step is stale or skipped")
-            if decision.context.get("rewind") is not False:
+            rewind = decision.context.get("rewind")
+            if type(rewind) is not bool or (rewind and self.rewound_decision is None):
                 raise ValueError("neural history does not support a rewound action")
             clocks = [decision.clock.get(key) for key in ("remaining_ms", "max_decision_ms")]
             if any(type(value) is not int or value <= 0 for value in clocks):
@@ -430,6 +439,9 @@ class NeuralAgent:
                     raise TimeoutError("neural frontend exhausted the shared decision clock")
                 return value
 
+            if rewind:
+                self.history.rewind()
+                self.plan = self.arrangement = None
             self.history.observe(decision.observation)
             record = self._record(decision)
             received = record["decision"]
@@ -441,7 +453,9 @@ class NeuralAgent:
             if self.plan is not None and not self.plan.complete and kinds not in (
                     {"declare_attack"}, {"declare_block"}):
                 raise ValueError("neural combat group ended before all declarations")
-            if self.arrangement_factory is not None and (kinds == {"arrange_card"}
+            if rewind:
+                selection, family = self.rewound_decision(received), "rewound_decision_fallback"
+            elif self.arrangement_factory is not None and (kinds == {"arrange_card"}
                     or kinds == {"order_pick"} and self.arrangement is not None and not self.arrangement.complete):
                 family = "original_arrangement_plan"
                 if self.arrangement is None or self.arrangement.complete:
@@ -495,7 +509,7 @@ class NeuralAgent:
                        and c.semantic == selection.get("semantic_echo")]
             if len(offered) != 1 or result is not None and result.get("checkpoint") != self.checkpoint:
                 raise ValueError("neural choice is unoffered or belongs to another checkpoint")
-            if family != "original_first_trigger":
+            if family not in ("original_first_trigger", "rewound_decision_fallback"):
                 # The replayed original player orders its triggers itself; its callbacks compare the result.
                 self.history.selected(received, selection)
             self.step = decision.seat_step

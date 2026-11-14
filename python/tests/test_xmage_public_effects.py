@@ -102,3 +102,13 @@ def test_distinct_prowess_occurrences_accumulate_without_duplicate_resolution():
 def test_another_viewer_is_refused():
     with pytest.raises(ValueError, match="another viewer"):
         PublicEffects("p1").observe(fixture()["visible_resolutions"][0])
+
+
+def test_fleeting_distraction_with_null_target_entry_does_not_crash():
+    before, after, _ = fixture()["visible_resolutions"]
+    before["stack"][-1]["targets"] = [None]
+    assert resolution(before, after) is None
+    history = PublicEffects("p0")
+    history.observe(before)
+    history.observe(after)
+    assert history.fields() == []

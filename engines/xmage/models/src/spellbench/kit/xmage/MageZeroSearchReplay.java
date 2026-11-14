@@ -33,10 +33,13 @@ import spellbench.models.magezero.v02.search.MCTSDefaults;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Set;
 import java.text.Normalizer;
 import java.util.UUID;
 
@@ -48,7 +51,7 @@ final class MageZeroSearchReplay {
     private MageZeroSearchReplay() { }
     // The private pipe handles one request at a time. Game state restoration
     // may replace Player objects, so the replay context belongs to the game.
-    private static Result live;
+    static Result live;
     private static Result context(Game game) {
         return live != null && game == live.world.game && !game.isSimulation() ? live : null;
     }
@@ -636,26 +639,73 @@ final class MageZeroSearchReplay {
      * anchor's sampled library starts with them, in hand order, and the replayed draws reproduce the same cards and ids.
      * Skipped when the anchor already pins a position from the library's top. Returns the number pinned.
      */
+    private static Map<String, Object> playerObs(Map<String, Object> obs, String viewer) {
+        if (obs == null) return null;
+        for (Object item : Json.arr(obs, "players")) {
+            Map<String, Object> player = Json.obj(item);
+            if (viewer.equals(Json.str(player, "seat"))) return player;
+        }
+        return null;
+    }
+
     static int pinVisibleDraws(Map<String, Object> anchor, Map<String, Object> decision, List<Object> known, String viewer) {
+        return pinVisibleDraws(anchor, decision, Collections.emptyList(), known, viewer);
+    }
+
+    static int pinVisibleDraws(Map<String, Object> anchor, Map<String, Object> decision,
+                               List<Object> earlier, List<Object> known, String viewer) {
         for (Object entry : known) {
             Map<String, Object> fact = Json.obj(entry);
             if (viewer.equals(Json.str(fact, "owner_seat")) && "library".equals(Json.str(fact, "zone"))
                     && fact.get("position_from_top") != null) return 0;
         }
-        String before = Json.canonical(anchor.get("observation"));
+        Map<String, Object> anchorObs = Json.obj(anchor, "observation");
+        Map<String, Object> beforePlayer = playerObs(anchorObs, viewer);
+        Map<String, Object> afterPlayer = playerObs(Json.obj(decision, "observation"), viewer);
+        if (beforePlayer == null || afterPlayer == null) return 0;
+        long beforeLib = Json.num(beforePlayer, "library_count", -1L);
+        long afterLib = Json.num(afterPlayer, "library_count", -1L);
+        long drawn = beforeLib - afterLib;
+        if (beforeLib < 0 || afterLib < 0 || drawn <= 0) return 0;
+        // Cards returned from graveyard or exile also enter hand without appearing in anchorObs:
+        // only treat new hand entries as library draws when neither public zone lost a card.
+        for (String zone : new String[]{"graveyard", "exile"}) {
+            Set<String> afterIds = new HashSet<>();
+            for (Object entry : Json.arr(afterPlayer, zone)) {
+                String id = Json.str(Json.obj(entry), "object_id");
+                if (id != null) afterIds.add(id);
+            }
+            for (Object entry : Json.arr(beforePlayer, zone)) {
+                String id = Json.str(Json.obj(entry), "object_id");
+                if (id != null && !afterIds.contains(id)) return 0;
+            }
+        }
+        String before = Json.canonical(anchorObs);
+        List<Map<String, Object>> snapshots = new ArrayList<>();
+        if (earlier != null) {
+            for (Object entry : earlier) {
+                Map<String, Object> past = Json.obj(Json.obj(entry), "decision");
+                if (past != null) snapshots.add(past);
+            }
+        }
+        snapshots.add(decision);
+        Set<String> seen = new HashSet<>();
+        List<Object> pinned = new ArrayList<>();
         int position = 0;
-        for (Object item : Json.arr(Json.obj(decision, "observation"), "players")) {
-            Map<String, Object> player = Json.obj(item);
-            if (!viewer.equals(Json.str(player, "seat"))) continue;
+        for (Map<String, Object> snap : snapshots) {
+            Map<String, Object> player = playerObs(Json.obj(snap, "observation"), viewer);
+            if (player == null) continue;
             for (Object held : Json.arr(player, "hand")) {
                 Map<String, Object> card = Json.obj(held);
                 String id = Json.str(card, "object_id"), name = Json.str(card, "card_name");
-                if (id == null || name == null || before.contains("\"" + id + "\"")) continue;
-                known.add(Json.map("object_id", id, "card_name", name, "owner_seat", viewer, "zone", "library",
+                if (id == null || name == null || before.contains("\"" + id + "\"") || !seen.add(id)) continue;
+                pinned.add(Json.map("object_id", id, "card_name", name, "owner_seat", viewer, "zone", "library",
                         "how", "looked_at", "position_from_top", (long) position++));
             }
         }
-        return position;
+        if (pinned.size() != drawn) return 0;
+        known.addAll(pinned);
+        return pinned.size();
     }
     static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator,
                       MCTSDefaults settings, boolean diagnostic) {
@@ -715,7 +765,8 @@ final class MageZeroSearchReplay {
                 if (!present) known.add(Json.copy(card));
             }
         }
-        int drawsPinned = Boolean.TRUE.equals(history.get("visible_draws")) ? pinVisibleDraws(a, result.decision, known, viewer) : 0;
+        int drawsPinned = Boolean.TRUE.equals(history.get("visible_draws"))
+                ? pinVisibleDraws(a, result.decision, result.earlier, known, viewer) : 0;
         observation.put("known", known);
         KitContext.reset(); GameAccess.reset(); KitRandom.installBoot();
         List<String> flags = WorldBuilder.restoreVisibleNames(observation, Json.obj(a, "x_history"));

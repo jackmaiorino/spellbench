@@ -587,3 +587,37 @@ def test_an_agent_that_declares_an_answer_takes_it_for_an_unreplayable_callback(
     assert issubclass(agent.UnreplayableCallback, ValueError)
     import xmage_gnn_search
     assert xmage_gnn_search.GraphAgent.unreplayable_callback is xmage_gnn_search.declining
+
+
+def test_rewound_decision_is_refused_by_default_and_answered_when_opted_in():
+    strict = agent.NeuralAgent(lambda: Session([0]), checkpoint=CHECKPOINT, visits=2)
+    strict.on_game_start(GameStart.from_request(game()))
+    rewound = decision({"kind": "pass"}, step=0)
+    rewound["context"]["rewind"] = True
+    with pytest.raises(ValueError, match="rewound action"):
+        strict.choose(view(rewound))
+    assert strict.failed
+
+    class RewindDeclining(agent.NeuralAgent):
+        rewound_decision = staticmethod(lambda d: {
+            "candidate_id": d["candidates"][0]["candidate_id"],
+            "semantic_echo": d["candidates"][0]["semantic"]})
+
+    session = Session([1, 0])
+    bot = RewindDeclining(lambda: session, checkpoint=CHECKPOINT, visits=2)
+    bot.on_game_start(GameStart.from_request(game()))
+    cast_dec = decision({"kind": "pass"}, {"kind": "cast_spell", "method": "normal",
+                                          "source": {"card_name": "Eaten Alive", "object_id": "c1", "zone": "hand"}}, step=0)
+    assert bot.choose(view(cast_dec)) == 11
+    assert bot.history.anchor is not None and bot.history.pending_cast is not None
+    bot.history.activations.append({"object_id": "pw1", "before": 3, "turn": 1, "confirmed": False})
+    bot.history.pending_use = {"object_id": "a1", "ability_index": 0, "turn": 1, "stacked": 0}
+    rewound_step = decision({"kind": "pass"}, step=1)
+    rewound_step["context"]["rewind"] = True
+    assert bot.choose(view(rewound_step)) == 10
+    assert not bot.failed and len(session.requests) == 1
+    assert bot.history.anchor is None and bot.history.earlier == []
+    assert bot.history.pending_cast is None and bot.history.pending_use is None
+    assert bot.history.activations == []
+    next_step = decision({"kind": "pass"}, {"kind": "play_land"}, step=2)
+    assert bot.choose(view(next_step)) == 10 and len(session.requests) == 2
