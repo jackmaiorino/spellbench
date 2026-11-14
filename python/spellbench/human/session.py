@@ -174,6 +174,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cold", type=Path, default=None, help="cold copy root for engine records")
     parser.add_argument("--no-record", action="store_true", help="skip the operator engine recording")
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--client", choices=("page", "manabrew"), default="page",
+                        help="page: the built-in play page; manabrew: host a room on a local Manabrew relay")
+    parser.add_argument("--relay-url", default="ws://127.0.0.1:9443", help="Manabrew relay (a ws:// URL on this machine)")
+    parser.add_argument("--relay-key", default="forge", help="the relay's shared key (MANABREW_SERVER_KEY)")
+    parser.add_argument("--room-name", default="Spellbench", help="the Manabrew room the session opens")
     args = parser.parse_args(argv)
 
     name = args.name or datetime.now().strftime("session-%Y%m%d-%H%M%S")
@@ -207,7 +212,8 @@ def main(argv: list[str] | None = None) -> int:
     shown = next(((bot.get("display") or {}).get("label") for bot in config_doc["bots"] if bot["name"] == args.opponent),
                  None) or args.opponent  # the page names the opponent by its board label
     hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=shown,
-              label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank")
+              label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank",
+              record_root=None if args.no_record else out / "engine-records" / "hot")
     server = make_server(hub, port=args.port)
     host, port = server.server_address[:2]
     os.environ[relay.URL_ENV] = f"http://{host}:{port}"
@@ -216,7 +222,14 @@ def main(argv: list[str] | None = None) -> int:
     url = f"http://{host}:{port}/?t={server.token}"
     print(f"\n  Play here: {url}\n", flush=True)
     print(f"  run: {run_dir}\n  config: {config_path}\n", flush=True)
-    if not args.no_browser:
+    if args.client == "manabrew":
+        from .manabrew import host as manabrew_host
+        bridge = manabrew_host.Bridge(hub, relay_url=args.relay_url, relay_key=args.relay_key,
+                                      room_name=args.room_name, bot_name=str(shown),
+                                      bot_deck=manabrew_host.pool_deck())
+        bridge.start()
+        print(f"  Manabrew: join room '{args.room_name}' on {args.relay_url} from the Manabrew client\n", flush=True)
+    elif not args.no_browser:
         webbrowser.open(url)
     started = time.monotonic()
     try:
