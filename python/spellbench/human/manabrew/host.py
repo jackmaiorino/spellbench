@@ -154,6 +154,12 @@ class Bridge:
                 session.send({"type": "SetDeckSelection", "deck_name": self.bot_deck[0],
                               "deck": _deck(*self.bot_deck), "commander_name": None})
                 session.send({"type": "SetReady", "ready": True})
+                room = msg.get("room") or {}
+                if all(p.get("is_bot") for p in players):  # the table's only seat controls it: restore a Pauper duel
+                    if room.get("format") != "Pauper":
+                        session.send({"type": "SetFormat", "format": "Pauper"})
+                    if room.get("max_players") != 2:
+                        session.send({"type": "SetMaxPlayers", "max_players": 2})
 
     def _maybe_start(self) -> None:
         """Track the person in the room. The relay lets only the room's controller (the first human player) start

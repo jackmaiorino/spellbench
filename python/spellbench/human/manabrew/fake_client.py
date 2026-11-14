@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
             elif (len(players) >= 2 and all(p.get("ready") and p.get("connected") for p in players)
                   and room.get("room_id") != started_room):
                 started_room = room.get("room_id")
-                send({"type": "StartGame", "format": None})  # the room's controller starts, as the client does
+                send({"type": "StartGame", "format": "Pauper"})  # the room's controller starts, as the client does
         elif kind == "GameStarted":
             order = msg.get("player_order") or []
             slot = f"player-{order.index(args.username)}" if args.username in order else "player-0"
