@@ -40,9 +40,9 @@ def _deck(name: str, decklist: list[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def pool_deck() -> tuple[str, list[dict[str, Any]]]:
-    """The bot's lobby deck: lobby metadata only (the session schedules the real decks); one of each pool card."""
-    names = [name for name in sorted(view.CARDS) if not name.endswith(" Token")]
-    return "Spellbench Pauper pool", [{"name": name, "count": 1} for name in names]
+    """The bot's lobby deck: lobby metadata only (the session schedules the real decks). It names one basic land,
+    so the client looks up no other card names for it."""
+    return "Decks set by the session", [{"name": "Mountain", "count": 60}]
 
 
 class Session:

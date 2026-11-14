@@ -298,9 +298,12 @@ class Narrator:
                 who = group_seat
                 facts: list[tuple] = [("mana", who)]
                 facts += [("tap", c, n) for _, n, c in tap_group]
-                txt = f"{seat_word(who, me)} tap{'s' if who != me else ''} " + ", ".join(names)
-                if mana_colors:
-                    txt += f" for {mana_text(mana_colors)}"
+                if names:
+                    txt = f"{seat_word(who, me)} tap{'s' if who != me else ''} " + ", ".join(names)
+                    if mana_colors:
+                        txt += f" for {mana_text(mana_colors)}"
+                else:  # mana from an effect (a trigger), no permanent tapped
+                    txt = f"{seat_word(who, me)} add{'s' if who != me else ''} {mana_text(mana_colors)}"
                 add(group_at, Line(side="you" if who == me else "opp", depth=1, text=txt, facts=facts))
             tap_group, mana_colors, group_seat = [], [], None
 

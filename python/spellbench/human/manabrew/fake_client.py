@@ -115,7 +115,9 @@ def main(argv: list[str] | None = None) -> int:
                           f"{errors} errors", flush=True)
                     if games >= args.games:
                         break
-                    started_room = None  # the next game starts from the lobby again
+                    started_room, joined = None, False  # the table empties after a game: join it again
+                    time.sleep(2)
+                    send({"type": "ListRooms"})
                     continue
                 output = answer(prompt)
                 if output is not None:
