@@ -50,8 +50,7 @@ class Session:
     def __init__(self, url: str, key: str, username: str, *, service: bool, on_message) -> None:
         self.ws = WebSocket(url)
         self.username = username
-        self.send({"type": "Authenticate", "username": username, "password": key, "service": service,
-                   "client_platform": "Unknown"})
+        self.send({"type": "Authenticate", "username": username, "password": key, "service": service})
         reply = json.loads(self.ws.recv())
         if reply.get("type") != "AuthResult" or not reply.get("success"):
             raise RuntimeError(f"relay refused {username}: {reply}")
@@ -143,15 +142,11 @@ class Bridge:
                 session.send({"type": "SetReady", "ready": True})
 
     def _maybe_start(self) -> None:
+        """Track the person in the room. The relay lets only the room's controller (the first human player) start
+        a game, so the person presses Start in the client; GameStarted then readies the session's next game."""
         room = self.room or {}
-        players = room.get("players") or []
-        humans = [p for p in players if not p.get("is_bot") and p.get("username") not in (HOST_NAME,)]
+        humans = [p for p in room.get("players") or [] if not p.get("is_bot") and p.get("username") != HOST_NAME]
         self.human = humans[0]["username"] if humans else None
-        if (room.get("status") == "Lobby" and len(players) >= 2 and humans and not self.starting
-                and all(p.get("connected") and p.get("ready") and p.get("selected_deck_name") for p in players)
-                and self.hub.hello_waiting):
-            self.starting = True
-            self.host.send({"type": "StartGame", "format": None})
 
     # -- game ----------------------------------------------------------------------------------------------------
 

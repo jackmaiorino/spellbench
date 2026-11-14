@@ -65,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     send = lambda m: ws.send(json.dumps(m))  # noqa: E731
     send({"type": "Authenticate", "username": args.username, "password": args.key, "service": False})
     joined, games, prompts, errors, slot = False, 0, 0, 0, "player-0"
+    started_room = None
     deck = {"name": "Placeholder", "format": "pauper", "sideboard": [],
             "cards": [{"identity": {"id": "Swamp", "name": "Swamp", "setCode": "", "cardNumber": ""}, "uris": {},
                        "color": "", "colorIdentity": [], "manaCost": "", "cmc": 0, "types": ["Land"],
@@ -88,8 +89,16 @@ def main(argv: list[str] | None = None) -> int:
             send({"type": "JoinRoom", "room_id": room["room_id"]})
             send({"type": "SetDeckSelection", "deck_name": "Placeholder", "deck": deck, "commander_name": None})
             send({"type": "SetReady", "ready": True})
-        elif kind == "RoomUpdate" and joined and games and (msg.get("room") or {}).get("status") == "Lobby":
-            send({"type": "SetReady", "ready": True})
+        elif kind == "RoomUpdate" and joined and (msg.get("room") or {}).get("status") == "Lobby":
+            room = msg.get("room") or {}
+            players = room.get("players") or []
+            me = next((p for p in players if p.get("username") == args.username), None)
+            if me is not None and not me.get("ready"):
+                send({"type": "SetReady", "ready": True})
+            elif (len(players) >= 2 and all(p.get("ready") and p.get("connected") for p in players)
+                  and room.get("room_id") != started_room):
+                started_room = room.get("room_id")
+                send({"type": "StartGame", "format": None})  # the room's controller starts, as the client does
         elif kind == "GameStarted":
             order = msg.get("player_order") or []
             slot = f"player-{order.index(args.username)}" if args.username in order else "player-0"
@@ -106,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
                           f"{errors} errors", flush=True)
                     if games >= args.games:
                         break
+                    started_room = None  # the next game starts from the lobby again
                     continue
                 output = answer(prompt)
                 if output is not None:
