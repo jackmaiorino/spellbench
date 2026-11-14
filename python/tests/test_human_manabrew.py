@@ -299,3 +299,13 @@ def test_a_response_with_no_open_decision_gets_an_error_so_the_client_unlocks() 
     [sent] = bridge.host.sent
     assert sent["state"]["kind"] == "error" and sent["state"]["error"]["code"] == "stalePrompt"
     assert sent["state"]["error"]["promptId"] == 4
+
+
+def test_the_table_is_opened_again_while_the_relay_still_holds_the_earlier_one() -> None:
+    bridge = bridge_in_game()
+    bridge.room_id, bridge.RELAY_RETRY_S, bridge._open_deadline = None, 0.05, time.time() + 5
+    bridge._on_host(None, {"type": "Error", "code": "already_in_room", "message": "Already in room: abc"})
+    deadline = time.time() + 2
+    while not bridge.host.sent and time.time() < deadline:
+        time.sleep(0.02)
+    assert bridge.host.sent and bridge.host.sent[0]["type"] == "CreateRoom" and bridge.host.sent[0]["hosted"] is True

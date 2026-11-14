@@ -118,11 +118,34 @@ class Bridge:
 
     # -- relay ---------------------------------------------------------------------------------------------------
 
+    RELAY_RETRY_S = 5.0
+    RELAY_PATIENCE_S = 240.0  # the relay frees a killed session's seat and table after a few minutes
+
     def start(self) -> None:
-        self.host = Session(self.url, self.key, HOST_NAME, service=True, on_message=self._on_host)
+        """Take the host seat and open the table. A session ended abruptly (a relaunch) leaves its seat and table
+        with the relay for a while; the relay refuses the new one until then, so wait and try again."""
+        deadline = time.time() + self.RELAY_PATIENCE_S
+        while True:
+            try:
+                self.host = Session(self.url, self.key, HOST_NAME, service=True, on_message=self._on_host)
+                break
+            except RuntimeError as exc:
+                if "taken" not in str(exc) or time.time() > deadline:
+                    raise
+                print(f"  the relay still holds the host seat of the earlier session; trying again ({exc})", flush=True)
+                time.sleep(self.RELAY_RETRY_S)
+        self._open_deadline = deadline
+        self._create_room()
+        threading.Thread(target=self._pump, daemon=True, name="manabrew-pump").start()
+
+    def _create_room(self) -> None:
         self.host.send({"type": "CreateRoom", "room_name": self.room_name, "max_players": 2, "format": "Pauper",
                         "protocol_version": PROTOCOL_VERSION, "hosted": True, "engine": "Manabrew"})
-        threading.Thread(target=self._pump, daemon=True, name="manabrew-pump").start()
+
+    def _retry_create(self) -> None:
+        with self.lock:
+            if self.room_id is None:
+                self._create_room()
 
     def _on_host(self, session: Session, msg: Mapping[str, Any]) -> None:
         kind = msg.get("type")
@@ -156,6 +179,9 @@ class Bridge:
                 self._human_back()
             elif kind == "Error":
                 print(f"  relay error: {msg.get('code')}: {msg.get('message')}", flush=True)
+                if msg.get("code") == "already_in_room" and self.room_id is None and time.time() < getattr(
+                        self, "_open_deadline", 0):  # the earlier session's table is still there: try again soon
+                    threading.Timer(self.RELAY_RETRY_S, self._retry_create).start()
 
     def _reseat_bot(self) -> None:
         """After a game the relay returns the table to its lobby without its seats: seat the bot again."""
