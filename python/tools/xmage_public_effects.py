@@ -27,7 +27,7 @@ def resolution(before, after):
         kind, delta, target = "prowess", (1, 1), top.get("source") or {}
     elif (top.get("stack_kind") == "spell" and top.get("card_name") == "Fleeting Distraction"
           and top.get("text") == DISTRACTION and len(top.get("targets", [])) == 1):
-        kind, delta, target = "fleeting_distraction", (-1, 0), top["targets"][0].get("object") or {}
+        kind, delta, target = "fleeting_distraction", (-1, 0), ((top["targets"][0] or {}).get("object") or {})
     else:
         return None
     old, new = battlefield(before).get(target.get("object_id")), battlefield(after).get(target.get("object_id"))

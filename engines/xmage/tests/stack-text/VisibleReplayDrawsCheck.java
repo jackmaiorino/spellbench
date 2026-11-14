@@ -170,6 +170,56 @@ public final class VisibleReplayDrawsCheck {
                 && VisibleReplayDraws.declaredLoot(RULE) == 2, "declared loot text was misread");
     }
 
+    private static void pinVisibleDrawsCheck() {
+        Map<String, Object> anchor = Json.map("observation", observation(false));
+        Map<String, Object> current = decision();
+        List<Object> known = new ArrayList<>();
+        require(MageZeroSearchReplay.pinVisibleDraws(anchor, current, known, "p0") == 2 && known.size() == 2,
+                "valid two-card draw was not pinned");
+        require(Json.num(Json.obj(known.get(0)), "position_from_top", -1L) == 0
+                && Json.num(Json.obj(known.get(1)), "position_from_top", -1L) == 1,
+                "pinned draw positions were wrong");
+
+        // Graveyard-to-hand return (Macabre Waltz): library_count unchanged, graveyard lost a card.
+        Map<String, Object> waltzAnchorObs = observation(false);
+        Map<String, Object> waltzBeforeP = Json.obj(Json.arr(waltzAnchorObs, "players").get(0));
+        waltzBeforeP.put("graveyard", Arrays.asList(Json.map("object_id", "gy-creature", "card_name", "Goblin")));
+        waltzBeforeP.put("exile", new ArrayList<>());
+        Map<String, Object> waltzDecObs = observation(false);
+        Map<String, Object> waltzAfterP = Json.obj(Json.arr(waltzDecObs, "players").get(0));
+        waltzAfterP.put("graveyard", new ArrayList<>());
+        waltzAfterP.put("exile", new ArrayList<>());
+        @SuppressWarnings("unchecked")
+        List<Object> waltzHand = Json.arr(waltzAfterP, "hand");
+        waltzHand.add(card("hand-gy-creature", "Goblin"));
+        waltzAfterP.put("hand_count", (long) waltzHand.size());
+        List<Object> waltzKnown = new ArrayList<>();
+        require(MageZeroSearchReplay.pinVisibleDraws(
+                        Json.map("observation", waltzAnchorObs), Json.map("observation", waltzDecObs),
+                        Collections.emptyList(), waltzKnown, "p0") == 0
+                && waltzKnown.isEmpty(), "graveyard return was falsely pinned as a library draw");
+
+        // Mill 1 + return 1 drops library_count by 1 AND removes a card from graveyard -> must NOT pin.
+        waltzAfterP.put("library_count", 3L);
+        require(MageZeroSearchReplay.pinVisibleDraws(
+                        Json.map("observation", waltzAnchorObs), Json.map("observation", waltzDecObs),
+                        Collections.emptyList(), waltzKnown, "p0") == 0
+                && waltzKnown.isEmpty(), "mill plus graveyard return was falsely pinned as a library draw");
+
+        // Multi-step draw 2 + discard 1 across earlier and decision still recovers both drawn ids.
+        Map<String, Object> firstAfter = observation(true);
+        Map<String, Object> secondAfter = observation(true);
+        Json.arr(Json.obj(Json.arr(secondAfter, "players").get(0)), "hand").remove(1);
+        List<Object> lootKnown = new ArrayList<>();
+        require(MageZeroSearchReplay.pinVisibleDraws(
+                        anchor, Json.map("observation", secondAfter),
+                        Arrays.asList(Json.map("decision", Json.map("observation", firstAfter))),
+                        lootKnown, "p0") == 2
+                && "drawn-island".equals(Json.str(Json.obj(lootKnown.get(0)), "object_id"))
+                && "drawn-mystic".equals(Json.str(Json.obj(lootKnown.get(1)), "object_id")),
+                "multi-step draw-then-discard did not pin both drawn cards");
+    }
+
     public static void main(String[] args) {
         Sampler.Sample sample = sample(), repeat = sample();
         Map<String, Object> opponentBefore = Json.obj(Json.obj(sample.json(), "seats"), "p1");
@@ -208,6 +258,7 @@ public final class VisibleReplayDrawsCheck {
         for (String fault : new String[]{"viewer", "turn", "count", "prefix", "opponent", "duplicate", "absent", "pin"}) refuse(fault);
         icewind();
         declaredLoot();
+        pinVisibleDrawsCheck();
         System.out.println("public own-draw replay conditioning: PASS");
     }
 }
