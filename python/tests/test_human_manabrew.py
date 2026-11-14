@@ -278,3 +278,14 @@ def test_a_conceded_game_is_a_recorded_loss_and_the_next_game_completes(tmp_path
     assert ledger_first["classification"] == "forfeit" and ledger_first["reason"] == "forfeit:agent_error"
     assert ledger_first["winner"] != next(s["seat"] for s in ledger_first["seats"] if s["name"] == "human")
     assert by_game[second["game_id"]]["classification"] == "natural"
+
+
+def test_a_game_of_a_person_who_has_left_the_room_is_still_ended_at_the_relay() -> None:
+    """The relay drops a disconnected person from the room; their game must still be ended so the table reopens."""
+    bridge = bridge_in_game()
+    bridge._maybe_start()  # nobody in the room: `human` is cleared, `last_human` keeps the name
+    bridge.human, bridge.last_human = None, "human"
+    bridge.hub.concede("connection_lost")
+    bridge._push(bridge.hub.state())
+    assert {"type": "EndGame", "game_id": "g-1"} in bridge.host.sent
+    assert bridge.order is None

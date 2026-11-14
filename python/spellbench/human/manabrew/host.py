@@ -14,6 +14,7 @@ the engine-client messages follow the Manabrew protocol documentation (CC-BY-4.0
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 import traceback
@@ -97,6 +98,7 @@ class Bridge:
         self.room: dict[str, Any] | None = None
         self.room_id: str | None = None
         self.human: str | None = None
+        self.last_human: str | None = None  # the person's name once they have left the room, to end their game
         self.order: list[str] | None = None
         self.game_id: str | None = None
         self.seats: view.Seats | None = None
@@ -148,9 +150,9 @@ class Bridge:
                 self.hub.control("start", {})
             elif kind == "StateUpdate":
                 self._on_response(msg.get("from_player"), msg.get("state") or {})
-            elif kind in ("PlayerDisconnected", "PlayerLeft") and msg.get("username") == self.human:
+            elif kind in ("PlayerDisconnected", "PlayerLeft") and msg.get("username") == (self.human or self.last_human):
                 self._human_gone()
-            elif kind == "PlayerConnected" and msg.get("username") == self.human:
+            elif kind == "PlayerConnected" and msg.get("username") == (self.human or self.last_human):
                 self._human_back()
             elif kind == "Error":
                 print(f"  relay error: {msg.get('code')}: {msg.get('message')}", flush=True)
@@ -188,6 +190,8 @@ class Bridge:
         room = self.room or {}
         humans = [p for p in room.get("players") or [] if not p.get("is_bot") and p.get("username") != HOST_NAME]
         self.human = humans[0]["username"] if humans else None
+        if self.human:
+            self.last_human = self.human
         if humans:
             self.human_pick = decks.catalog_id(humans[0].get("selected_deck_name"))
             # The bot selects the deck it will really play against this pick, so both lobby decks are true.
@@ -209,7 +213,7 @@ class Bridge:
         self.hub.announce(text)
 
     def _envelope(self, body: dict[str, Any]) -> None:
-        self.host.send({"type": "BroadcastState", "state": body, "target_player": self.human})
+        self.host.send({"type": "BroadcastState", "state": body, "target_player": self.human or self.last_human})
 
     def _pump(self) -> None:
         version = -1
@@ -226,15 +230,16 @@ class Bridge:
 
     def _push(self, state: Mapping[str, Any]) -> None:
         game = state.get("game")
-        if not game or self.human is None or self.order is None:
+        if not game or (self.human or self.last_human) is None or self.order is None:
             return
         if game.get("game_id") == getattr(self, "stale_game", None):
             return
         if self.seats is None or self.seats.human_seat != game.get("seat"):
-            human_index = self.order.index(self.human) if self.human in self.order else 0
+            person = self.human or self.last_human
+            human_index = self.order.index(person) if person in self.order else 0
             bot_index = 1 - human_index
             dealt = self.dealt or {}
-            names = {f"player-{human_index}": f"{self.human} ({dealt.get('human', '?')})",
+            names = {f"player-{human_index}": f"{person} ({dealt.get('human', '?')})",
                      f"player-{bot_index}": f"{self.bot_name} ({dealt.get('bot', '?')})"}
             self.seats = view.Seats(game.get("seat"), f"player-{human_index}", f"player-{bot_index}", names)
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
@@ -297,7 +302,7 @@ class Bridge:
                   "for the next game.", flush=True)
 
     # The person's connection: a short drop may come back (the client reconnects), a long one ends the game.
-    DISCONNECT_GRACE_S = 90.0
+    DISCONNECT_GRACE_S = float(os.environ.get("MANABREW_DISCONNECT_GRACE_S", "90"))
 
     def _human_gone(self) -> None:
         """The person's socket closed or they left the table while a game was in progress."""
