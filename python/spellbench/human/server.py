@@ -195,10 +195,15 @@ class Hub:
             self._seen_stack.add(object_id)
             seat = entry.get("controller_seat")
             side = "you" if seat == me else "opp"
+            # The public history's cast line has no targets; the stack object on the board carries them.
+            chosen = text.stack_targets(entry, me)
+            aimed = f" targeting {chosen}" if chosen else ""
             if entry.get("stack_kind") == "activated_ability":
-                self._note(side, f"{text.seat_name(seat, me)} activates {text.card(entry)}")
+                self._note(side, f"{text.seat_name(seat, me)} activates {text.card(entry)}{aimed}")
             elif entry.get("stack_kind") == "triggered_ability":
-                self._note(side, f"{text.card(entry)} triggers ({'yours' if seat == me else 'opp'})")
+                self._note(side, f"{text.card(entry)} triggers ({'yours' if seat == me else 'opp'}){aimed}")
+            elif chosen:
+                self._note(side, f"{text.card(entry)} targets {chosen}")
         players = {p.get("seat"): p for p in observation.get("players") or []}
         if previous is not None:
             for p in previous.get("players") or []:
@@ -308,6 +313,10 @@ class Hub:
             candidates.append({"id": c["candidate_id"], "kind": semantic.get("kind"),
                                "text": text.candidate(semantic, me, lands), "engine_text": c.get("display_text"),
                                "refs": sorted(set(text.refs(semantic))), "semantic": semantic})
+        options = text.effect_options(decision, me)
+        if options is not None:  # an effect option: say what each option does where it can be known
+            for c in candidates:
+                c["text"] = options[1].get(c["id"], c["text"])
         kinds = {c["kind"] for c in candidates}
         group = decision.get("group") or {}
         screen = "generic"
@@ -322,7 +331,8 @@ class Hub:
                for c in candidates):
             hint = ("Autopay only taps lands and plain mana sources: a spell that needs mana from an Activate source "
                     "(sacrifice, Treasure) appears once you activate it.")
-        return {"seq": self.seq, "prompt": text.prompt(decision, me), "context": decision.get("context"),
+        return {"seq": self.seq, "prompt": options[0] if options else text.prompt(decision, me),
+                "context": decision.get("context"),
                 "group": group, "candidates": candidates, "screen": screen, "hint": hint, "received_at": _ms()}
 
     # -- page side ----------------------------------------------------------------------------------------------
