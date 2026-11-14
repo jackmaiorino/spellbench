@@ -47,7 +47,10 @@ def make_handler(dist: Path, config_js: bytes):
                 return
             target = (root / path.lstrip("/")).resolve()
             if root not in target.parents and target != root or not target.is_file():
-                target = root / "index.html"
+                if "." in Path(path).name:  # a missing file (the status banner): nothing to serve
+                    self._send(404, b"", "text/plain")
+                    return
+                target = root / "index.html"  # a client route
             content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
             self._send(200, target.read_bytes(), content_type)
 

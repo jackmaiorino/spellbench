@@ -278,7 +278,7 @@ class Narrator:
             for ref in refs:
                 for index, ev in window:
                     body = ev.get("ZoneChange") if isinstance(ev, Mapping) else None
-                    if body and body.get("object") == ref.get("object") and body.get("from") == "Battlefield":
+                    if body and body.get("object") == ref.get("object") and body.get("from") in ("Battlefield", "Hand"):
                         cost_events[index] = sid
                         # the Sacrificed event just before it is the same cost
                         prev = index - 1
@@ -551,7 +551,9 @@ class Narrator:
             label = self._item_label(item, snap)
             controller = label["controller"]
             detail = self._item_detail(item, snap)
-            costs = self._paid_costs(item, snap)
+            origins = {ev["ZoneChange"].get("object"): ev["ZoneChange"].get("from") for _, ev in window
+                       if isinstance(ev, Mapping) and "ZoneChange" in ev}
+            costs = self._paid_costs(item, snap, origins)
             at = min([k for k, v in cost_events.items() if v == sid], default=end + 0.25)
             if item.get("kind") == "ActivatedAbility":
                 txt = f"{seat_word(controller, me)} activate{'s' if controller != me else ''} {label['name']}{costs}{detail}"
@@ -621,12 +623,14 @@ class Narrator:
             txt += f" [{', '.join(parts)}]"
         return txt
 
-    def _paid_costs(self, item: Mapping[str, Any], snap: Snapshot) -> str:
+    def _paid_costs(self, item: Mapping[str, Any], snap: Snapshot, origins: Mapping[Any, Any] | None = None) -> str:
         names = []
         for ref in item["v4"].get("paid_cost_refs") or []:
             nm = snap.name(ref.get("object"), allow_command=True)
             src = item.get("source")
-            if ref.get("object") == src or (nm and nm == self._item_label(item, snap)["name"] and ref.get("zone") == "Graveyard"):
+            if (origins or {}).get(ref.get("object")) == "Hand":
+                names.append(f"discarding {nm or 'a card'}" if ref.get("zone") == "Graveyard" else f"exiling {nm or 'a card'} from hand")
+            elif ref.get("object") == src or (nm and nm == self._item_label(item, snap)["name"] and ref.get("zone") == "Graveyard"):
                 names.append("sacrificing itself")
             elif ref.get("zone") == "Graveyard":
                 names.append(f"sacrificing {nm or 'a permanent'}")

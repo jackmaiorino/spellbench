@@ -122,7 +122,7 @@ def stack_dto(entry: Mapping[str, Any], seats: Seats) -> dict[str, Any]:
 
 
 def game_view(observation: Mapping[str, Any], seats: Seats, game_id: str, *, game_over: bool = False,
-              winner: str | None = None) -> dict[str, Any]:
+              winner: str | None = None, starter: str | None = None) -> dict[str, Any]:
     players, zones = [], []
     blocks = []
     attachments: dict[str, list[str]] = {}
@@ -167,7 +167,7 @@ def game_view(observation: Mapping[str, Any], seats: Seats, game_id: str, *, gam
                 card["attachmentIds"] = attachments.get(card["id"], [])
     stack = [stack_dto(entry, seats) for entry in reversed(observation.get("stack") or [])]  # top first
     return {
-        "gameId": game_id, "turn": observation.get("turn") or 0,
+        "gameId": game_id, "turn": turn_number(observation, starter),
         "step": STEPS.get(observation.get("phase_step"), "main1"), "combatAssignments": blocks,
         "activePlayerId": seats.pid(observation.get("active_seat")),
         "priorityPlayerId": seats.pid(observation.get("priority_seat") or observation.get("active_seat")),
@@ -175,6 +175,14 @@ def game_view(observation: Mapping[str, Any], seats: Seats, game_id: str, *, gam
         "monarchId": None, "initiativeHolderId": None, "dayTime": "neither", "checkpoints": [], "restoreVote": None,
         "snapshotRecording": False,
     }
+
+
+def turn_number(observation: Mapping[str, Any], starter: str | None) -> int:
+    """The protocol counts every player's turn; our observation counts rounds (both players' turns)."""
+    rounds = observation.get("turn") or 0
+    if starter is None or not rounds:
+        return rounds
+    return 2 * (rounds - 1) + (1 if observation.get("active_seat") == starter else 2)
 
 
 def find_card(observation: Mapping[str, Any], object_id: str) -> tuple[Mapping[str, Any], str] | None:

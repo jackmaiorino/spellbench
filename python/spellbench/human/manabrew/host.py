@@ -23,6 +23,7 @@ from . import prompts, view
 from .ws import Closed, WebSocket
 
 HOST_NAME = "spellbench-host"
+PROTOCOL_VERSION = 6  # the client lists a table as joinable only when this matches its own protocol version
 LOG_TYPES = {"game": "info", "you": "action", "opp": "action"}
 
 
@@ -101,14 +102,15 @@ class Bridge:
         self.sent_log = 0
         self.sent_view: str | None = None
         self.starting = False
-        self.fallback_seq: int | None = None  # a combat plan did not fit: ask substep by substep
+        self.fallback_seq: int | None = None
+        self.starter: str | None = None  # the seat that took the first turn  # a combat plan did not fit: ask substep by substep
 
     # -- relay ---------------------------------------------------------------------------------------------------
 
     def start(self) -> None:
         self.host = Session(self.url, self.key, HOST_NAME, service=True, on_message=self._on_host)
         self.host.send({"type": "CreateRoom", "room_name": self.room_name, "max_players": 2, "format": "Pauper",
-                        "protocol_version": 1, "hosted": True, "engine": "Manabrew"})
+                        "protocol_version": PROTOCOL_VERSION, "hosted": True, "engine": "Manabrew"})
         threading.Thread(target=self._pump, daemon=True, name="manabrew-pump").start()
 
     def _on_host(self, session: Session, msg: Mapping[str, Any]) -> None:
@@ -122,6 +124,7 @@ class Bridge:
             elif kind == "RoomUpdate":
                 self.room = msg.get("room")
                 self._maybe_start()
+                self._reseat_bot()
             elif kind == "GameStarted":
                 self.order = list(msg.get("player_order") or [])
                 self.game_id = msg.get("game_id")
@@ -131,6 +134,17 @@ class Bridge:
                 self._on_response(msg.get("from_player"), msg.get("state") or {})
             elif kind == "Error":
                 print(f"  relay error: {msg.get('code')}: {msg.get('message')}", flush=True)
+
+    def _reseat_bot(self) -> None:
+        """After a game the relay returns the table to its lobby without its seats: seat the bot again."""
+        room = self.room or {}
+        players = room.get("players") or []
+        if (room.get("status") == "Lobby" and getattr(self, "bot", None) is not None
+                and not any(p.get("username") == self.bot_name for p in players)
+                and time.time() - getattr(self, "_bot_join_at", 0) > 3):
+            self._bot_join_at = time.time()
+            self._bot_seated = False
+            self.bot.send({"type": "JoinRoom", "room_id": self.room_id, "as_bot": True})
 
     def _on_bot(self, session: Session, msg: Mapping[str, Any]) -> None:
         if msg.get("type") == "RoomUpdate" and not getattr(self, "_bot_seated", False):
@@ -175,15 +189,17 @@ class Bridge:
             bot_index = 1 - human_index
             names = {f"player-{human_index}": self.human, f"player-{bot_index}": self.bot_name}
             self.seats = view.Seats(game.get("seat"), f"player-{human_index}", f"player-{bot_index}", names)
-            self.sent_log, self.sent_view, self.prompt = 0, None, None
+            self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
         observation = state.get("observation")
         over = state.get("game_over")
         if observation:
             winner = None
             if over and over.get("winner"):
                 winner = self.seats.pid(over.get("winner"))
+            if observation.get("turn") == 1 and self.starter is None:
+                self.starter = observation.get("active_seat")
             gv = view.game_view(observation, self.seats, self.game_id or str(game.get("game_id")),
-                                game_over=bool(over), winner=winner)
+                                game_over=bool(over), winner=winner, starter=self.starter)
             raw = json.dumps(gv, sort_keys=True)
             if raw != self.sent_view:
                 self.sent_view = raw
