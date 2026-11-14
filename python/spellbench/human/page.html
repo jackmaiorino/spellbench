@@ -173,7 +173,7 @@ function sideHtml(p, mine, refs, marks) {
   const ex = (p.exile || []).map((c) => c.card_name || "face-down").join(", ");
   const pool = Object.entries(p.mana_pool || {}).filter(([, v]) => v).map(([k, v]) => v + k).join(" ");
   const card = (c) => cardHtml(c, refs, marks && marks(c));
-  return `<h3><span class="${mine ? "you" : "opp"}" style="color:var(--${mine ? "you" : "opp"})">${mine ? "You" : "Opponent (b512)"}</span>` +
+  return `<h3><span class="${mine ? "you" : "opp"}" style="color:var(--${mine ? "you" : "opp"})">${mine ? "You" : `Opponent (${esc(S.opponent || "the bot")})`}</span>` +
     `<span>Life ${p.life}</span><span>Hand ${p.hand_count}</span><span>Library ${p.library_count}</span>` +
     `<span title="${esc(gy)}">Graveyard ${(p.graveyard || []).length}</span>` +
     (ex ? `<span title="${esc(ex)}">Exile ${(p.exile || []).length}</span>` : "") + (pool ? `<span>Pool ${pool}</span>` : "") + `</h3>` +
@@ -191,7 +191,7 @@ function render() {
     .map((p) => `<span class="pill ${p === o.phase_step || (p === "precombat_main" && o.phase_step === "postcombat_main") ? "on" : ""}">${PH[p]}</span>`).join("");
   const total = S.games_total ? ` / ${S.games_total}` : "";
   $("banner").innerHTML = g ? `<span>Game ${g.number}${total}</span>` +
-    `<span><b class="you">You</b> ${esc(g.own_deck)} vs <b class="opp">b512</b> ${esc(g.opp_deck)}</span>` +
+    `<span><b class="you">You</b> ${esc(g.own_deck)} vs <b class="opp">${esc(S.opponent || "the bot")}</b> ${esc(g.opp_deck)}</span>` +
     `<span class="life you">${you.life ?? "-"}</span><span class="life opp">${opp.life ?? "-"}</span>` +
     `<span>Turn ${o.turn ?? "-"} · <b style="color:var(--${active})">${active === "you" ? "your turn" : "opp turn"}</b></span>` +
     `<span id="phases">${phases}${o.phase_step === "postcombat_main" ? '<span class="pill on">Main2</span>' : ""}</span>` +

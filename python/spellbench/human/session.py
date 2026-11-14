@@ -147,6 +147,17 @@ def collect_locally(stop: threading.Event) -> None:
         stop.wait(data["transport"]["poll_seconds"])
 
 
+def page_closer(hub: Hub) -> Any:
+    """The runner's ``on_game`` hook: ends each recorded game on the page. A game the host ends (a spent bank, a
+    halt) closes the relay before its ``game_over`` reaches the page; without this the page keeps the withdrawn
+    decision and never offers the next game. A game the page already ended is left as it is."""
+    def after_game(row: Any) -> None:
+        record = row.to_json()
+        hub.close_game(record["game_id"], {key: record[key] for key in ("outcome", "classification", "winner",
+                                                                          "reason")})
+    return after_game
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m spellbench.human", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -193,7 +204,9 @@ def main(argv: list[str] | None = None) -> int:
 
     games_total = 2 * config_doc["pairs_per_matchup"]
     # Both seats log to one directory as <game_id>.<seat>.jsonl, the layout the misplay review converter reads.
-    hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=args.opponent,
+    shown = next(((bot.get("display") or {}).get("label") for bot in config_doc["bots"] if bot["name"] == args.opponent),
+                 None) or args.opponent  # the page names the opponent by its board label
+    hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=shown,
               label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank")
     server = make_server(hub, port=args.port)
     host, port = server.server_address[:2]
@@ -207,7 +220,8 @@ def main(argv: list[str] | None = None) -> int:
         webbrowser.open(url)
     started = time.monotonic()
     try:
-        summary = runner.run_tournament(config, run_secret=RunSecret.generate(), allocation=Allocation.unmeasured(1))
+        summary = runner.run_tournament(config, run_secret=RunSecret.generate(), allocation=Allocation.unmeasured(1),
+                                        on_game=page_closer(hub))
         print(f"tournament published: {summary.tournament_dir} status {summary.status}, "
               f"{summary.games_total} games, {round((time.monotonic() - started) / 60)} minutes", flush=True)
     finally:
