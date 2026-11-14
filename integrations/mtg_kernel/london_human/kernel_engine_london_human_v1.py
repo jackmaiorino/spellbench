@@ -161,6 +161,18 @@ def error(request_id, code, message):
             "error": {"code": code, "message": message}}
 
 
+def alias_flat(response):
+    """The pinned helper modules (combat, arrangement, order, selection order) read the model input's row map
+    under its V4 key. The bridge sends it as x_kernel_flat_v7; this process keeps an internal alias of the same
+    object so those helpers run unchanged. The alias never leaves this process: every outbound extension is built
+    from FLAT (x_kernel_flat_v7)."""
+    for holder in (response, response.get("view") if isinstance(response, dict) else None):
+        extensions = holder.get("extensions") if isinstance(holder, dict) else None
+        if isinstance(extensions, dict) and FLAT in extensions:
+            extensions["x_kernel_flat_v4"] = extensions[FLAT]
+    return response
+
+
 class NativePeer:
     def __init__(self, executable):
         self.executable = executable
@@ -177,7 +189,7 @@ class NativePeer:
         if not line or len(line) > wire.MAX_LINE_BYTES:
             raise ProjectionError("native bridge ended or exceeded its line bound")
         self.last_line_bytes = len(line)
-        return json.loads(line)
+        return alias_flat(json.loads(line))
 
     def close(self):
         if not self.child.stdin.closed:
