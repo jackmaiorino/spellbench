@@ -217,3 +217,59 @@ def test_hand_facts_absorb_current_reveals_and_never_overclaim():
         projection.add_hand_knowledge([dict(revealed)], {"hand": {1: facts + [{"name": "Bolt", "how": "revealed",
                                                                                  "native": 4}]},
                                                          "hand_truth": {1: Counter(Island=2, Bolt=1)}}, [7, 2])
+
+
+def test_bounced_token_to_hand_does_not_persist_as_known_hand_card():
+    from collections import Counter
+    from kernel_observation_v2 import KernelProjection
+
+    cards = DECKS + [{"object": 4, "owner": 1, "card_name": "Faerie Rogue", "is_token": True, "copy": False}]
+    history = PublicHistory()
+    history.absorb(slice_(new_objects=cards, events=[
+        {"Draw": {"player": 1, "object": 2}},
+        {"CreateToken": {"object": 4, "controller": 1}},
+        {"ZoneChange": {"object": 4, "from": "Battlefield", "to": "Hand", "controller_before": 1}},
+    ], notes=[
+        {"history_len": 0, "kind": "library_removal", "owner": 1, "position": 0},
+        {"history_len": 2, "kind": "hand_card_revealed", "observer": 0, "owner": 1, "object": 4},
+    ]))
+    # Even before SBA erases the token, it never becomes a persistent hand fact or truth entry.
+    knowledge = history.knowledge(0)
+    assert knowledge["hand"][1] == []
+    assert knowledge["hand_truth"][1] == Counter({"Counterspell": 1})
+    events = history.drain(0, Projection())["events"]
+    assert any(event["kind"] == "card_revealed" and event["card"]["card_name"] == "Faerie Rogue" for event in events)
+    projection = KernelProjection.__new__(KernelProjection)
+    projection.seat_map = {"p0": "p0", "p1": "p1"}
+    known = []
+    projection.add_hand_knowledge(known, knowledge, [0, 1])
+    assert known == []
+
+
+def test_copy_and_tucked_token_excluded_from_hand_and_library_counts():
+    from collections import Counter
+
+    cards = DECKS + [
+        {"object": 4, "owner": 1, "card_name": "Token Card", "is_token": True, "copy": False},
+        {"object": 5, "owner": 1, "card_name": "Spell Copy", "is_token": False, "copy": True},
+    ]
+    history = PublicHistory()
+    history.absorb(slice_(new_objects=cards, events=[
+        {"CreateToken": {"object": 4, "controller": 1}},
+        {"ZoneChange": {"object": 4, "from": "Battlefield", "to": "Library", "controller_before": 1}},
+        {"ZoneChange": {"object": 5, "from": "Stack", "to": "Hand", "controller_before": 1}},
+        {"ZoneChange": {"object": 5, "from": "Stack", "to": "Library", "controller_before": 1}},
+    ], notes=[
+        {"history_len": 0, "kind": "library_looked", "observer": 0, "owner": 1, "positions": [[0, 2]]},
+        {"history_len": 2, "kind": "hand_card_revealed", "observer": 0, "owner": 1, "object": 5},
+    ]))
+    # Tucked tokens and copies do not inflate the tracked library count or hand facts/truth.
+    assert history.library_count(1) == 2
+    assert history.knowledge(0)["hand"][1] == []
+    assert history.knowledge(0)["hand_truth"][1] == Counter()
+    history.absorb(slice_(history=history, events=[
+        {"ZoneChange": {"object": 5, "from": "Library", "to": "Hand", "controller_before": 1}},
+    ], notes=[
+        {"history_len": 0, "kind": "library_removal", "owner": 1, "position": 0},
+    ]))
+    assert history.knowledge(0)["hand"][1] == []

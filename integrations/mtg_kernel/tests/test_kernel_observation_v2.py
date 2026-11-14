@@ -120,11 +120,15 @@ def test_departed_ability_source_becomes_null_without_reconnecting_to_new_incarn
     assert observation["stack"][0]["source"] is None
 
 
-def test_unrevealed_hidden_ability_source_does_not_disclose_registry_name():
-    value = raw()
-    value["projection"]["stack"] = [stack(card(arena=44, owner="p1")["stable"])]
-    observation = project(adapter(), value, stack_instances=["11"])
-    assert observation["stack"][0]["card_name"] is None
+def test_hidden_zone_activated_ability_exposes_card_name_under_602_2a():
+    for hidden_zone in ("Hand", "Library"):
+        value = raw()
+        value["projection"]["stack"] = [stack(card(arena=44, zone=hidden_zone, owner="p1")["stable"])]
+        observation = project(adapter(), value, stack_instances=["11"])
+        assert observation["stack"][0]["card_name"] == "Island"
+        assert observation["stack"][0]["source"] is None
+        assert observation["players"][1]["hand"] is None
+        assert observation["known"] == []
 
 
 def test_pending_trigger_has_one_stack_identity_before_and_after_insertion():
@@ -168,9 +172,30 @@ def test_publicly_revealed_ninjutsu_source_name_survives_without_a_hand_referenc
     assert observation["stack"][0]["source"] is None
     assert observation["players"][1]["hand"] is None
     assert observation["known"] == []
-    # A fact about a different incarnation cannot license this name.
+    # CR 602.2a exposes the activated ability's card name even if no hand reveal fact matches.
     value["known_hand_cards"][1][0]["stable"]["zone_change_count"] += 1
-    assert project(adapter(), value, stack_instances=["11"])["stack"][0]["card_name"] is None
+    assert project(adapter(), value, stack_instances=["11"])["stack"][0]["card_name"] == "Island"
+
+
+def test_opponent_hand_cycling_ability_exposes_card_name_without_stale_source():
+    registry = catalog()
+    landscape = deepcopy(registry["cards"]["Island"])
+    landscape.update(card_db_id=1, full_name="Twisted Landscape")
+    registry["cards"]["Twisted Landscape"] = landscape
+    instance = KernelProjection(registry, b"s"*32)
+    value = raw()
+    # Opponent activated Cycling from hand and discarded Twisted Landscape to graveyard as cost.
+    cycled_from_hand = card(arena=55, zone="Hand", zcc=0, owner="p1", name="Twisted Landscape")["stable"]
+    cycled_from_hand["card_db_id"] = 1
+    discarded_to_graveyard = card(arena=55, zone="Graveyard", zcc=1, owner="p1", name="Twisted Landscape")
+    discarded_to_graveyard["stable"]["card_db_id"] = 1
+    value["projection"]["graveyards"][1] = [discarded_to_graveyard]
+    value["projection"]["stack"] = [stack(cycled_from_hand)]
+    observation = project(instance, value, stack_instances=["15"])
+    assert observation["stack"][0]["card_name"] == "Twisted Landscape"
+    assert observation["stack"][0]["source"] is None
+    assert observation["players"][1]["hand"] is None
+    assert observation["known"] == []
 
 
 def test_chosen_x_and_bestow_form_survive_announcement_and_stack_placement():

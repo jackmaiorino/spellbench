@@ -299,7 +299,8 @@ class PublicHistory:
 
     def library_count(self, owner: int) -> int:
         return sum(1 for native, zone in self.zones.items()
-                   if zone == "library" and self.objects[native]["owner"] == owner)
+                   if zone == "library" and self.objects[native]["owner"] == owner
+                   and not self.objects[native]["is_token"] and not self.objects[native]["copy"])
 
     def _scried(self, owner: int, top: list[int], bottom: list[int]) -> None:
         """Mirror the kernel's scry update: tail facts shift up by the bottom
@@ -325,6 +326,9 @@ class PublicHistory:
     def _library_to_hand(self, native: int, owner: int) -> None:
         """A known library card that reaches its owner's hand stays known
         to the other seat by name (`tracked`)."""
+        card = self._card(native)
+        if card["is_token"] or card["copy"]:
+            return
         for removed_owner, captured in self.removed:
             if removed_owner != owner:
                 continue
@@ -335,7 +339,10 @@ class PublicHistory:
     def _revealed_in_hand(self, viewer: int, owner: int, native: int) -> None:
         if viewer == owner:
             return
-        entries, name = self.hand[viewer][owner], self._card(native)["card_name"]
+        card = self._card(native)
+        if card["is_token"] or card["copy"]:
+            return
+        entries, name = self.hand[viewer][owner], card["card_name"]
         if any(entry["native"] == native for entry in entries):
             return
         for entry in entries:
@@ -391,7 +398,8 @@ class PublicHistory:
         """The viewer's current facts plus the omniscient hand contents the
         projection checks them against. Native ids stay inside the adapter."""
         truth = {owner: Counter(self.objects[native]["card_name"] for native, zone in self.zones.items()
-                                if zone == "hand" and self.objects[native]["owner"] == owner)
+                                if zone == "hand" and self.objects[native]["owner"] == owner
+                                and not self.objects[native]["is_token"] and not self.objects[native]["copy"])
                  for owner in NATIVE_SEATS}
         return {"library": {owner: dict(self.library[native_viewer][owner]) for owner in NATIVE_SEATS},
                 "hand": {owner: [dict(entry) for entry in self.hand[native_viewer][owner]] for owner in NATIVE_SEATS
