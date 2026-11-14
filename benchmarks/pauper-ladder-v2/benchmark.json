@@ -381,5 +381,11 @@
     "g115",
     "oh2-r2s1-b512",
     "oh2-r2s1-b512-argmax"
+  ],
+  "excluded_runs": [
+    {
+      "run": "2026-11-14",
+      "reason": "Failed the ladder validity rule (at least 97% of each rung's games end naturally): 5 of 384 games halted on the engine fault \"engine_fault:infoset:I1: hidden object N is not pristine\" (mtg-kernel issue 612). Natural games per block: g115 124 of 128 (96.875%, 125 required), oh2-r2s1-b512 127 of 128, oh2-r2s1-b512-argmax 128 of 128. Kept published as a record; chains-a-c4-u1048576 has no published rating from this run."
+    }
   ]
 }
