@@ -363,7 +363,7 @@ class Hub:
         if skip is not None and (skip["turn"], skip["active"]) != turn_key:
             self.skip = skip = None
         if stack:
-            top_mine = stack[-1].get("controller_seat") == me
+            top_mine = text.stack_top(stack).get("controller_seat") == me
             if top_mine:
                 return self.stops.get("own_stack", False) and skip is None
             return self.stops.get("opp_stack", True) and not (skip is not None and skip["hard"])
