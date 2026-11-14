@@ -18,9 +18,20 @@ from typing import Any, Mapping
 from .ws import Closed, WebSocket
 
 
-def answer(prompt: Mapping[str, Any]) -> dict[str, Any] | None:
+def answer(prompt: Mapping[str, Any], opening: dict[str, int] | None = None) -> dict[str, Any] | None:
+    """The scripted answer to one prompt. ``opening`` (a mutable ``{"mulligans": N}``) scripts the London opening:
+    the first N keep-or-mulligan prompts answer mulligan, the next keeps; a put-back prompt picks the first ``count``
+    cards of the hand in the order the prompt lists them."""
     data = prompt.get("input") or {}
     kind = data.get("type")
+    if kind == "mulligan":
+        left = (opening or {}).get("mulligans", 0)
+        if left > 0:
+            opening["mulligans"] = left - 1
+            return {"type": "mulliganDecision", "keep": False}
+        return {"type": "mulliganDecision", "keep": True}
+    if kind == "mulliganPutBack":
+        return {"type": "mulliganPutBackDecision", "cardIds": list(data.get("handCardIds") or [])[:int(data.get("count") or 0)]}
     if kind == "chooseAction":
         actions = data.get("actions") or []
         lands = [a for a in actions if a.get("type") == "cast" and str(a.get("label", "")).startswith("Play ")]
@@ -63,6 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--concede-game", type=int, default=0,
                         help="concede this game (1, 2, ...) after --concede-after answered prompts")
     parser.add_argument("--concede-after", type=int, default=3)
+    parser.add_argument("--mulligans", type=int, default=0,
+                        help="London opening: take this many mulligans before keeping (each game)")
     parser.add_argument("--drop-game", type=int, default=0,
                         help="close the connection in this game after --concede-after answered prompts (a closed tab)")
     args = parser.parse_args(argv)
@@ -71,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     send = lambda m: ws.send(json.dumps(m))  # noqa: E731
     send({"type": "Authenticate", "username": args.username, "password": args.key, "service": False})
     joined, games, prompts, errors, slot = False, 0, 0, 0, "player-0"
+    opening = {"mulligans": args.mulligans}
     in_game, conceded = 0, False
     started_room = None
     deck = {"name": "Placeholder", "format": "pauper", "sideboard": [],
@@ -125,11 +139,12 @@ def main(argv: list[str] | None = None) -> int:
                     if games >= args.games:
                         break
                     in_game, conceded = 0, False
+                    opening["mulligans"] = args.mulligans
                     started_room, joined = None, False  # the table empties after a game: join it again
                     time.sleep(2)
                     send({"type": "ListRooms"})
                     continue
-                output = answer(prompt)
+                output = answer(prompt, opening)
                 if output is not None:
                     prompts += 1
                     in_game += 1

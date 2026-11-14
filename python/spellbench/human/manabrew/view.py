@@ -169,8 +169,10 @@ def game_view(observation: Mapping[str, Any], seats: Seats, game_id: str, *, gam
     return {
         "gameId": game_id, "turn": turn_number(observation, starter),
         "step": STEPS.get(observation.get("phase_step"), "main1"), "combatAssignments": blocks,
-        "activePlayerId": seats.pid(observation.get("active_seat")),
-        "priorityPlayerId": seats.pid(observation.get("priority_seat") or observation.get("active_seat")),
+        # Pregame (turn 0, the London opening) has neither an active nor a priority seat: name the person's seat.
+        "activePlayerId": seats.pid(observation.get("active_seat") or seats.human_seat),
+        "priorityPlayerId": seats.pid(observation.get("priority_seat") or observation.get("active_seat")
+                                      or seats.human_seat),
         "players": players, "zones": zones, "stack": stack, "gameOver": game_over, "winnerId": winner,
         "monarchId": None, "initiativeHolderId": None, "dayTime": "neither", "checkpoints": [], "restoreVote": None,
         "snapshotRecording": False,

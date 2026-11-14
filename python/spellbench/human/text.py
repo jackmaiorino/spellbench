@@ -150,6 +150,8 @@ def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str]
         return f"{'Cast' if s.get('cast_it') else 'Do not cast'} {card(s.get('card'))} ({s.get('method')})"
     if kind == "mulligan":
         return "Keep" if s.get("keep") else f"Mulligan (hand of {s.get('hand_size')})"
+    if kind == "order_pick" and s.get("purpose") == "mulligan_bottom":
+        return f"Bottom {card((s.get('item') or {}).get('object'))}"
     if kind == "order_pick":
         item = s.get("item") or {}
         name = card(item["object"]) if "object" in item else (
@@ -231,6 +233,7 @@ PURPOSE_TITLES = {
     ("choose_color", "mana"): "Choose a color of mana",
     ("choose_color", "protection"): "Choose a color to protect from",
     ("choose_color", "effect"): "Choose a color",
+    ("order_pick", "mulligan_bottom"): "Put a card on the bottom of your library",
 }
 
 

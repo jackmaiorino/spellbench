@@ -150,6 +150,7 @@ class Hub:
             self.log_total = 0
             self.plan = self.skip = self.game_over = None
             self._combat_logged = set()
+            self._opening = {"mine": 0, "opp": 0, "done": False}
             self.narrator = narrate.Narrator(seat) if seat else None
             self._tail, self._step = None, None
             self._note("game", f"Game {self.game['number']}: you ({own.get('name')}, {seat}) vs {self.opponent} "
@@ -265,8 +266,30 @@ class Hub:
         else:
             self._absorb_plain(decision)
         self.observation = dict(decision.get("observation") or {})
+        self._opening_lines(self.observation)
         self.clock = {"remaining_ms": clock.get("remaining_ms"), "max_decision_ms": clock.get("max_decision_ms"),
                       "at": _ms()}
+
+    def _opening_lines(self, observation: Mapping[str, Any]) -> None:
+        """The London opening as a spectator at the table sees it: how many mulligans each seat has taken and, once
+        the game begins, that the other seat kept its hand. Public counts only: never a card of the other seat."""
+        me = (self.game or {}).get("seat")
+        opening = getattr(self, "_opening", None)
+        players = {p.get("seat"): p for p in observation.get("players") or []}
+        if opening is None or me not in players or opening["done"]:
+            return
+        mine, other = players[me], players["p1" if me == "p0" else "p0"]
+        for key, player, who, name in (("mine", mine, "you", "You take"), ("opp", other, "opp", "Opponent takes")):
+            taken = player.get("mulligans_taken") or 0
+            if taken > opening[key]:
+                size = 7 - taken
+                self._note(who, f"{name} a mulligan (mulligan {taken}: draws seven, puts {taken} on the bottom, "
+                                f"{size} cards if kept)", header=False)
+                opening[key] = taken
+        if (observation.get("turn") or 0) >= 1:
+            opening["done"] = True
+            self._note("opp", f"Opponent keeps {7 - (other.get('mulligans_taken') or 0)} cards")
+            self._note("you", f"You keep {7 - (mine.get('mulligans_taken') or 0)} cards")
 
     def _record_tail(self) -> narrate.RecordTail | None:
         """This game's engine record, written by the runner in this process (operator recording on)."""
@@ -381,6 +404,14 @@ class Hub:
             return None
         candidates = decision.get("candidates") or []
         kinds = {c["semantic"].get("kind") for c in candidates}
+        if plan["kind"] == "bottom" and kinds == {"order_pick"}:
+            # The person put their mulligan cards back in one prompt: substep i names the i-th card they picked.
+            position = (candidates[0]["semantic"] or {}).get("position")
+            wanted = plan["cards"][position] if isinstance(position, int) and 0 <= position < len(plan["cards"]) else None
+            for c in candidates:
+                if ((c["semantic"].get("item") or {}).get("object") or {}).get("object_id") == wanted:
+                    return c["candidate_id"]
+            return None
         if plan["kind"] == "attack" and kinds == {"declare_attack"}:
             attacker = (candidates[0]["semantic"].get("attacker") or {}).get("object_id")
             wanted = attacker in plan["attackers"]
@@ -428,6 +459,9 @@ class Hub:
             screen = "attack"
         elif kinds == {"declare_block"} and group.get("substep_index") == 0:
             screen = "block"
+        elif (kinds == {"order_pick"} and group.get("substep_index") == 0
+              and all((c["semantic"] or {}).get("purpose") == "mulligan_bottom" for c in candidates)):
+            screen = "bottom"
         # The engine's autopay only uses plain tap sources, so a spell payable only with mana from a costed source
         # (an Eldrazi Spawn's sacrifice, a Treasure) is not offered until that mana is floating.
         hint = None
@@ -475,6 +509,8 @@ class Hub:
             elif kind == "block":
                 self.plan = {"kind": "block", "blocks": {str(k): (None if v is None else str(v))
                                                          for k, v in (plan.get("blocks") or {}).items()}}
+            elif kind == "bottom":
+                self.plan = {"kind": "bottom", "cards": [str(c) for c in plan.get("cards") or []]}
             else:
                 return "unknown plan"
             self.plan["group_id"] = pending["group"].get("group_id")
