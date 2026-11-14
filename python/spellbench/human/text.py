@@ -46,13 +46,6 @@ def target(ref: Any, me: str | None) -> str:
     return text
 
 
-def stack_targets(entry: Any, me: str | None) -> str:
-    """A stack object's chosen targets as text ("Drossforge Bridge (opp), you"), or "" when it has none."""
-    if not isinstance(entry, Mapping):
-        return ""
-    return ", ".join(target(ref, me) for ref in entry.get("targets") or [])
-
-
 def refs(value: Any) -> Iterator[str]:
     """Every object id a semantic mentions, for highlighting cards on the board."""
     if isinstance(value, Mapping):
@@ -146,45 +139,6 @@ def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str]
         chosen = piles[s.get("pile_index", 0)] if len(piles) == 2 else []
         return f"Pile {s.get('pile_index', 0) + 1}: " + (", ".join(card(c) for c in chosen) or "empty")
     return str(kind)
-
-
-# Sources whose two-way effect option is an explore of a nonland top card (mtg-kernel ExploreNonlandTop): option 0
-# leaves the revealed card on top, option 1 puts it into the graveyard. The protocol's choose_option carries only the
-# source and the option number (the kernel adapter sets option_label to null), so the page derives the labels here.
-EXPLORE_SOURCES = frozenset({"Map Token"})
-
-
-def _known_top(observation: Mapping[str, Any], me: str | None) -> str | None:
-    for entry in observation.get("known") or []:
-        if (isinstance(entry, Mapping) and entry.get("zone") == "library" and entry.get("owner_seat") == me
-                and entry.get("position_from_top") == 0 and entry.get("card_name")):
-            return str(entry["card_name"])
-    return None
-
-
-def effect_options(decision: Mapping[str, Any], me: str | None) -> tuple[str, dict[int, str]] | None:
-    """For a choose_option decision: a prompt line and a label per candidate id, or None for other decisions.
-
-    An explore names the revealed card ("Leave it on top of your library" / "Put it into your graveyard"); any other
-    effect option names its source and its position, since the protocol does not say what each option does."""
-    candidates = [c for c in decision.get("candidates") or [] if isinstance(c, Mapping)]
-    semantics = [c.get("semantic") or {} for c in candidates]
-    if not semantics or any(s.get("kind") != "choose_option" for s in semantics):
-        return None
-    source = (decision.get("context") or {}).get("source") or semantics[0].get("source")
-    name = card(source) if isinstance(source, Mapping) else "the effect"
-    count = semantics[0].get("option_count")
-    top = _known_top(decision.get("observation") or {}, me)
-    if name in EXPLORE_SOURCES and count == 2:
-        seen = top or "the card"
-        words = {0: f"Leave {seen} on top of your library", 1: f"Put {seen} into your graveyard"}
-        return (f"Explore ({name}) revealed {seen}",
-                {c["candidate_id"]: s.get("option_label") or words.get(s.get("option_index"), "?")
-                 for c, s in zip(candidates, semantics)})
-    note = f"; your library's top card is {top}" if top else ""
-    return (f"{name}: choose one of {count} effects (the engine does not describe them{note})",
-            {c["candidate_id"]: s.get("option_label") or f"{name}: effect {s.get('option_index', 0) + 1} of {count}"
-             for c, s in zip(candidates, semantics)})
 
 
 def prompt(decision: Mapping[str, Any], me: str | None) -> str:
