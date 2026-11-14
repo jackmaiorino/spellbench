@@ -179,3 +179,46 @@ def test_the_candidate_texts_name_the_bottom_and_the_choice() -> None:
     assert "Mulligan" in text.candidate({"kind": "mulligan", "hand_size": 7, "mulligans_taken": 0, "keep": False}, ME)
     prompt = text.prompt(bottom_decision(0, 2, hand=[0, 1, 2]), ME)
     assert prompt.startswith("Put a card on the bottom of your library") and "1 of 2" in prompt
+
+
+def test_conceding_at_the_keep_or_mulligan_prompt_ends_the_game_and_refuses_the_open_decision(hub: Hub) -> None:
+    from spellbench.human.server import Conceded
+    errors: list[BaseException] = []
+
+    def run() -> None:
+        try:
+            hub.choose({"decision": mulligan_decision(7, 0)})
+        except BaseException as exc:  # noqa: BLE001 - the thread reports what the engine side would see
+            errors.append(exc)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    assert hub.concede("conceded") is True
+    thread.join(timeout=5)
+    assert errors and isinstance(errors[0], Conceded)
+    assert hub.game_over["reason"] == "conceded" and hub.results[-1]["result"] == "loss"
+    assert hub.concede("conceded") is False  # a second concession changes nothing
+
+
+def test_a_lost_connection_at_the_put_back_prompt_ends_the_game_the_same_way(hub: Hub) -> None:
+    from spellbench.human.server import Conceded
+    errors: list[BaseException] = []
+
+    def run() -> None:
+        try:
+            hub.choose({"decision": bottom_decision(0, 1, hand=list(range(7)))})
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    assert hub.concede("connection_lost") is True
+    thread.join(timeout=5)
+    assert errors and isinstance(errors[0], Conceded)
+    assert hub.game_over["reason"] == "connection_lost"
