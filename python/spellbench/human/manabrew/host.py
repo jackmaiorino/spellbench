@@ -387,7 +387,12 @@ class Bridge:
             self._error(me, "invalidShape", str(exc), envelope.get("promptId"))
             return
         seq = self.prompt["seq"]
-        error = self.hub.answer_with(seq, int(value)) if how == "answer" else self.hub.plan_with(seq, value)
+        if how == "answer":
+            error = self.hub.answer_with(seq, int(value))
+        elif how == "pass_turn":
+            error = self.hub.pass_turn(seq, **value)
+        else:
+            error = self.hub.plan_with(seq, value)
         if error is not None:
             if how == "plan":
                 self.fallback_seq = seq

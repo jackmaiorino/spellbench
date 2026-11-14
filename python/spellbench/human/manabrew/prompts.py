@@ -58,9 +58,12 @@ def choose_action(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answe
                             "label": c.get("text") or kind})
         elif kind in ("activate_ability", "activate_mana_ability"):
             name = (s.get("source") or {}).get("card_name") or ""
+            described = c.get("text") or CARDS.get(name, {}).get("text", "")
+            if (s.get("source") or {}).get("zone") == "hand" and kind == "activate_ability":
+                described += " (from your hand)"  # ninjutsu, cycling and the like: say where it is activated from
             actions.append({"id": _cid(c), "type": "activateAbility", "cardId": source,
                             "abilityIndex": s.get("ability_index") or 0,
-                            "description": c.get("text") or CARDS.get(name, {}).get("text", ""),
+                            "description": described,
                             "isManaAbility": kind == "activate_mana_ability",
                             **({"producedMana": _produced(s)} if kind == "activate_mana_ability" else {})})
 
@@ -68,6 +71,13 @@ def choose_action(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answe
         if output.get("type") == "pass":
             if passing is None:
                 raise ValueError("passing is not a choice here")
+            # The client's "end turn" button (and key) sends a pass that runs through combat to a later step, or,
+            # with a spell on the stack, one that passes until the stack is empty. A plain pass (Space) names neither.
+            until = output.get("until")
+            if isinstance(until, Mapping) and until.get("throughCombat"):
+                return "pass_turn", {"exhaust_stack": False}
+            if output.get("exhaustStack"):
+                return "pass_turn", {"exhaust_stack": True}
             return "answer", passing
         if output.get("type") == "act":
             action = str(output.get("actionId"))

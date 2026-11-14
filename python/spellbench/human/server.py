@@ -54,6 +54,13 @@ def _ms() -> int:
     return int(time.time() * 1000)
 
 
+def real_actions(candidates: Any) -> list[Mapping[str, Any]]:
+    """The candidates of a priority decision that are a real choice: everything but passing and mana abilities
+    (floating mana alone does nothing, and the engine's autopay pays for spells). Read from the engine's own list of
+    what is legal, so it names no card and no ability."""
+    return [c for c in candidates or [] if (c.get("semantic") or {}).get("kind") not in ("pass", "activate_mana_ability")]
+
+
 class Conceded(RuntimeError):
     """The person gave up the game: every later decision of it is refused so the arena ends it at once."""
 
@@ -62,8 +69,12 @@ class Hub:
     """All session state, guarded by one condition variable."""
 
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
-                 opponent: str = "the bot", record_root: Path | None = None) -> None:
+                 opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False) -> None:
         self.cond = threading.Condition()
+        # True: the person gets every priority at which they have a legal action besides passing and mana abilities,
+        # in any step of either turn and on any stack (the Manabrew path, which has no panel for stops). False: only
+        # the stops of ``self.stops`` (the play page's S panel).
+        self.real_action_stops = real_action_stops
         self.version = 0
         self.log_dir = log_dir
         self.label = label
@@ -83,6 +94,7 @@ class Hub:
         self.seq = 0
         self.plan: dict[str, Any] | None = None
         self.skip: dict[str, Any] | None = None  # {"turn", "active", "hard"}
+        self.exhaust_stack = False  # pass every priority until the stack is empty (the client's "end turn" on a stack)
         self.game_over: dict[str, Any] | None = None
         self.conceded: str | None = None  # the game id the person gave up (or lost the connection to), if any
         self._log_file = None
@@ -149,6 +161,7 @@ class Hub:
             self.log, self.observation, self.clock, self.pending = [], None, None, None
             self.log_total = 0
             self.plan = self.skip = self.game_over = None
+            self.exhaust_stack = False
             self._combat_logged = set()
             self.narrator = narrate.Narrator(seat) if seat else None
             self._tail, self._step = None, None
@@ -218,9 +231,12 @@ class Hub:
                 raise Conceded(self.game_over.get("reason") if self.game_over else "conceded")
             started = time.monotonic()
             self._absorb(decision, request.get("clock") or {})
+            if not (decision.get("observation") or {}).get("stack"):
+                self.exhaust_stack = False  # the stack the person asked to pass through is empty
             how, candidate_id = self._automatic(decision)
             chosen_text = None
             if candidate_id is None:
+                self._priority_note(decision)
                 self.seq += 1
                 self.pending = self._view(decision)
                 self.answer = None
@@ -352,9 +368,12 @@ class Hub:
             return "human", None
         if kinds <= {"pass", "activate_mana_ability"}:
             return "auto_pass", passing  # mana is paid automatically; floating it alone does nothing
-        return ("human", None) if self._stops_here(decision) else ("auto_pass", passing)
+        real = self.real_action_stops and bool(real_actions(candidates))
+        return ("human", None) if self._stops_here(decision, real) else ("auto_pass", passing)
 
-    def _stops_here(self, decision: Mapping[str, Any]) -> bool:
+    def _stops_here(self, decision: Mapping[str, Any], real: bool = False) -> bool:
+        """Whether this priority goes to the person. ``real``: they have a legal action besides passing and mana
+        abilities and the session stops for those (``real_action_stops``), so a stop is not needed to be asked."""
         me = (self.game or {}).get("seat")
         observation = decision.get("observation") or {}
         stack = observation.get("stack") or []
@@ -363,12 +382,16 @@ class Hub:
         if skip is not None and (skip["turn"], skip["active"]) != turn_key:
             self.skip = skip = None
         if stack:
+            if self.exhaust_stack:
+                return False
             top_mine = stack[-1].get("controller_seat") == me
             if top_mine:
-                return self.stops.get("own_stack", False) and skip is None
-            return self.stops.get("opp_stack", True) and not (skip is not None and skip["hard"])
+                return (self.stops.get("own_stack", False) or real) and skip is None
+            return (self.stops.get("opp_stack", True) or real) and not (skip is not None and skip["hard"])
         if skip is not None:
             return False
+        if real:
+            return True
         side = "own" if observation.get("active_seat") == me else "opp"
         return bool(self.stops.get(f"{side}_{observation.get('phase_step')}", False))
 
@@ -404,6 +427,27 @@ class Hub:
                     return c["candidate_id"]
             return None
         return None
+
+    def _priority_note(self, decision: Mapping[str, Any]) -> None:
+        """With stops for real actions, say in the log why the person has priority and what they can do, unless it is
+        their own main phase with an empty stack (where they always do). Display only."""
+        if not self.real_action_stops or (decision.get("context") or {}).get("kind") != "priority":
+            return
+        me = (self.game or {}).get("seat")
+        observation = decision.get("observation") or {}
+        stack = observation.get("stack") or []
+        if (not stack and observation.get("phase_step") in text.MAIN_STEPS and observation.get("active_seat") == me):
+            return
+        lands = frozenset(o.get("object_id") for player in observation.get("players") or []
+                          for o in player.get("battlefield") or []
+                          if "land" in ((o.get("characteristics") or {}).get("types") or []))
+        options = [text.candidate(c.get("semantic") or {}, me, lands) for c in real_actions(decision.get("candidates"))]
+        shown = "; ".join(options[:6]) + (f"; and {len(options) - 6} more" if len(options) > 6 else "")
+        why = f"Your priority in {text.where(observation, me)}"
+        if stack:
+            top = stack[-1]
+            why += f", {text.seat_name(top.get('controller_seat'), me)}: {text.card(top)} on the stack"
+        self._note("game", f"{why}. You can: {shown}", depth=1)
 
     def _view(self, decision: Mapping[str, Any]) -> dict[str, Any]:
         me = (self.game or {}).get("seat")
@@ -488,6 +532,28 @@ class Hub:
             self.answer = chosen
             self._bump()
             return None
+
+    def pass_turn(self, seq: int, *, exhaust_stack: bool = False) -> str | None:
+        """The person's "end turn" for the decision ``seq`` (the Manabrew client's button): pass this priority and
+        every later one this turn that has no opponent spell on the stack, as the play page's pass-turn does. With
+        ``exhaust_stack`` (the button pressed while a spell is on the stack) pass every priority until the stack is
+        empty instead."""
+        with self.cond:
+            pending = self.pending
+            if pending is None or pending["seq"] != seq:
+                return "stale decision"
+            if (pending.get("context") or {}).get("kind") != "priority":
+                return "not a priority decision"
+            if exhaust_stack:
+                self.exhaust_stack = True
+                passing = next((c["id"] for c in pending["candidates"] if c["kind"] == "pass"), None)
+                if passing is None:
+                    return "passing is not a choice here"
+                pending["how"] = "human"
+                self.answer = passing
+                self._bump()
+                return None
+            return self.control("pass_turn", {})
 
     def control(self, action: str, body: Mapping[str, Any]) -> str | None:
         with self.cond:
