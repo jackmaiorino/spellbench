@@ -136,6 +136,8 @@ class Bridge:
             elif kind == "GameStarted":
                 self.order = list(msg.get("player_order") or [])
                 self.game_id = msg.get("game_id")
+                # Until the session's next game begins, the play server still shows the last one: not this game's.
+                self.stale_game = (self.hub.game or {}).get("game_id") if self.hub.game_over else None
                 self.starting = False
                 picked = next((decks.catalog_id(d.get("deck_name") or (d.get("deck") or {}).get("name"))
                                for d in msg.get("player_decks") or [] if d.get("username") == self.human), None)
@@ -221,6 +223,8 @@ class Bridge:
         game = state.get("game")
         if not game or self.human is None or self.order is None:
             return
+        if game.get("game_id") == getattr(self, "stale_game", None):
+            return
         if self.seats is None or self.seats.human_seat != game.get("seat"):
             human_index = self.order.index(self.human) if self.human in self.order else 0
             bot_index = 1 - human_index
@@ -254,8 +258,8 @@ class Bridge:
         pending = state.get("pending")
         if pending and (self.prompt is None or self.prompt["seq"] != pending["seq"]):
             self._send_prompt(pending, observation or {})
-        if over and self.game_id and not getattr(self, "_ended", None) == self.game_id:
-            self._ended = self.game_id
+        if over and self.game_id and getattr(self, "_ended", None) != game.get("game_id"):
+            self._ended = game.get("game_id")
             self._envelope({"kind": "prompt", "forPlayer": self.seats.pid(game.get("seat")),
                             "prompt": {"promptId": 1_000_000 + len(state.get("results") or []),
                                        "decidingPlayerId": self.seats.pid(game.get("seat")),
