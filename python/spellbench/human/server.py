@@ -98,6 +98,12 @@ class Hub:
             self._log_file.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
             self._log_file.flush()
 
+    def announce(self, text: str) -> None:
+        """A game-level line for the log, kept until the next game starts (it is shown first in that game)."""
+        with self.cond:
+            self._announcement = text
+            self._bump()
+
     # -- relay side ---------------------------------------------------------------------------------------------
 
     def wait_ready(self) -> None:
@@ -126,6 +132,9 @@ class Hub:
             self._tail, self._step = None, None
             self._note("game", f"Game {self.game['number']}: you ({own.get('name')}, {seat}) vs {self.opponent} "
                                f"({opp.get('name')})")
+            if getattr(self, "_announcement", None):
+                self._note("game", self._announcement)
+                self._announcement = None
             if self.log_dir is not None:
                 self.log_dir.mkdir(parents=True, exist_ok=True)
                 path = self.log_dir / f"{request.get('game_id')}.{seat}.jsonl"

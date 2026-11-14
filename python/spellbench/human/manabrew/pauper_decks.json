@@ -1,0 +1,577 @@
+{
+ "decks": {
+  "Affinity": [
+   {
+    "count": 3,
+    "name": "Black Mage's Rod"
+   },
+   {
+    "count": 2,
+    "name": "Blood Fountain"
+   },
+   {
+    "count": 1,
+    "name": "Cryogen Relic"
+   },
+   {
+    "count": 4,
+    "name": "Drossforge Bridge"
+   },
+   {
+    "count": 1,
+    "name": "Fanatical Offering"
+   },
+   {
+    "count": 4,
+    "name": "Galvanic Blast"
+   },
+   {
+    "count": 3,
+    "name": "Great Furnace"
+   },
+   {
+    "count": 1,
+    "name": "Hunter's Blowgun"
+   },
+   {
+    "count": 4,
+    "name": "Ichor Wellspring"
+   },
+   {
+    "count": 3,
+    "name": "Krark-Clan Shaman"
+   },
+   {
+    "count": 1,
+    "name": "Makeshift Munitions"
+   },
+   {
+    "count": 4,
+    "name": "Mistvault Bridge"
+   },
+   {
+    "count": 4,
+    "name": "Myr Enforcer"
+   },
+   {
+    "count": 3,
+    "name": "Nihil Spellbomb"
+   },
+   {
+    "count": 4,
+    "name": "Reckoner's Bargain"
+   },
+   {
+    "count": 4,
+    "name": "Refurbished Familiar"
+   },
+   {
+    "count": 2,
+    "name": "Seat of the Synod"
+   },
+   {
+    "count": 2,
+    "name": "Silverbluff Bridge"
+   },
+   {
+    "count": 1,
+    "name": "Swamp"
+   },
+   {
+    "count": 4,
+    "name": "Thoughtcast"
+   },
+   {
+    "count": 2,
+    "name": "Toxin Analysis"
+   },
+   {
+    "count": 3,
+    "name": "Vault of Whispers"
+   }
+  ],
+  "Burn": [
+   {
+    "count": 2,
+    "name": "Faithless Looting"
+   },
+   {
+    "count": 4,
+    "name": "Fiery Temper"
+   },
+   {
+    "count": 4,
+    "name": "Fireblast"
+   },
+   {
+    "count": 4,
+    "name": "Grab the Prize"
+   },
+   {
+    "count": 4,
+    "name": "Guttersnipe"
+   },
+   {
+    "count": 4,
+    "name": "Highway Robbery"
+   },
+   {
+    "count": 4,
+    "name": "Lava Dart"
+   },
+   {
+    "count": 4,
+    "name": "Lightning Bolt"
+   },
+   {
+    "count": 4,
+    "name": "Masked Meower"
+   },
+   {
+    "count": 18,
+    "name": "Mountain"
+   },
+   {
+    "count": 4,
+    "name": "Sneaky Snacker"
+   },
+   {
+    "count": 4,
+    "name": "Voldaren Epicure"
+   }
+  ],
+  "CawGates": [
+   {
+    "count": 2,
+    "name": "Azorius Guildgate"
+   },
+   {
+    "count": 4,
+    "name": "Basilisk Gate"
+   },
+   {
+    "count": 3,
+    "name": "Brainstorm"
+   },
+   {
+    "count": 4,
+    "name": "Citadel Gate"
+   },
+   {
+    "count": 4,
+    "name": "Counterspell"
+   },
+   {
+    "count": 1,
+    "name": "Guardian of the Guildpact"
+   },
+   {
+    "count": 2,
+    "name": "Heap Gate"
+   },
+   {
+    "count": 1,
+    "name": "Idyllic Beachfront"
+   },
+   {
+    "count": 4,
+    "name": "Island"
+   },
+   {
+    "count": 4,
+    "name": "Journey to Nowhere"
+   },
+   {
+    "count": 3,
+    "name": "Lorien Revealed"
+   },
+   {
+    "count": 2,
+    "name": "Outlaw Medic"
+   },
+   {
+    "count": 2,
+    "name": "Preordain"
+   },
+   {
+    "count": 4,
+    "name": "Prismatic Strands"
+   },
+   {
+    "count": 4,
+    "name": "Sacred Cat"
+   },
+   {
+    "count": 4,
+    "name": "Sea Gate"
+   },
+   {
+    "count": 2,
+    "name": "Spell Pierce"
+   },
+   {
+    "count": 4,
+    "name": "Squadron Hawk"
+   },
+   {
+    "count": 4,
+    "name": "The Modern Age // Vector Glider"
+   },
+   {
+    "count": 2,
+    "name": "Thraben Charm"
+   }
+  ],
+  "Elves": [
+   {
+    "count": 4,
+    "name": "Avenging Hunter"
+   },
+   {
+    "count": 4,
+    "name": "Elvish Mystic"
+   },
+   {
+    "count": 3,
+    "name": "Fyndhorn Elves"
+   },
+   {
+    "count": 4,
+    "name": "Generous Ent"
+   },
+   {
+    "count": 4,
+    "name": "Lead the Stampede"
+   },
+   {
+    "count": 2,
+    "name": "Llanowar Elves"
+   },
+   {
+    "count": 4,
+    "name": "Masked Vandal"
+   },
+   {
+    "count": 4,
+    "name": "Nyxborn Hydra"
+   },
+   {
+    "count": 4,
+    "name": "Priest of Titania"
+   },
+   {
+    "count": 4,
+    "name": "Quirion Ranger"
+   },
+   {
+    "count": 13,
+    "name": "Snow-Covered Forest"
+   },
+   {
+    "count": 4,
+    "name": "Timberwatch Elf"
+   },
+   {
+    "count": 2,
+    "name": "Wellwisher"
+   },
+   {
+    "count": 4,
+    "name": "Winding Way"
+   }
+  ],
+  "Faeries": [
+   {
+    "count": 4,
+    "name": "Counterspell"
+   },
+   {
+    "count": 2,
+    "name": "Dispel"
+   },
+   {
+    "count": 4,
+    "name": "Faerie Miscreant"
+   },
+   {
+    "count": 4,
+    "name": "Faerie Seer"
+   },
+   {
+    "count": 2,
+    "name": "Force Spike"
+   },
+   {
+    "count": 2,
+    "name": "Harrier Strix"
+   },
+   {
+    "count": 4,
+    "name": "Humbling Elder"
+   },
+   {
+    "count": 18,
+    "name": "Island"
+   },
+   {
+    "count": 4,
+    "name": "Moon-Circuit Hacker"
+   },
+   {
+    "count": 4,
+    "name": "Ninja of the Deep Hours"
+   },
+   {
+    "count": 4,
+    "name": "Of One Mind"
+   },
+   {
+    "count": 1,
+    "name": "Saiba Cryptomancer"
+   },
+   {
+    "count": 3,
+    "name": "Snap"
+   },
+   {
+    "count": 4,
+    "name": "Spellstutter Sprite"
+   }
+  ],
+  "Rally": [
+   {
+    "count": 4,
+    "name": "Burning-Tree Emissary"
+   },
+   {
+    "count": 2,
+    "name": "Chain Lightning"
+   },
+   {
+    "count": 4,
+    "name": "Clockwork Percussionist"
+   },
+   {
+    "count": 1,
+    "name": "End the Festivities"
+   },
+   {
+    "count": 3,
+    "name": "Experimental Synthesizer"
+   },
+   {
+    "count": 4,
+    "name": "Galvanic Blast"
+   },
+   {
+    "count": 4,
+    "name": "Goblin Bushwhacker"
+   },
+   {
+    "count": 4,
+    "name": "Goblin Tomb Raider"
+   },
+   {
+    "count": 4,
+    "name": "Great Furnace"
+   },
+   {
+    "count": 4,
+    "name": "Lightning Bolt"
+   },
+   {
+    "count": 14,
+    "name": "Mountain"
+   },
+   {
+    "count": 4,
+    "name": "Rally at the Hornburg"
+   },
+   {
+    "count": 4,
+    "name": "Reckless Impulse"
+   },
+   {
+    "count": 4,
+    "name": "Voldaren Epicure"
+   }
+  ],
+  "Spy": [
+   {
+    "count": 4,
+    "name": "Balustrade Spy"
+   },
+   {
+    "count": 2,
+    "name": "Dread Return"
+   },
+   {
+    "count": 2,
+    "name": "Elves of Deep Shadow"
+   },
+   {
+    "count": 3,
+    "name": "Forest"
+   },
+   {
+    "count": 3,
+    "name": "Gatecreeper Vine"
+   },
+   {
+    "count": 4,
+    "name": "Generous Ent"
+   },
+   {
+    "count": 4,
+    "name": "Land Grant"
+   },
+   {
+    "count": 4,
+    "name": "Lead the Stampede"
+   },
+   {
+    "count": 2,
+    "name": "Lotleth Giant"
+   },
+   {
+    "count": 2,
+    "name": "Lotus Petal"
+   },
+   {
+    "count": 3,
+    "name": "Masked Vandal"
+   },
+   {
+    "count": 2,
+    "name": "Mesmeric Fiend"
+   },
+   {
+    "count": 4,
+    "name": "Overgrown Battlement"
+   },
+   {
+    "count": 2,
+    "name": "Quirion Ranger"
+   },
+   {
+    "count": 4,
+    "name": "Sagu Wildling"
+   },
+   {
+    "count": 4,
+    "name": "Saruli Caretaker"
+   },
+   {
+    "count": 1,
+    "name": "Swamp"
+   },
+   {
+    "count": 2,
+    "name": "Tinder Wall"
+   },
+   {
+    "count": 1,
+    "name": "Troll of Khazad-dum"
+   },
+   {
+    "count": 3,
+    "name": "Wall of Roots"
+   },
+   {
+    "count": 4,
+    "name": "Winding Way"
+   }
+  ],
+  "Wildfire": [
+   {
+    "count": 1,
+    "name": "Blood Fountain"
+   },
+   {
+    "count": 4,
+    "name": "Cast Down"
+   },
+   {
+    "count": 4,
+    "name": "Cleansing Wildfire"
+   },
+   {
+    "count": 4,
+    "name": "Drossforge Bridge"
+   },
+   {
+    "count": 1,
+    "name": "Eviscerator's Insight"
+   },
+   {
+    "count": 4,
+    "name": "Fanatical Offering"
+   },
+   {
+    "count": 2,
+    "name": "Forest"
+   },
+   {
+    "count": 3,
+    "name": "Ichor Wellspring"
+   },
+   {
+    "count": 3,
+    "name": "Krark-Clan Shaman"
+   },
+   {
+    "count": 3,
+    "name": "Lembas"
+   },
+   {
+    "count": 1,
+    "name": "Makeshift Munitions"
+   },
+   {
+    "count": 2,
+    "name": "Mountain"
+   },
+   {
+    "count": 4,
+    "name": "Nihil Spellbomb"
+   },
+   {
+    "count": 1,
+    "name": "Nyxborn Hydra"
+   },
+   {
+    "count": 1,
+    "name": "Pulse of Murasa"
+   },
+   {
+    "count": 4,
+    "name": "Refurbished Familiar"
+   },
+   {
+    "count": 4,
+    "name": "Slagwoods Bridge"
+   },
+   {
+    "count": 3,
+    "name": "Swamp"
+   },
+   {
+    "count": 2,
+    "name": "Toxin Analysis"
+   },
+   {
+    "count": 4,
+    "name": "Twisted Landscape"
+   },
+   {
+    "count": 1,
+    "name": "Vault of Whispers"
+   },
+   {
+    "count": 4,
+    "name": "Writhing Chrysalis"
+   }
+  ]
+ },
+ "source": "the pauper-ladder-v2 engine's hello_ok catalog (pinned v2 bridge); equal to mtg-kernel data/runtime_decks_v1.json at c5719e1cf except Terror (not on the board)"
+}

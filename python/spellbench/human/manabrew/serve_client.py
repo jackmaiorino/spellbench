@@ -1,7 +1,8 @@
 """Serve a built Manabrew web client (its ``dist`` folder, unmodified) on 127.0.0.1, pointed at the local relay.
 
 The client reads ``/config.js`` before it connects; this server answers that path itself with the local relay, a
-hub address that goes nowhere, and hosted play on, and serves every other path from ``dist`` with the
+hub address that goes nowhere, and hosted play on. It answers the starter-deck list (``/preset_decks/``) with the
+eight Pauper decks Basilisk 2 trained with (``decks.py``), and serves every other path from ``dist`` with the
 cross-origin isolation headers the client's game worker needs. Unknown paths fall back to ``index.html`` (the
 client routes in the browser).
 
@@ -17,6 +18,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from . import decks
+
 mimetypes.add_type("application/wasm", ".wasm")
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/javascript", ".mjs")
@@ -24,6 +27,7 @@ mimetypes.add_type("text/javascript", ".mjs")
 
 def make_handler(dist: Path, config_js: bytes):
     root = dist.resolve()
+    presets = decks.by_preset_id()
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format, *args):  # noqa: A002 - quiet
@@ -44,6 +48,16 @@ def make_handler(dist: Path, config_js: bytes):
             path = unquote(urlparse(self.path).path)
             if path == "/config.js":
                 self._send(200, config_js, "text/javascript")
+                return
+            if path == "/preset_decks/index.json":  # the table offers exactly the training decks
+                self._send(200, json.dumps(decks.preset_index()).encode(), "application/json")
+                return
+            if path.startswith("/preset_decks/"):
+                catalog = presets.get(Path(path).stem)
+                if catalog is None:
+                    self._send(404, b"", "text/plain")
+                else:
+                    self._send(200, json.dumps(decks.preset(catalog)).encode(), "application/json")
                 return
             target = (root / path.lstrip("/")).resolve()
             if root not in target.parents and target != root or not target.is_file():

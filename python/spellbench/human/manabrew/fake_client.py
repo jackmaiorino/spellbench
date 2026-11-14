@@ -59,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--username", default="tester")
     parser.add_argument("--games", type=int, default=1)
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--deck", default="Rally", help="the training deck to pick at the table")
     args = parser.parse_args(argv)
     out = args.out.open("w", encoding="utf-8") if args.out else None
     ws = WebSocket(args.relay)
@@ -87,7 +88,9 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             joined = True
             send({"type": "JoinRoom", "room_id": room["room_id"]})
-            send({"type": "SetDeckSelection", "deck_name": "Placeholder", "deck": deck, "commander_name": None})
+            from . import decks as pool
+            picked = pool.lobby_deck(args.deck) if args.deck in pool.DECKS else deck
+            send({"type": "SetDeckSelection", "deck_name": picked["name"], "deck": picked, "commander_name": None})
             send({"type": "SetReady", "ready": True})
         elif kind == "RoomUpdate" and joined and (msg.get("room") or {}).get("status") == "Lobby":
             room = msg.get("room") or {}

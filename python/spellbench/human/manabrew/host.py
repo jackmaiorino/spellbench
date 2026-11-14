@@ -19,7 +19,9 @@ import time
 import traceback
 from typing import Any, Mapping
 
-from . import prompts, view
+import queue
+
+from . import decks, prompts, view
 from .ws import Closed, WebSocket
 
 HOST_NAME = "spellbench-host"
@@ -85,7 +87,7 @@ class Session:
 
 class Bridge:
     def __init__(self, hub, *, relay_url: str, relay_key: str, room_name: str, bot_name: str,
-                 bot_deck: tuple[str, list[Mapping[str, Any]]]) -> None:
+                 bot_deck: tuple[str, list[Mapping[str, Any]]], bot_deck_for=None) -> None:
         self.hub = hub
         self.url, self.key = relay_url, relay_key
         self.room_name = room_name
@@ -103,7 +105,13 @@ class Bridge:
         self.sent_view: str | None = None
         self.starting = False
         self.fallback_seq: int | None = None
-        self.starter: str | None = None  # the seat that took the first turn  # a combat plan did not fit: ask substep by substep
+        self.starter: str | None = None  # the seat that took the first turn
+        # Deck picks: the person's table pick (a board deck, or None), the bot's deck for it, and each started game.
+        self.bot_deck_for = bot_deck_for or (lambda deck: deck)
+        self.human_pick: str | None = None
+        self.bot_lobby: str | None = None
+        self.starts: "queue.Queue[dict[str, Any]]" = queue.Queue()
+        self.dealt: dict[str, Any] | None = None  # {"human": deck, "bot": deck} of the game being played  # a combat plan did not fit: ask substep by substep
 
     # -- relay ---------------------------------------------------------------------------------------------------
 
@@ -129,6 +137,11 @@ class Bridge:
                 self.order = list(msg.get("player_order") or [])
                 self.game_id = msg.get("game_id")
                 self.starting = False
+                picked = next((decks.catalog_id(d.get("deck_name") or (d.get("deck") or {}).get("name"))
+                               for d in msg.get("player_decks") or [] if d.get("username") == self.human), None)
+                self.starts.put({"human_pick": picked if picked is not None else self.human_pick,
+                                 "picked_name": next((d.get("deck_name") for d in msg.get("player_decks") or []
+                                                      if d.get("username") == self.human), None)})
                 self.hub.control("start", {})
             elif kind == "StateUpdate":
                 self._on_response(msg.get("from_player"), msg.get("state") or {})
@@ -151,6 +164,7 @@ class Bridge:
             players = (msg.get("room") or {}).get("players") or []
             if any(p.get("username") == self.bot_name for p in players):
                 self._bot_seated = True
+                self.bot_lobby = None
                 session.send({"type": "SetDeckSelection", "deck_name": self.bot_deck[0],
                               "deck": _deck(*self.bot_deck), "commander_name": None})
                 session.send({"type": "SetReady", "ready": True})
@@ -167,8 +181,25 @@ class Bridge:
         room = self.room or {}
         humans = [p for p in room.get("players") or [] if not p.get("is_bot") and p.get("username") != HOST_NAME]
         self.human = humans[0]["username"] if humans else None
+        if humans:
+            self.human_pick = decks.catalog_id(humans[0].get("selected_deck_name"))
+            # The bot selects the deck it will really play against this pick, so both lobby decks are true.
+            want = self.bot_deck_for(self.human_pick) if self.human_pick else None
+            if want and want != self.bot_lobby and getattr(self, "bot", None) is not None:
+                self.bot_lobby = want
+                self.bot.send({"type": "SetDeckSelection", "deck_name": decks.label(want),
+                               "deck": decks.lobby_deck(want), "commander_name": None})
+                self.bot.send({"type": "SetReady", "ready": True})
 
     # -- game ----------------------------------------------------------------------------------------------------
+
+    def next_start(self) -> dict[str, Any]:
+        """Block until the person starts a game at the table; returns their pick (a board deck or None)."""
+        return self.starts.get()
+
+    def announce(self, text: str) -> None:
+        """A line at the top of the play log (the client's log panel and the session's log)."""
+        self.hub.announce(text)
 
     def _envelope(self, body: dict[str, Any]) -> None:
         self.host.send({"type": "BroadcastState", "state": body, "target_player": self.human})
@@ -193,7 +224,9 @@ class Bridge:
         if self.seats is None or self.seats.human_seat != game.get("seat"):
             human_index = self.order.index(self.human) if self.human in self.order else 0
             bot_index = 1 - human_index
-            names = {f"player-{human_index}": self.human, f"player-{bot_index}": self.bot_name}
+            dealt = self.dealt or {}
+            names = {f"player-{human_index}": f"{self.human} ({dealt.get('human', '?')})",
+                     f"player-{bot_index}": f"{self.bot_name} ({dealt.get('bot', '?')})"}
             self.seats = view.Seats(game.get("seat"), f"player-{human_index}", f"player-{bot_index}", names)
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
         observation = state.get("observation")
