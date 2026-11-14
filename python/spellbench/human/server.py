@@ -69,6 +69,7 @@ class Hub:
         self.game_over: dict[str, Any] | None = None
         self._log_file = None
         self._seen_stack: set[str] = set()
+        self._stack_targets: dict[str, str] = {}  # object id -> targets already logged for it
         self._combat_logged: set[tuple[Any, str]] = set()
 
     # -- bookkeeping --------------------------------------------------------------------------------------------
@@ -111,6 +112,7 @@ class Hub:
             self.log, self.observation, self.clock, self.pending = [], None, None, None
             self.plan = self.skip = self.game_over = None
             self._seen_stack, self._combat_logged = set(), set()
+            self._stack_targets = {}
             self._note("game", f"Game {self.game['number']}: you ({own.get('name')}, {seat}) vs {self.opponent} "
                                f"({opp.get('name')})")
             if self.log_dir is not None:
@@ -190,19 +192,25 @@ class Hub:
             self._note(side, line)
         for entry in observation.get("stack") or []:
             object_id = entry.get("object_id")
-            if object_id in self._seen_stack:
-                continue
-            self._seen_stack.add(object_id)
             seat = entry.get("controller_seat")
             side = "you" if seat == me else "opp"
-            # The public history's cast line has no targets; the stack object on the board carries them.
+            # The public history's cast line has no targets; the stack object on the board carries them. A cast or
+            # activation can first appear with no targets and gain them once chosen (same object id), so targets are
+            # logged whenever they first appear or change, not only on the object's first sighting.
             chosen = text.stack_targets(entry, me)
-            aimed = f" targeting {chosen}" if chosen else ""
-            if entry.get("stack_kind") == "activated_ability":
-                self._note(side, f"{text.seat_name(seat, me)} activates {text.card(entry)}{aimed}")
-            elif entry.get("stack_kind") == "triggered_ability":
-                self._note(side, f"{text.card(entry)} triggers ({'yours' if seat == me else 'opp'}){aimed}")
-            elif chosen:
+            if object_id not in self._seen_stack:
+                self._seen_stack.add(object_id)
+                aimed = f" targeting {chosen}" if chosen else ""
+                if entry.get("stack_kind") == "activated_ability":
+                    self._note(side, f"{text.seat_name(seat, me)} activates {text.card(entry)}{aimed}")
+                elif entry.get("stack_kind") == "triggered_ability":
+                    self._note(side, f"{text.card(entry)} triggers ({'yours' if seat == me else 'opp'}){aimed}")
+                elif chosen:
+                    self._note(side, f"{text.card(entry)} targets {chosen}")
+                if chosen:
+                    self._stack_targets[object_id] = chosen
+            elif chosen and self._stack_targets.get(object_id) != chosen:
+                self._stack_targets[object_id] = chosen
                 self._note(side, f"{text.card(entry)} targets {chosen}")
         players = {p.get("seat"): p for p in observation.get("players") or []}
         if previous is not None:

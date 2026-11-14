@@ -269,3 +269,16 @@ def test_other_effect_options_name_their_source() -> None:
     prompt, labels = text.effect_options(_option_decision("Some Spell", []), "p0")
     assert "Some Spell" in prompt and labels[1] == "Some Spell: effect 2 of 2"
     assert text.effect_options({"candidates": [{"candidate_id": 0, "semantic": {"kind": "pass"}}]}, "p0") is None
+
+
+def test_targets_chosen_after_a_cast_appears_are_logged_once() -> None:
+    hub = Hub()
+    hub.game = {"game_id": "g-1", "seat": "p0", "own_deck": "Rally", "number": 1}
+    goblin = {"card_name": "Goblin Tomb Raider", "zone": "battlefield", "controller_seat": "p1", "owner_seat": "p1"}
+    pending = {"object_id": "s9", "stack_kind": "spell", "card_name": "Fireblast", "controller_seat": "p0",
+               "targets": []}
+    chosen = dict(pending, targets=[{"object": goblin}, {"player": "p1"}])
+    for stack in ([pending], [chosen], [chosen]):
+        hub._absorb({"observation": {"stack": stack, "players": []}}, {})
+    lines = [entry["text"] for entry in hub.log if entry["text"].startswith("Fireblast")]
+    assert lines == ["Fireblast targets Goblin Tomb Raider (opp), opponent"]
