@@ -29,7 +29,7 @@ public final class GnnBridgeMain {
      */
     private static final String[] UNSUPPORTED = {"search world is unsupported: ", "callback anchor is unsupported: ",
             "combat world is unsupported: ", "callback replay observation differs: ",
-            "callback replay diverges: "};
+            "numeric offered range exceeds the actual callback", "callback replay diverges: "};
 
     static String unsupported(RuntimeException e) {
         if (!(e instanceof IllegalArgumentException) || e.getMessage() == null) return null;
@@ -64,7 +64,8 @@ public final class GnnBridgeMain {
                 operation = MageZeroSearchBridgeMain.operation(record);
                 boolean combat = "combat".equals(operation);
                 SearchPlayer.GRAPH = new GnnSearch(Json.obj(record, "settings"),
-                        combat ? MageZeroSearchCombatMain::inferGraph : MageZeroSearchMain::inferGraph);
+                        combat ? MageZeroSearchCombatMain::inferGraph : MageZeroSearchMain::inferGraph,
+                        combat ? null : MageZeroSearchMain::checkGraphRoot);
                 started = true;
                 Map<String, Object> result = combat ? MageZeroSearchCombatMain.execute(record) : MageZeroSearchMain.execute(record);
                 out.println(Json.canonical(Json.map("id", id, "operation", operation,
