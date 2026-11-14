@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from spellbench.human import relay
+from spellbench.human.narrate import Narrator
 from spellbench.human.server import Hub, make_server
 from spellbench.human import text
 
@@ -227,23 +228,34 @@ def test_a_host_ended_game_ends_on_the_page() -> None:
     assert hub.state()["opponent"] == "Basilisk 2"
 
 
-def test_the_log_names_the_targets_of_stack_objects() -> None:
-    hub = Hub()
-    hub.game = {"game_id": "g-1", "seat": "p0", "own_deck": "Rally", "number": 1}
-    bridge = {"card_name": "Drossforge Bridge", "zone": "battlefield", "controller_seat": "p1", "owner_seat": "p1"}
-    stack = [
-        {"object_id": "s1", "stack_kind": "spell", "card_name": "Cleansing Wildfire", "controller_seat": "p1",
-         "targets": [{"object": bridge}]},
-        {"object_id": "s2", "stack_kind": "triggered_ability", "card_name": "Voldaren Epicure", "controller_seat": "p0",
-         "targets": [{"player": "p1"}]},
-        {"object_id": "s3", "stack_kind": "spell", "card_name": "Lightning Bolt", "controller_seat": "p0",
-         "targets": []},
-    ]
-    hub._absorb({"observation": {"stack": stack, "players": []}}, {})
-    lines = [entry["text"] for entry in hub.log]
-    assert "Cleansing Wildfire targets Drossforge Bridge (opp)" in lines
-    assert "Voldaren Epicure triggers (yours) targeting opponent" in lines
-    assert not any(line.startswith("Lightning Bolt") for line in lines)
+def _snapshot(seat: str, events: list, objects: list, stack: list | None = None, turn: int = 9) -> dict:
+    payload = {"viewer": 0 if seat == "p0" else 1,
+               "state": {"objects": {"items": objects}, "engine": {"event_history": events}, "stack": stack or []}}
+    return {"acting_seat": seat, "observation": {"turn": turn, "active_seat": "p1", "phase_step": "precombat_main"},
+            "extensions": {"x_kernel_infoset_v1": {"payload_json": json.dumps(payload)}}}
+
+
+def test_the_log_says_why_things_moved() -> None:
+    """Engine events become causal lines: a sacrifice for mana, a damage sweep and the deaths it caused."""
+    def obj(name, zone, controller, owner=None):
+        return {"name": name, "zone": zone, "controller": controller, "owner": controller if owner is None else owner,
+                "card_def": hash(name) % 1000, "zone_change_count": 1}
+    objects = [obj("Eldrazi Spawn Token", "Graveyard", 1), obj("Eldrazi Spawn Token", "Command", 1),
+               obj("Krark-Clan Shaman", "Command", 0), obj("Writhing Chrysalis", "Battlefield", 1),
+               obj("Eldrazi Spawn Token", "Graveyard", 1), obj("Eldrazi Spawn Token", "Command", 1)]
+    events = [{"Sacrificed": {"controller_before": 1, "object": 1}},
+              {"ZoneChange": {"controller_before": 1, "from": "Battlefield", "object": 0, "to": "Graveyard"}},
+              {"ManaAdded": {"colors": ["C"], "player": 1}},
+              {"Damage": {"amount": 1, "source": 2, "target": {"Object": 3}}},
+              {"Damage": {"amount": 1, "source": 2, "target": {"Object": 5}}},
+              {"ZoneChange": {"controller_before": 1, "from": "Battlefield", "object": 4, "to": "Graveyard"}}]
+    narrator = Narrator("p0")
+    narrator.engine_decision(_snapshot("p1", events, objects))
+    lines = [line["text"] for line in narrator.merge([])]
+    assert "Opp sacrifices Eldrazi Spawn Token for {C}" in lines
+    assert ("Krark-Clan Shaman (yours) deals damage: 1 to Writhing Chrysalis (opp), 1 to Eldrazi Spawn Token (opp)"
+            in lines)
+    assert "Eldrazi Spawn Token (opp) dies (lethal damage from Krark-Clan Shaman)" in lines
 
 
 def _option_decision(source: str, known: list) -> dict:
@@ -269,16 +281,3 @@ def test_other_effect_options_name_their_source() -> None:
     prompt, labels = text.effect_options(_option_decision("Some Spell", []), "p0")
     assert "Some Spell" in prompt and labels[1] == "Some Spell: effect 2 of 2"
     assert text.effect_options({"candidates": [{"candidate_id": 0, "semantic": {"kind": "pass"}}]}, "p0") is None
-
-
-def test_targets_chosen_after_a_cast_appears_are_logged_once() -> None:
-    hub = Hub()
-    hub.game = {"game_id": "g-1", "seat": "p0", "own_deck": "Rally", "number": 1}
-    goblin = {"card_name": "Goblin Tomb Raider", "zone": "battlefield", "controller_seat": "p1", "owner_seat": "p1"}
-    pending = {"object_id": "s9", "stack_kind": "spell", "card_name": "Fireblast", "controller_seat": "p0",
-               "targets": []}
-    chosen = dict(pending, targets=[{"object": goblin}, {"player": "p1"}])
-    for stack in ([pending], [chosen], [chosen]):
-        hub._absorb({"observation": {"stack": stack, "players": []}}, {})
-    lines = [entry["text"] for entry in hub.log if entry["text"].startswith("Fireblast")]
-    assert lines == ["Fireblast targets Goblin Tomb Raider (opp), opponent"]
