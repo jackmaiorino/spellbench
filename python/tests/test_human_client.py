@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from spellbench.human import relay
+from spellbench.human.narrate import Narrator
 from spellbench.human.server import Hub, make_server
 from spellbench.human import text
 
@@ -225,3 +226,95 @@ def test_a_host_ended_game_ends_on_the_page() -> None:
     page_closer(hub)(Row())  # a second notice for the same game changes nothing
     assert len(hub.results) == 1
     assert hub.state()["opponent"] == "Basilisk 2"
+
+
+def _snapshot(seat: str, events: list, objects: list, stack: list | None = None, turn: int = 9) -> dict:
+    payload = {"viewer": 0 if seat == "p0" else 1,
+               "state": {"objects": {"items": objects}, "engine": {"event_history": events}, "stack": stack or []}}
+    return {"acting_seat": seat, "observation": {"turn": turn, "active_seat": "p1", "phase_step": "precombat_main"},
+            "extensions": {"x_kernel_infoset_v1": {"payload_json": json.dumps(payload)}}}
+
+
+def test_the_log_says_why_things_moved() -> None:
+    """Engine events become causal lines: a sacrifice for mana, a damage sweep and the deaths it caused."""
+    def obj(name, zone, controller, owner=None):
+        return {"name": name, "zone": zone, "controller": controller, "owner": controller if owner is None else owner,
+                "card_def": hash(name) % 1000, "zone_change_count": 1}
+    objects = [obj("Eldrazi Spawn Token", "Graveyard", 1), obj("Eldrazi Spawn Token", "Command", 1),
+               obj("Krark-Clan Shaman", "Command", 0), obj("Writhing Chrysalis", "Battlefield", 1),
+               obj("Eldrazi Spawn Token", "Graveyard", 1), obj("Eldrazi Spawn Token", "Command", 1)]
+    events = [{"Sacrificed": {"controller_before": 1, "object": 1}},
+              {"ZoneChange": {"controller_before": 1, "from": "Battlefield", "object": 0, "to": "Graveyard"}},
+              {"ManaAdded": {"colors": ["C"], "player": 1}},
+              {"Damage": {"amount": 1, "source": 2, "target": {"Object": 3}}},
+              {"Damage": {"amount": 1, "source": 2, "target": {"Object": 5}}},
+              {"ZoneChange": {"controller_before": 1, "from": "Battlefield", "object": 4, "to": "Graveyard"}}]
+    narrator = Narrator("p0")
+    narrator.engine_decision(_snapshot("p1", events, objects))
+    lines = [line["text"] for line in narrator.merge([])]
+    assert "Opp sacrifices Eldrazi Spawn Token for {C}" in lines
+    assert ("Krark-Clan Shaman (yours) deals damage: 1 to Writhing Chrysalis (opp), 1 to Eldrazi Spawn Token (opp)"
+            in lines)
+    assert "Eldrazi Spawn Token (opp) dies (lethal damage from Krark-Clan Shaman)" in lines
+
+
+def _option_decision(source: str, known: list) -> dict:
+    ref = {"card_name": source, "controller_seat": "p0", "object_id": "a1", "owner_seat": "p0", "zone": "stack"}
+    return {"context": {"kind": "choose_option", "purpose": "effect_option", "source": ref},
+            "observation": {"known": known},
+            "candidates": [{"candidate_id": i, "semantic": {"kind": "choose_option", "purpose": "effect_option",
+                                                            "option_index": i, "option_count": 2,
+                                                            "option_label": None, "source": ref}}
+                           for i in range(2)]}
+
+
+def test_an_explore_choice_says_what_each_option_does() -> None:
+    top = {"card_name": "Refurbished Familiar", "how": "looked_at", "object_id": None, "owner_seat": "p0",
+           "position_from_bottom": None, "position_from_top": 0, "zone": "library"}
+    prompt, labels = text.effect_options(_option_decision("Map Token", [top]), "p0")
+    assert prompt == "Explore (Map Token) revealed Refurbished Familiar"
+    assert labels == {0: "Leave Refurbished Familiar on top of your library",
+                      1: "Put Refurbished Familiar into your graveyard"}
+
+
+def test_other_effect_options_name_their_source() -> None:
+    prompt, labels = text.effect_options(_option_decision("Some Spell", []), "p0")
+    assert "Some Spell" in prompt and labels[1] == "Some Spell: effect 2 of 2"
+    assert text.effect_options({"candidates": [{"candidate_id": 0, "semantic": {"kind": "pass"}}]}, "p0") is None
+
+
+def test_the_log_records_the_explore_choice() -> None:
+    """The person's keep-or-graveyard answer to an explore is echoed in the log with what it did."""
+    hub = Hub()
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    top = {"card_name": "Refurbished Familiar", "zone": "library", "owner_seat": ME, "position_from_top": 0,
+           "object_id": None, "how": "looked_at"}
+    request = _option_decision("Map Token", [top])
+    request["acting_seat"] = ME
+    request["observation"] = {**observation(), "known": [top]}
+    thread = answer_in_background(hub, lambda p: hub.answer_with(p["seq"], 1))
+    assert hub.choose({"decision": request}) == 1
+    thread.join()
+    assert "You choose: Put Refurbished Familiar into your graveyard" in [line["text"] for line in hub.log]
+
+
+def test_typed_choices_say_what_they_ask() -> None:
+    hydra = {"card_name": "Nyxborn Hydra", "controller_seat": ME, "object_id": "s1", "owner_seat": ME, "zone": "stack"}
+    charm = {**hydra, "card_name": "Thraben Charm"}
+    mode = {"kind": "choose_spell_mode", "mode_count": 2, "source": hydra}
+    assert text.candidate({**mode, "mode_index": 1}, ME) == "Cast it with bestow (an Aura on a target creature)"
+    assert text.candidate({**mode, "mode_index": 0}, ME) == "Cast it as a creature"
+    third = {"kind": "choose_spell_mode", "mode_count": 3, "source": charm, "mode_index": 1}
+    assert text.candidate(third, ME) == "Mode 2: Destroy target enchantment."
+    assert text.candidate({"kind": "choose_spell_mode", "mode_count": 4, "mode_index": 2, "source": None}, ME) == "Mode 3 of 4"
+    assert text.candidate({"kind": "choose_number", "purpose": "x_value", "value": 3}, ME) == "X = 3"
+    assert text.candidate({"kind": "choose_number", "purpose": "amount", "value": 3}, ME) == "3"
+
+    def asking(kind: str, purpose: str, source: dict | None = hydra) -> str:
+        request = decision([{"kind": kind, "purpose": purpose}, {"kind": kind, "purpose": purpose}], kind="choice")
+        request["context"] = {"kind": "choice", "purpose": purpose, "source": source}
+        return text.prompt(request, ME)
+
+    assert asking("choose_number", "x_value") == "Choose the value of X for Nyxborn Hydra"
+    assert asking("choose_color", "mana") == "Choose a color of mana for Nyxborn Hydra"
+    assert asking("choose_boolean", "may_ability").startswith("Use the optional ability?")

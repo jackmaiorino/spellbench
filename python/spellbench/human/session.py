@@ -30,7 +30,7 @@ import time
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from ..arena import engine_records, runner
 from ..arena.allocation import Allocation
@@ -158,6 +158,127 @@ def page_closer(hub: Hub) -> Any:
     return after_game
 
 
+PERSON_ENDED = ("conceded", "connection_lost")  # reasons the session gives a game the person (or their connection) ended
+
+
+def person_end(final: dict[str, Any] | None, ledger: Mapping[str, Any] | None) -> str | None:
+    """Why the person's side ended game ``final`` (the page's result row), or None. The arena's ledger row is the
+    truth: a concession or lost connection counts only when the ledger filed the game as a forfeit. When the engine
+    had already ended the game (the bot's move won it a moment before the person gave up), the ledger keeps its
+    natural result and the page's row is corrected to it, so the ledger and the ends file never disagree."""
+    if not final or final.get("reason") not in PERSON_ENDED:
+        return None
+    if ledger is None or ledger.get("classification") == "forfeit":
+        return final["reason"]
+    winner = ledger.get("winner")
+    final["reason"] = ledger.get("reason")
+    final["result"] = "draw" if winner is None else ("win" if winner == final.get("seat") else "loss")
+    return None
+
+
+class OneGame(Exception):
+    """Raised by the per-game hook: a picked game is the first game of a one-pair run."""
+
+
+def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, human_first: bool,
+                       run_dir: Path, opponent: str) -> dict[str, Any]:
+    """One game with the decks the person picked: a one-pair run whose first game puts the person in seat p0
+    (``human_first``) or p1, with the person's deck in that seat; the hook stops the run after that game."""
+    doc = copy.deepcopy(base)
+    doc["tournament_dir"] = str(run_dir)
+    doc.pop("deck_pool", None)
+    doc.pop("deck_pairing", None)
+    if human_first:
+        doc["matchups"] = [[HUMAN, opponent]]
+        doc["decks"] = [{"catalog_id": human_deck}, {"catalog_id": bot_deck}]
+    else:
+        doc["matchups"] = [[opponent, HUMAN]]
+        doc["decks"] = [{"catalog_id": bot_deck}, {"catalog_id": human_deck}]
+    doc["pairs_per_matchup"] = 1
+    return doc
+
+
+def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, stop: threading.Event, *, out: Path,
+                      name: str, shown: str) -> int:
+    """The Manabrew table: each game plays the deck the person picks there (one of the training decks), against
+    the bot's deck for that pick (``--opponent-deck``). Each game is its own run ``<name>-gNN``, stopped after its
+    first game (so it publishes as aborted with that one game); the person alternates between seat p0 and p1.
+    A pick that is not a training deck is replaced by the next deck of ``--decks`` (or the pool), and the play log
+    and the console say so."""
+    import random
+    from .manabrew import decks as pool, host as manabrew_host
+
+    rotation = [d.strip() for d in args.decks.split(",")] if args.decks else list(pool.ORDER)
+    rng = random.Random(f"{name}:opponent-deck")
+
+    def bot_deck_for(human: str | None) -> str | None:
+        if human is None or args.opponent_deck == "mirror":
+            return human
+        if args.opponent_deck == "random":
+            return None  # drawn when the game starts
+        return args.opponent_deck
+
+    bridge = manabrew_host.Bridge(hub, relay_url=args.relay_url, relay_key=args.relay_key, room_name=args.room_name,
+                                  bot_name=shown, bot_deck=manabrew_host.pool_deck(), bot_deck_for=bot_deck_for,
+                                  allow_remote_relay=args.allow_remote_relay)
+    bridge.start()
+    print(f"  Manabrew: join table '{args.room_name}', pick a training deck, press Start game\n", flush=True)
+    picks = out / "runs" / f"{name}.picks.jsonl"
+    played = 0
+    try:
+        while played < args.games:
+            start = bridge.next_start()
+            human = start.get("human_pick")
+            note = ""
+            if human is None:
+                human = rotation[played % len(rotation)]
+                note = f" (you picked {start.get('picked_name') or 'no deck'}, which is not a training deck)"
+            bot = bot_deck_for(human) or rng.choice(list(pool.ORDER))
+            human_first = played % 2 == 0
+            bridge.dealt = {"human": human, "bot": bot}
+            line = (f"Game {played + 1}: you play {human}{note}, {shown} plays {bot}; "
+                    f"you are seat {'p0' if human_first else 'p1'}")
+            print(f"\n  ==== {line} ====\n", flush=True)
+            bridge.announce(line)
+            run_name = f"{name}-g{played + 1:02d}"
+            run_dir = out / "runs" / run_name
+            doc = picked_game_config(base, human_deck=human, bot_deck=bot, human_first=human_first, run_dir=run_dir,
+                                     opponent=args.opponent)
+            (out / "runs" / f"{run_name}.config.json").write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
+            with picks.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps({"game": played + 1, "run": run_name, "human_deck": human, "bot_deck": bot,
+                                         "picked": start.get("picked_name"),
+                                         "human_seat": "p0" if human_first else "p1",
+                                         "opponent_deck_rule": args.opponent_deck}) + "\n")
+            closer = page_closer(hub)
+            ledger: list[dict[str, Any]] = []
+
+            def after_game(row: Any, closer: Any = closer, ledger: list[dict[str, Any]] = ledger) -> None:
+                ledger.append(row.to_json())
+                closer(row)
+                raise OneGame()
+
+            try:
+                runner.run_tournament(runner.TournamentConfig.from_json(doc), run_secret=RunSecret.generate(),
+                                      allocation=Allocation.unmeasured(1), on_game=after_game)
+            except OneGame:
+                pass
+            played += 1
+            final = next((r for r in reversed(hub.results) if r.get("game_id") == (hub.game or {}).get("game_id")), None)
+            ended = person_end(final, ledger[0] if ledger else None)
+            if ended:  # the arena's ledger can only say forfeit:agent_error for this; the session says why
+                with (out / "runs" / f"{name}.ends.jsonl").open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps({"game": played, "run": run_name, "game_id": final["game_id"],
+                                             "result": final["result"], "reason": ended}) + "\n")
+            print(f"  game {played} recorded in {run_dir}"
+                  + (f" (you lost by {ended.replace('_', ' ')}; the ledger shows forfeit:agent_error for the human "
+                     f"seat, {out / 'runs' / (name + '.ends.jsonl')} says why)" if ended else ""), flush=True)
+    finally:
+        stop.set()
+        server.shutdown()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m spellbench.human", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -174,7 +295,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cold", type=Path, default=None, help="cold copy root for engine records")
     parser.add_argument("--no-record", action="store_true", help="skip the operator engine recording")
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--client", choices=("page", "manabrew"), default="page",
+                        help="page: the built-in play page; manabrew: host a room on a local Manabrew relay")
+    parser.add_argument("--relay-url", default="ws://127.0.0.1:9443", help="Manabrew relay (a ws:// URL on this machine)")
+    parser.add_argument("--allow-remote-relay", action="store_true",
+                        help="accept a --relay-url that is not on this machine (the connection is not encrypted)")
+    parser.add_argument("--relay-key", default="forge", help="the relay's shared key (MANABREW_SERVER_KEY)")
+    parser.add_argument("--room-name", default="Spellbench", help="the Manabrew room the session opens")
+    parser.add_argument("--opponent-deck", default="mirror",
+                        help="manabrew: the bot's deck against the person's pick: mirror (default), random (drawn "
+                             "from the pool for each game, recorded), or a pool deck name")
     args = parser.parse_args(argv)
+    if args.client == "manabrew":
+        from .manabrew import ws as manabrew_ws
+        try:
+            manabrew_ws.require_loopback(args.relay_url, args.allow_remote_relay)
+        except ValueError as exc:
+            parser.error(str(exc))
 
     name = args.name or datetime.now().strftime("session-%Y%m%d-%H%M%S")
     out = args.out.resolve()
@@ -207,7 +344,8 @@ def main(argv: list[str] | None = None) -> int:
     shown = next(((bot.get("display") or {}).get("label") for bot in config_doc["bots"] if bot["name"] == args.opponent),
                  None) or args.opponent  # the page names the opponent by its board label
     hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=shown,
-              label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank")
+              label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank",
+              record_root=None if args.no_record else out / "engine-records" / "hot")
     server = make_server(hub, port=args.port)
     host, port = server.server_address[:2]
     os.environ[relay.URL_ENV] = f"http://{host}:{port}"
@@ -216,6 +354,8 @@ def main(argv: list[str] | None = None) -> int:
     url = f"http://{host}:{port}/?t={server.token}"
     print(f"\n  Play here: {url}\n", flush=True)
     print(f"  run: {run_dir}\n  config: {config_path}\n", flush=True)
+    if args.client == "manabrew":
+        return play_picked_games(args, config_doc, hub, server, stop, out=out, name=name, shown=str(shown))
     if not args.no_browser:
         webbrowser.open(url)
     started = time.monotonic()
