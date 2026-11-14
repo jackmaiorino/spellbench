@@ -203,8 +203,8 @@ class Narrator:
         self.slots: list[tuple[int, str]] = []  # engine events the public history mirrors, awaiting it
         self.backlog: list[Any] = []            # public history events past the narrated engine events
         self.damaged: dict[tuple[str | None, str], str] = {}
-        self.turn_starter: int | None = None
-        self.turns = 0
+        self.step: tuple[Any, Any, Any] | None = None
+        self.resolver_hint: str | None = None
 
     # -- engine side -----------------------------------------------------------------------------------------
 
@@ -212,9 +212,20 @@ class Narrator:
         """Feed one engine decision (either seat) in record order."""
         infoset = (seat_decision.get("extensions") or {}).get("x_kernel_infoset_v1") or {}
         raw = infoset.get("payload_json")
-        if not isinstance(raw, str):
-            return  # a refused infoset: these events are narrated at the next snapshot that has one
-        payload = json.loads(raw)
+        observation = seat_decision.get("observation") or {}
+        step = (observation.get("turn"), observation.get("active_seat"), observation.get("phase_step"))
+        if isinstance(raw, str):
+            self._snapshot(json.loads(raw), seat_decision, observation)
+        # A step marker wherever a decision (either seat) shows a new step; it follows that span's events.
+        if step != self.step and step[2] is not None:
+            name = text.PHASES.get(step[2], step[2])
+            whose_turn = "your" if step[1] == self.me else "opp's"
+            self.pending_lines.append((self.offset - 0.2, Line(side="game", depth=0, text=f"{name} ({whose_turn} turn)",
+                                                              facts=[("step",)], step=True)))
+            self.step = step
+
+    def _snapshot(self, payload: Mapping[str, Any], seat_decision: Mapping[str, Any],
+                  observation: Mapping[str, Any]) -> None:
         acting = seat_decision.get("acting_seat")
         if self.native_me is None:
             viewer = payload.get("viewer")
@@ -225,15 +236,23 @@ class Narrator:
             self.offset = 0
         window = list(enumerate(events[self.offset:], start=self.offset))
         self.offset = len(events)
-        self._window(window, snap, seat_decision.get("observation") or {})
+        self._window(window, snap, observation)
         self.last = snap
 
     def _window(self, window: list[tuple[int, Any]], snap: Snapshot, observation: Mapping[str, Any]) -> None:
         me = self.me
         before = self.seen_items
         now = snap.stack_ids()
-        new_items = [sid for sid in now if sid not in before and sid not in self.announced]
-        gone = [sid for sid in before if sid not in now]
+        # A spell is announced by its SpellCast event (an unfinished cast sits on the stack under another id);
+        # abilities are announced when first seen.
+        new_items = [sid for sid in now if sid not in before and sid not in self.announced
+                     and now[sid].get("kind") != "Spell"]
+        gone = [sid for sid in before if sid not in now and sid in self.announced]
+        cast_at = {}
+        for index, ev in window:
+            if isinstance(ev, Mapping) and "PublishedCastIdentityV1" in ev:
+                sid = (ev["PublishedCastIdentityV1"].get("receipt") or {}).get("stack_item_id")
+                cast_at[sid] = index
         out: list[tuple[int, Line]] = []
         start = window[0][0] if window else self.offset
         end = window[-1][0] if window else self.offset
@@ -243,19 +262,13 @@ class Narrator:
 
         # Resolutions: an item that left the stack. Its effects follow in this window.
         resolving: list[Mapping[str, Any]] = [before[sid] for sid in reversed(list(before)) if sid in gone]
-        res_at = start
-        for _, ev in window:
-            kind = next(iter(ev)) if isinstance(ev, Mapping) else ev
-            if kind in ("Tap", "ManaAdded", "Targeted", "PublishedCastIdentityV1", "SpellCast", "Sacrificed"):
-                continue
-            break
         for item in resolving:
             label = self._item_label(item)
             controller = item["_controller"]
             line = Line(side="you" if controller == me else "opp", depth=0,
                         text=f"{label['name']} ({whose(controller, me)}) resolves",
                         facts=[("stack-", controller, label["name"])])
-            add(res_at - 0.5, line)
+            add(start - 0.5, line)
 
         # Casts and activations: a new stack item. Costs paid for it are folded into its line.
         cost_events: dict[int, int] = {}  # event index -> stack item id it paid for
@@ -292,6 +305,9 @@ class Narrator:
             tap_group, mana_colors, group_seat = [], [], None
 
         last_cast_receipt: Mapping[str, Any] | None = None
+        spell_costs: list[str] = []
+        spell_targets: list[str] = []
+        self.resolver_hint = None
         while i < len(window):
             index, ev = window[i]
             if not isinstance(ev, Mapping) or len(ev) != 1:
@@ -320,6 +336,28 @@ class Narrator:
                 if self._tap_for_item(nm, c, new_items, now):
                     i += 1
                     continue
+                if self._attacking(observation, nm, c):
+                    i += 1
+                    continue  # the attack line covers it
+                sac = next((j for j in range(i + 1, min(i + 4, len(window)))
+                            if isinstance(window[j][1], Mapping) and "Sacrificed" in window[j][1]
+                            and snap.name(window[j][1]["Sacrificed"].get("object"), allow_command=True) == nm), None)
+                if sac is not None and nm:
+                    # an ability that cost "{T}, sacrifice": activated and resolved before any decision saw it
+                    zc = window[sac + 1][1].get("ZoneChange") if sac + 1 < len(window) and isinstance(window[sac + 1][1], Mapping) else None
+                    if zc is not None:
+                        self.slots.append((window[sac + 1][0], "zone_move"))
+                    text_ = ABILITY_TEXT.get((nm, 0))
+                    add(index, Line(side="you" if c == me else "opp", depth=0,
+                                    text=f"{seat_word(c, me)} activate{'s' if c != me else ''} {nm} (tapping and "
+                                         f"sacrificing it)" + (f": {text_}" if text_ else ""),
+                                    facts=[("tap", c, nm), ("zone", c, nm, "battlefield", "graveyard", "cost")]))
+                    self.resolver_hint = nm
+                    for j in range(i + 1, sac):  # payment between the tap and the sacrifice stays in the mana line
+                        pass
+                    window = window[:sac] + window[sac + (2 if zc is not None else 1):]
+                    i += 1
+                    continue
                 add(index, Line(side="you" if c == me else "opp", depth=1,
                                 text=f"{nm or 'A permanent'} ({whose(c, me)}) becomes tapped",
                                 facts=[("tap", c, nm)]))
@@ -343,6 +381,12 @@ class Narrator:
                 controller = snap.seat(body.get("controller_before"))
                 if index in cost_events:
                     i += 1
+                    continue
+                if zc is not None:
+                    self.slots.append((window[i + 1][0], "zone_move"))
+                if zc is not None and self._feeds_cast(window, i + 2):
+                    spell_costs.append(f"sacrificing {name or 'a permanent'}")
+                    i += 2
                     continue
                 after = window[i + 2][1] if i + 2 < len(window) else None
                 if zc is not None and isinstance(after, Mapping) and "ManaAdded" in after:
@@ -368,6 +412,15 @@ class Narrator:
                 last_cast_receipt = body.get("receipt") or {}
                 i += 1
                 continue
+            if kind == "Targeted":
+                o = body.get("target")
+                obj = snap.obj(o)
+                if obj is not None and obj.get("zone_change_count") == body.get("target_zone_change_count"):
+                    nm = snap.name(o)
+                    if nm:
+                        spell_targets.append(f"{nm} ({whose(snap.controller(o), me)})")
+                i += 1
+                continue
             if kind == "SpellCast":
                 receipt = last_cast_receipt or {}
                 last_cast_receipt = None
@@ -379,15 +432,20 @@ class Narrator:
                 sid = receipt.get("stack_item_id")
                 item = now.get(sid) if sid is not None else None
                 origin = ZONE_WORD.get(receipt.get("origin_zone"), "hand")
-                detail = self._item_detail(item, snap) if item is not None else ""
-                costs = self._costs_before(window, i, snap, caster)
+                detail = self._item_detail(item, snap) if item is not None else (
+                    f" (targeting {', '.join(spell_targets)})" if spell_targets else "")
+                spell_targets = []
+                if item is None:
+                    self.resolver_hint = name  # cast and resolved before any decision saw it
+                costs = f" ({', '.join(spell_costs)})" if spell_costs else ""
+                spell_costs = []
                 where = "" if origin == "hand" else f" from {'your' if caster == me else 'opp'} {origin}"
                 txt = f"{seat_word(caster, me)} cast{'s' if caster != me else ''} {name or 'a spell'}{where}{detail}{costs}"
                 if sid is not None:
                     self.announced.add(sid)
-                add(index, Line(side="you" if caster == me else "opp", depth=0, text=txt,
-                                facts=[("zone", snap.seat(receipt.get("owner")), name, origin, "stack", "cast"),
-                                       ("stack+", caster, name)]))
+                facts = [("zone", snap.seat(receipt.get("owner")), name, origin, "stack", "cast"), ("stack+", caster, name)]
+                facts += [("zone", caster, None, "battlefield", "graveyard", "cost") for _ in costs.split(",") if costs]
+                add(index, Line(side="you" if caster == me else "opp", depth=0, text=txt, facts=facts))
                 i += 1
                 continue
             if kind == "ZoneChange":
@@ -578,27 +636,27 @@ class Narrator:
                 names.append(f"paying with {nm or 'a permanent'}")
         return f" ({', '.join(names)})" if names else ""
 
-    def _costs_before(self, window: list[tuple[int, Any]], i: int, snap: Snapshot, caster: str | None) -> str:
-        """Non-mana costs paid for a spell just before its cast event (a sacrifice, a discard)."""
-        names = []
-        k = i - 1
-        while k >= 0:
+    @staticmethod
+    def _attacking(observation: Mapping[str, Any], name: str | None, controller: str | None) -> bool:
+        for player in observation.get("players") or []:
+            for card in player.get("battlefield") or []:
+                if (card.get("card_name") == name and card.get("controller_seat") == controller
+                        and (card.get("permanent") or {}).get("attacking")):
+                    return True
+        return False
+
+    @staticmethod
+    def _feeds_cast(window: list[tuple[int, Any]], k: int) -> bool:
+        """Whether only payment events lie between position ``k`` and a SpellCast (a cost paid for that spell)."""
+        while k < len(window):
             ev = window[k][1]
-            if not isinstance(ev, Mapping):
-                break
-            kind = next(iter(ev))
-            if kind in ("PublishedCastIdentityV1", "Targeted", "Tap", "ManaAdded"):
-                k -= 1
-                continue
-            if kind == "ZoneChange" and ev[kind].get("from") == "Battlefield":
-                names.append(f"sacrificing {snap.name(ev[kind].get('object')) or 'a permanent'}")
-                k -= 1
-                continue
-            if kind == "Sacrificed":
-                k -= 1
-                continue
-            break
-        return f" ({', '.join(reversed(names))})" if names else ""
+            kind = next(iter(ev)) if isinstance(ev, Mapping) and ev else None
+            if kind == "SpellCast":
+                return True
+            if kind not in ("Tap", "ManaAdded", "Targeted", "PublishedCastIdentityV1"):
+                return False
+            k += 1
+        return False
 
     def _tap_for_item(self, name: str | None, controller: str | None, new_items: list[int],
                       now: Mapping[int, Mapping[str, Any]]) -> bool:
@@ -619,7 +677,7 @@ class Narrator:
         frm, to = ZONE_WORD.get(src, src), ZONE_WORD.get(dst, dst)
         side = "you" if (controller or owner) == me else "opp"
         mark = f"{name or 'A card'} ({whose(controller or owner, me)})"
-        resolver = next((item["_name"] for item in resolving), None)
+        resolver = next((item["_name"] for item in resolving), None) or self.resolver_hint
         if src == "Stack" and dst == "Battlefield":
             return Line(side=side, depth=1, text=f"{name} enters the battlefield",
                         facts=[("zone", owner, name, "stack", "battlefield", "resolved"), ("stack-", controller, name)])
@@ -668,14 +726,14 @@ class Narrator:
         libraries, looks, reveals, shuffles) and return the lines to append to the log, in causal order.
 
         The public history mirrors the engine's Draw, ZoneChange, SpellCast, CreateToken and UpkeepBegan events one
-        for one and in order, so each such history event is placed at its engine event. History past the last
-        narrated engine event (the engine refused a snapshot) waits for the next call."""
-        extra: list[tuple[float, Line]] = []
+        for one and in order, so each such history event is placed at its engine event; a look, reveal or shuffle
+        goes just before the next mirrored event. History past the last narrated engine event (the engine refused a
+        snapshot) waits for the next call."""
         events = [e for e in self.backlog + list(history) if isinstance(e, Mapping)]
         self.backlog = []
         slots = self.slots
         k = 0
-        last_index: float = self.pending_lines[0][0] - 0.75 if self.pending_lines else self.offset - 0.75
+        placed: list[tuple[Mapping[str, Any], float | None]] = []
         for n, event in enumerate(events):
             kind = event.get("kind")
             if kind in ("draw", "zone_move", "token_created", "turn_began"):
@@ -684,25 +742,68 @@ class Narrator:
                     break
                 index, slot_kind = slots[k]
                 k += 1
-                if slot_kind != kind:  # out of step: never expected; keep the line, in arrival order
-                    index = last_index
-                last_index = index
-                if kind == "token_created":
-                    continue  # the engine line names it
-                if kind == "zone_move" and (event.get("to") or {}).get("zone") not in ("hand", "library"):
-                    continue  # public destinations come from the engine events
-                line = self._history_line(event)
-                if line is not None:
-                    extra.append((index + 0.1, line))
+                placed.append((event, float(index) if slot_kind == kind else None))
             else:
-                line = self._history_line(event)
-                if line is not None:
-                    last_index += 0.01
-                    extra.append((last_index, line))
+                placed.append((event, None))
         self.slots = slots[k:]
+        tail = max([i for i, _ in self.pending_lines] + [self.offset - 0.5]) + 0.05
+        extra: list[tuple[float, Line]] = []
+        next_index = tail
+        for event, index in reversed(placed):  # notes take the position just before the next mirrored event
+            if index is None:
+                next_index -= 0.001
+                index = next_index
+            else:
+                next_index = index + 0.05
+                index += 0.1
+            kind = event.get("kind")
+            if kind == "token_created":
+                continue  # the engine line names it
+            if kind == "zone_move" and (event.get("to") or {}).get("zone") not in ("hand", "library"):
+                continue  # public destinations come from the engine events
+            line = self._history_line(event)
+            if line is not None:
+                extra.append((index, line))
         merged = sorted(self.pending_lines + extra, key=lambda pair: pair[0])
         self.pending_lines = []
-        return [line for _, line in merged]
+        return self._collapse([line for _, line in merged])
+
+    @staticmethod
+    def _collapse(lines: list[Line]) -> list[Line]:
+        """Consecutive draws by one player become one line ("You draw A, B", "Opp draws 7 cards")."""
+        out: list[Line] = []
+        run: list[Line] = []
+        grouped: list[Line] = []
+        for line in lines + [Line(side="", text="", facts=[])]:  # a run of draws of both players (an opening hand)
+            if line.get("draw"):
+                run.append(line)
+                continue
+            if len(run) > 2 and len({r["side"] for r in run}) == 2:
+                for side in ("you", "opp"):
+                    mine = [r for r in run if r["side"] == side]
+                    if mine:
+                        grouped.append(Line(mine[0], names=[n for r in mine for n in r["names"]],
+                                            facts=[f for r in mine for f in r["facts"]], text=mine[0]["text"]))
+                        grouped[-1]["text"] = ("You draw " + ", ".join(grouped[-1]["names"])) if side == "you" else                             f"Opp draws {len(grouped[-1]['names'])} cards"
+                        grouped[-1]["draw"] = False
+            else:
+                grouped.extend(run)
+            run = []
+            if line["side"]:
+                grouped.append(line)
+        lines = grouped
+        for line in lines:
+            prev = out[-1] if out else None
+            if prev is not None and line.get("draw") and prev.get("draw") and line["side"] == prev["side"]:
+                names = prev["names"] + line["names"]
+                if line["side"] == "you":
+                    txt = "You draw " + ", ".join(names)
+                else:
+                    txt = f"Opp draws {len(names)} cards"
+                out[-1] = Line(prev, text=txt, names=names, facts=prev["facts"] + line["facts"])
+                continue
+            out.append(line)
+        return out
 
     def _history_line(self, event: Mapping[str, Any]) -> Line | None:
         me = self.me
@@ -714,9 +815,11 @@ class Narrator:
         if kind == "draw":
             seat = event.get("seat")
             if seat == me:
-                return Line(side="you", depth=1, text=f"You draw {text.card(event.get('card'))}",
+                return Line(side="you", depth=1, text=f"You draw {text.card(event.get('card'))}", draw=True,
+                            names=[text.card(event.get("card"))],
                             facts=[("zone", seat, text.card(event.get("card")), "library", "hand", "drawn")])
-            return Line(side="opp", depth=1, text="Opp draws a card", facts=[("zone", seat, None, "library", "hand", "drawn")])
+            return Line(side="opp", depth=1, text="Opp draws a card", draw=True, names=["?"],
+                        facts=[("zone", seat, None, "library", "hand", "drawn")])
         if kind == "zone_move":
             seat = event.get("owner_seat")
             card = event.get("card")

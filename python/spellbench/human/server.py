@@ -244,16 +244,9 @@ class Hub:
                 if self.log:
                     self.log[-1]["facts"] = list(self.log[-1].get("facts") or []) + list(line.get("facts") or [])
                 continue
-            if line.get("header"):
-                self._step = (observation.get("turn"), observation.get("active_seat"), None)
             self._note(line["side"], line["text"], depth=line.get("depth", 0), facts=list(line.get("facts") or []),
-                       header=bool(line.get("header")))
+                       header=bool(line.get("header") or line.get("step")))
         self._combat(observation, me)
-        step = (observation.get("turn"), observation.get("active_seat"), observation.get("phase_step"))
-        if step != self._step:
-            name = text.PHASES.get(observation.get("phase_step"), observation.get("phase_step"))
-            self._note("game", str(name), facts=[("step",)], header=True)
-            self._step = step
 
     def _combat(self, observation: Mapping[str, Any], me: Any) -> None:
         """Attack and block declarations, from the observation's combat state."""
