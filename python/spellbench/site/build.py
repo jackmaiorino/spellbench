@@ -78,7 +78,7 @@ RUN_FILES = (store.MANIFEST_NAME, store.COMMITMENT_NAME, *store.DATA_FILE_NAMES)
 LEGACY_RUN_FILES = (store.MANIFEST_NAME, *store.DATA_FILE_NAMES)
 
 # Google Search Console's HTML-tag verification token for SITE_URL; the home page carries it when set.
-GOOGLE_SITE_VERIFICATION = ""
+GOOGLE_SITE_VERIFICATION = "5wL3gDNsNyUgAz1OYKCC3NiRPKSH6B-ODo-YNfkAIZY"
 SITEMAP_NAME = "sitemap.xml"
 _SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": REPO_URL,
          "site_url": SITE_URL, "google_site_verification": GOOGLE_SITE_VERIFICATION}

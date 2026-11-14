@@ -234,7 +234,7 @@ def test_the_home_page_names_spellbench_in_its_heading(tree: Path, tmp_path: Pat
     build_site(tree, out)
     text = (out / "index.html").read_text(encoding="utf-8")
     assert re.findall(r"<h1>([^<]+)</h1>", text) == ["Spellbench: a cross-engine Magic: The Gathering bot benchmark"]
-    assert "google-site-verification" not in text  # no token is committed yet
+    assert text.count('<meta name="google-site-verification" content="5wL3gDNsNyUgAz1OYKCC3NiRPKSH6B-ODo-YNfkAIZY">') == 1
 
 
 def test_every_models_link_resolves_to_a_section(tree: Path, tmp_path: Path) -> None:
