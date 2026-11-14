@@ -460,13 +460,9 @@ class KernelProjection:
             spell = item["stack_item_kind"] == "spell"
             source = self.stable_ref(stable)
             # The card name of an ability is frozen public identity even after
-            # its source leaves. The source reference itself must then be null.
+            # its source leaves or when activated from a hidden zone (CR 602.2a).
+            # The source reference itself must remain null for hidden/departed sources.
             name, metadata = self.metadata_by_id[(stable["card_db_id"], item["face_index"])]
-            revealed_source = any(native_key(card["stable"]) == native_key(stable)
-                for cards in raw["known_hand_cards"] for card in cards)
-            if not spell and source is None and (stable["zone"] == "library" or
-                    stable["zone"] == "hand" and self.seat(stable["owner"]) != self.viewer and not revealed_source):
-                name = None
             if spell:
                 ref = source
                 if ref is None:
