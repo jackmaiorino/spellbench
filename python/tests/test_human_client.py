@@ -296,3 +296,25 @@ def test_the_log_records_the_explore_choice() -> None:
     assert hub.choose({"decision": request}) == 1
     thread.join()
     assert "You choose: Put Refurbished Familiar into your graveyard" in [line["text"] for line in hub.log]
+
+
+def test_typed_choices_say_what_they_ask() -> None:
+    hydra = {"card_name": "Nyxborn Hydra", "controller_seat": ME, "object_id": "s1", "owner_seat": ME, "zone": "stack"}
+    charm = {**hydra, "card_name": "Thraben Charm"}
+    mode = {"kind": "choose_spell_mode", "mode_count": 2, "source": hydra}
+    assert text.candidate({**mode, "mode_index": 1}, ME) == "Cast it with bestow (an Aura on a target creature)"
+    assert text.candidate({**mode, "mode_index": 0}, ME) == "Cast it as a creature"
+    third = {"kind": "choose_spell_mode", "mode_count": 3, "source": charm, "mode_index": 1}
+    assert text.candidate(third, ME) == "Mode 2: Destroy target enchantment."
+    assert text.candidate({"kind": "choose_spell_mode", "mode_count": 4, "mode_index": 2, "source": None}, ME) == "Mode 3 of 4"
+    assert text.candidate({"kind": "choose_number", "purpose": "x_value", "value": 3}, ME) == "X = 3"
+    assert text.candidate({"kind": "choose_number", "purpose": "amount", "value": 3}, ME) == "3"
+
+    def asking(kind: str, purpose: str, source: dict | None = hydra) -> str:
+        request = decision([{"kind": kind, "purpose": purpose}, {"kind": kind, "purpose": purpose}], kind="choice")
+        request["context"] = {"kind": "choice", "purpose": purpose, "source": source}
+        return text.prompt(request, ME)
+
+    assert asking("choose_number", "x_value") == "Choose the value of X for Nyxborn Hydra"
+    assert asking("choose_color", "mana") == "Choose a color of mana for Nyxborn Hydra"
+    assert asking("choose_boolean", "may_ability").startswith("Use the optional ability?")

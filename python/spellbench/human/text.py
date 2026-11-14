@@ -15,6 +15,37 @@ PHASES = {
 ABILITY_KINDS = ("activated_ability", "triggered_ability")
 
 
+_CARD_TEXT: dict[str, str] | None = None
+
+
+def _rules_text(name: str | None) -> str:
+    """Rules text of a Pauper-pool card (the adapter's own data file), or an empty string."""
+    global _CARD_TEXT
+    if _CARD_TEXT is None:
+        try:
+            import json
+            from pathlib import Path
+            data = json.loads(Path(__file__).with_name("manabrew").joinpath("cards.json").read_text(encoding="utf-8"))
+            _CARD_TEXT = {k: str(v.get("text") or "") for k, v in data.items()}
+        except (OSError, ValueError):
+            _CARD_TEXT = {}
+    return _CARD_TEXT.get(name or "", "")
+
+
+def mode_label(semantic: Mapping[str, Any]) -> str:
+    """What a mode of a modal spell does: its bullet from the card's rules text (modes are in Oracle order), or for a
+    bestow card (two modes) the two ways to cast it. Falls back to the mode's number."""
+    index, count = int(semantic.get("mode_index", 0)), semantic.get("mode_count")
+    name = (semantic.get("source") or {}).get("card_name") if isinstance(semantic.get("source"), Mapping) else None
+    rules = _rules_text(name)
+    bullets = [line[1:].strip() for line in rules.splitlines() if line.startswith("*")]
+    if len(bullets) == count and index < len(bullets):
+        return f"Mode {index + 1}: {bullets[index]}"
+    if count == 2 and rules.startswith("Bestow"):
+        return ["Cast it as a creature", "Cast it with bestow (an Aura on a target creature)"][min(index, 1)]
+    return f"Mode {index + 1} of {count}"
+
+
 def seat_name(seat: Any, me: str | None) -> str:
     if seat is None:
         return "?"
@@ -96,13 +127,13 @@ def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str]
     if kind in ("choose_cast_method",):
         return f"Cast as {s.get('method')}"
     if kind == "choose_spell_mode":
-        return f"Mode {s.get('mode_index', 0) + 1} of {s.get('mode_count')}"
+        return mode_label(s)
     if kind == "choose_option":
         return s.get("option_label") or f"Option {s.get('option_index', 0) + 1} of {s.get('option_count')}"
     if kind == "choose_color":
         return str(s.get("color", "")).capitalize()
     if kind == "choose_number":
-        return str(s.get("value"))
+        return f"X = {s.get('value')}" if s.get("purpose") == "x_value" else str(s.get("value"))
     if kind == "choose_boolean":
         return "Yes" if s.get("value") else "No"
     if kind == "choose_name":
@@ -187,6 +218,22 @@ def effect_options(decision: Mapping[str, Any], me: str | None) -> tuple[str, di
              for c, s in zip(candidates, semantics)})
 
 
+# What a typed choice is asking, by (kind, purpose); the protocol's purpose vocabularies name the reason.
+PURPOSE_TITLES = {
+    ("choose_boolean", "may_ability"): "Use the optional ability? (Yes or No)",
+    ("choose_boolean", "optional_trigger"): "Use the optional trigger? (Yes or No)",
+    ("choose_boolean", "may_cast"): "Cast it? (Yes or No)",
+    ("choose_boolean", "reveal"): "Reveal it? (Yes or No)",
+    ("choose_number", "x_value"): "Choose the value of X",
+    ("choose_number", "cost_repetitions"): "How many times to pay the optional cost?",
+    ("choose_number", "life_payment"): "How much life to pay?",
+    ("choose_number", "amount"): "Choose an amount",
+    ("choose_color", "mana"): "Choose a color of mana",
+    ("choose_color", "protection"): "Choose a color to protect from",
+    ("choose_color", "effect"): "Choose a color",
+}
+
+
 def prompt(decision: Mapping[str, Any], me: str | None) -> str:
     """What the engine is asking, in one line."""
     context = decision.get("context") or {}
@@ -209,13 +256,17 @@ def prompt(decision: Mapping[str, Any], me: str | None) -> str:
             return f"{who}: {card(top)} on the stack. Respond?"
         return f"Your priority ({PHASES.get(observation.get('phase_step'), observation.get('phase_step'))})"
     purpose = context.get("purpose")
+    for kind in kinds:
+        titled = PURPOSE_TITLES.get((kind, purpose))
+        if titled:
+            return titled + of + step
     label = {
         "choose_target": "Choose a target", "declare_attack": "Declare attackers",
         "declare_block": "Declare blockers", "mulligan": "Keep or mulligan?",
         "choose_starting_player": "Play or draw?", "arrange_card": "Arrange", "order_pick": "Order",
         "select_object": "Select", "choose_boolean": "Choose", "optional_cost": "Pay the cost?",
         "choose_spell_mode": "Choose a mode", "choose_number": "Choose a number",
-        "choose_cost_target": "Pay the cost", "distribute": "Distribute",
+        "choose_cost_target": "Pay the cost", "distribute": "Distribute", "choose_color": "Choose a color",
     }
     for kind in kinds:
         if kind in label:

@@ -289,3 +289,13 @@ def test_a_game_of_a_person_who_has_left_the_room_is_still_ended_at_the_relay() 
     bridge._push(bridge.hub.state())
     assert {"type": "EndGame", "game_id": "g-1"} in bridge.host.sent
     assert bridge.order is None
+
+
+def test_a_response_with_no_open_decision_gets_an_error_so_the_client_unlocks() -> None:
+    """The client disables its pass button until a prompt or an error arrives: a stray response must not vanish."""
+    bridge = bridge_in_game()
+    bridge._on_response("human", {"kind": "response", "fromPlayer": "player-0", "promptId": 4,
+                                  "action": {"type": "chooseAction", "output": {"type": "pass", "exhaustStack": False}}})
+    [sent] = bridge.host.sent
+    assert sent["state"]["kind"] == "error" and sent["state"]["error"]["code"] == "stalePrompt"
+    assert sent["state"]["error"]["promptId"] == 4

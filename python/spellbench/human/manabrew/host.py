@@ -335,9 +335,14 @@ class Bridge:
         if envelope.get("kind") == "directive":
             self._on_directive(envelope.get("directive") or {})
             return
-        if envelope.get("kind") != "response" or self.prompt is None:
+        if envelope.get("kind") != "response":
             return
         me = self.seats.pid(self.seats.human_seat) if self.seats else None
+        if self.prompt is None:
+            # The client keeps its pass button disabled ("waiting") until a new prompt or an error arrives, so a
+            # response that finds no open decision is answered with an error instead of being dropped silently.
+            self._error(me, "stalePrompt", "no decision is open right now", envelope.get("promptId"))
+            return
         if envelope.get("promptId") != self.prompt["seq"]:
             self._error(me, "stalePrompt", "that prompt is no longer open", envelope.get("promptId"))
             return
