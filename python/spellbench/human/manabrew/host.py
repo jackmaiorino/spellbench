@@ -104,6 +104,7 @@ class Bridge:
         self.sent_log = 0
         self.sent_view: str | None = None
         self.starting = False
+        self._grace: threading.Timer | None = None
         self.fallback_seq: int | None = None
         self.starter: str | None = None  # the seat that took the first turn
         # Deck picks: the person's table pick (a board deck, or None), the bot's deck for it, and each started game.
@@ -147,6 +148,10 @@ class Bridge:
                 self.hub.control("start", {})
             elif kind == "StateUpdate":
                 self._on_response(msg.get("from_player"), msg.get("state") or {})
+            elif kind in ("PlayerDisconnected", "PlayerLeft") and msg.get("username") == self.human:
+                self._human_gone()
+            elif kind == "PlayerConnected" and msg.get("username") == self.human:
+                self._human_back()
             elif kind == "Error":
                 print(f"  relay error: {msg.get('code')}: {msg.get('message')}", flush=True)
 
@@ -282,8 +287,50 @@ class Bridge:
                 prompt["sourceCard"] = view.card_dto(found[0], self.seats, found[1])
         self._envelope({"kind": "prompt", "forPlayer": me, "prompt": prompt})
 
+    def _on_directive(self, directive: Mapping[str, Any]) -> None:
+        """A client-to-engine directive (fire and forget, not tied to a prompt). Concede ends the game now as the
+        person's loss; recording, restore and repeat requests are not offered here and are ignored without an error."""
+        if directive.get("type") != "concede":
+            return
+        if self.hub.concede("conceded"):
+            print("\n  You conceded: the game is recorded as a loss (conceded). Join the table and press Start "
+                  "for the next game.", flush=True)
+
+    # The person's connection: a short drop may come back (the client reconnects), a long one ends the game.
+    DISCONNECT_GRACE_S = 90.0
+
+    def _human_gone(self) -> None:
+        """The person's socket closed or they left the table while a game was in progress."""
+        game = self.hub.game
+        if self._grace is not None or self.order is None or game is None or self.hub.game_over is not None:
+            return
+        print(f"\n  {self.human} disconnected during the game. Waiting {int(self.DISCONNECT_GRACE_S)} s for the "
+              f"browser to come back (reload the page and join the table again); then the game is recorded as lost "
+              f"(connection_lost) and the next game can start.", flush=True)
+        self._grace = threading.Timer(self.DISCONNECT_GRACE_S, self._grace_over, args=(game.get("game_id"),))
+        self._grace.daemon = True
+        self._grace.start()
+
+    def _grace_over(self, game_id: Any) -> None:
+        with self.lock:
+            self._grace = None
+            if (self.hub.game or {}).get("game_id") == game_id and self.hub.concede("connection_lost"):
+                print("\n  The person did not return: the game is recorded as a loss (connection_lost). Join the "
+                      "table and press Start for the next game.", flush=True)
+
+    def _human_back(self) -> None:
+        if self._grace is not None:
+            self._grace.cancel()
+            self._grace = None
+            print(f"\n  {self.human} is back; the game continues.", flush=True)
+
     def _on_response(self, sender: str | None, envelope: Mapping[str, Any]) -> None:
-        if sender != self.human or envelope.get("kind") != "response" or self.prompt is None:
+        if sender != self.human:
+            return
+        if envelope.get("kind") == "directive":
+            self._on_directive(envelope.get("directive") or {})
+            return
+        if envelope.get("kind") != "response" or self.prompt is None:
             return
         me = self.seats.pid(self.seats.human_seat) if self.seats else None
         if envelope.get("promptId") != self.prompt["seq"]:

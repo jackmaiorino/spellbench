@@ -158,6 +158,9 @@ def page_closer(hub: Hub) -> Any:
     return after_game
 
 
+PERSON_ENDED = ("conceded", "connection_lost")  # reasons the session gives a game the person (or their connection) ended
+
+
 class OneGame(Exception):
     """Raised by the per-game hook: a picked game is the first game of a one-pair run."""
 
@@ -243,7 +246,15 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
             except OneGame:
                 pass
             played += 1
-            print(f"  game {played} recorded in {run_dir}", flush=True)
+            final = next((r for r in reversed(hub.results) if r.get("game_id") == (hub.game or {}).get("game_id")), None)
+            ended = final["reason"] if final and final.get("reason") in PERSON_ENDED else None
+            if ended:  # the arena's ledger can only say forfeit:agent_error for this; the session says why
+                with (out / "runs" / f"{name}.ends.jsonl").open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps({"game": played, "run": run_name, "game_id": final["game_id"],
+                                             "result": final["result"], "reason": ended}) + "\n")
+            print(f"  game {played} recorded in {run_dir}"
+                  + (f" (you lost by {ended.replace('_', ' ')}; the ledger shows forfeit:agent_error for the human "
+                     f"seat, {out / 'runs' / (name + '.ends.jsonl')} says why)" if ended else ""), flush=True)
     finally:
         stop.set()
         server.shutdown()

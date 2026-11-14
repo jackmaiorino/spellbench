@@ -60,12 +60,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--games", type=int, default=1)
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--deck", default="Rally", help="the training deck to pick at the table")
+    parser.add_argument("--concede-game", type=int, default=0,
+                        help="concede this game (1, 2, ...) after --concede-after answered prompts")
+    parser.add_argument("--concede-after", type=int, default=3)
+    parser.add_argument("--drop-game", type=int, default=0,
+                        help="close the connection in this game after --concede-after answered prompts (a closed tab)")
     args = parser.parse_args(argv)
     out = args.out.open("w", encoding="utf-8") if args.out else None
     ws = WebSocket(args.relay)
     send = lambda m: ws.send(json.dumps(m))  # noqa: E731
     send({"type": "Authenticate", "username": args.username, "password": args.key, "service": False})
     joined, games, prompts, errors, slot = False, 0, 0, 0, "player-0"
+    in_game, conceded = 0, False
     started_room = None
     deck = {"name": "Placeholder", "format": "pauper", "sideboard": [],
             "cards": [{"identity": {"id": "Swamp", "name": "Swamp", "setCode": "", "cardNumber": ""}, "uris": {},
@@ -118,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
                           f"{errors} errors", flush=True)
                     if games >= args.games:
                         break
+                    in_game, conceded = 0, False
                     started_room, joined = None, False  # the table empties after a game: join it again
                     time.sleep(2)
                     send({"type": "ListRooms"})
@@ -125,9 +132,19 @@ def main(argv: list[str] | None = None) -> int:
                 output = answer(prompt)
                 if output is not None:
                     prompts += 1
+                    in_game += 1
                     send({"type": "BroadcastState", "target_player": None,
                           "state": {"kind": "response", "fromPlayer": slot, "promptId": prompt["promptId"],
                                     "action": {"type": prompt["input"]["type"], "output": output}}})
+                    if args.concede_game == games + 1 and in_game >= args.concede_after and not conceded:
+                        conceded = True
+                        print(f"conceding game {games + 1} after {in_game} prompts", flush=True)
+                        send({"type": "BroadcastState", "target_player": None,
+                              "state": {"kind": "directive", "fromPlayer": slot, "directive": {"type": "concede"}}})
+                    if args.drop_game == games + 1 and in_game >= args.concede_after:
+                        print(f"closing the connection in game {games + 1} after {in_game} prompts", flush=True)
+                        ws.close()
+                        return 0
             elif envelope.get("kind") == "error":
                 errors += 1
                 print(f"error: {envelope.get('error')}", flush=True)

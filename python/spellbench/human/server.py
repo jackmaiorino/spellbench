@@ -47,6 +47,10 @@ def _ms() -> int:
     return int(time.time() * 1000)
 
 
+class Conceded(RuntimeError):
+    """The person gave up the game: every later decision of it is refused so the arena ends it at once."""
+
+
 class Hub:
     """All session state, guarded by one condition variable."""
 
@@ -72,6 +76,7 @@ class Hub:
         self.plan: dict[str, Any] | None = None
         self.skip: dict[str, Any] | None = None  # {"turn", "active", "hard"}
         self.game_over: dict[str, Any] | None = None
+        self.conceded: str | None = None  # the game id the person gave up (or lost the connection to), if any
         self._log_file = None
         self._combat_logged: set[tuple[Any, str]] = set()
         # The causal log (narrate.py): fed from this session's own engine record when recording is on, else from
@@ -146,6 +151,8 @@ class Hub:
 
     def game_end(self, request: Mapping[str, Any]) -> None:
         with self.cond:
+            if self.game_over is not None and self.conceded is not None and request.get("game_id") == self.conceded:
+                return  # the arena's own notice of a game the person already ended
             terminal = dict(request.get("terminal") or {})
             me = (self.game or {}).get("seat")
             winner = terminal.get("winner")
@@ -154,8 +161,10 @@ class Hub:
             self.results.append({"game_id": request.get("game_id"), "result": result,
                                  "reason": terminal.get("reason"), "own_deck": (self.game or {}).get("own_deck"),
                                  "seat": me})
+            how = (terminal.get("reason") if terminal.get("classification") == terminal.get("reason")
+                   else f"{terminal.get('classification')}: {terminal.get('reason')}")
             self._note("game", f"Game over: {'you win' if result == 'win' else 'you lose' if result == 'loss' else 'draw'}"
-                               f" ({terminal.get('classification')}: {terminal.get('reason')})")
+                               f" ({how})")
             self._write({"kind": "game_over", "terminal": terminal, "result": result})
             if self._log_file is not None:
                 self._log_file.close()
@@ -170,9 +179,26 @@ class Hub:
             if self.game is not None and self.game.get("game_id") == game_id and self.game_over is None:
                 self.game_end({"game_id": game_id, "terminal": dict(terminal)})
 
+    def concede(self, reason: str = "conceded") -> bool:
+        """The person ends the current game as a loss (``conceded``), or the session does when the person is gone
+        (``connection_lost``). The page and the Manabrew client see the game over at once; a decision the engine
+        is waiting on, and every later one, is refused (``Conceded``), which the arena records as the human seat's
+        forfeit. Returns False when there is no game in progress."""
+        with self.cond:
+            game = self.game
+            if game is None or self.game_over is not None or not game.get("game_id"):
+                return False
+            seat = game.get("seat")
+            self.conceded = game["game_id"]
+            self.game_end({"game_id": game["game_id"], "terminal": {
+                "winner": "p1" if seat == "p0" else "p0", "classification": reason, "reason": reason}})
+            return True
+
     def choose(self, request: Mapping[str, Any]) -> int:
         decision = request.get("decision") or {}
         with self.cond:
+            if self.conceded is not None and self.game is not None and self.game.get("game_id") == self.conceded:
+                raise Conceded(self.game_over.get("reason") if self.game_over else "conceded")
             started = time.monotonic()
             self._absorb(decision, request.get("clock") or {})
             how, candidate_id = self._automatic(decision)
@@ -184,7 +210,9 @@ class Hub:
                 self._bump()
                 while self.answer is None or self.pending is None:
                     self.cond.wait()
-                    if self.pending is None:  # the game ended underneath (host adjudication)
+                    if self.pending is None:  # the game ended underneath (host adjudication, or the person's concession)
+                        if self.conceded is not None and self.game is not None and self.game.get("game_id") == self.conceded:
+                            raise Conceded("conceded")
                         raise RuntimeError("decision withdrawn")
                 candidate_id, how = self.answer, self.pending.get("how", "human")
                 chosen_text = next((c["text"] for c in self.pending["candidates"] if c["id"] == candidate_id), None)
@@ -548,6 +576,8 @@ def make_server(hub: Hub, host: str = "127.0.0.1", port: int = 0, token: str | N
                     self._result(hub.control(str(body.get("action")), body))
                 else:
                     self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+            except Conceded as exc:
+                self._json({"error": f"conceded: {exc}"}, HTTPStatus.GONE)
             except (KeyError, TypeError, ValueError) as exc:
                 self._json({"error": f"bad request: {exc}"}, HTTPStatus.BAD_REQUEST)
 

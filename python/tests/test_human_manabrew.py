@@ -3,9 +3,20 @@
 from __future__ import annotations
 
 import json
+import sys
+import threading
+import time
 import unittest
+from pathlib import Path
 
+import pytest
+
+from spellbench.human import relay
 from spellbench.human.manabrew import prompts, view
+from spellbench.human.manabrew.host import Bridge
+from spellbench.human.server import Hub, make_server
+
+from arena_helpers import builtin, ledger_rows, make_config, roomy_machine, run, subprocess_bot
 
 ME, OPP = "p0", "p1"
 
@@ -107,3 +118,163 @@ class PromptTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# -- concession, a lost connection and the other directives -------------------------------------------------------------
+
+
+class StubRelay:
+    """Stands in for the host's relay connection: records what the host would send."""
+
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    def send(self, message: dict) -> None:
+        self.sent.append(message)
+
+
+def bridge_in_game() -> Bridge:
+    hub = Hub(opponent="Basilisk 2")
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Wildfire"}, "opponent_deck": {"name": "Rally"}})
+    bridge = Bridge(hub, relay_url="ws://127.0.0.1:1", relay_key="k", room_name="Room", bot_name="Basilisk 2",
+                    bot_deck=("Rally", []))
+    bridge.host = StubRelay()
+    bridge.human, bridge.order, bridge.game_id = "human", ["human", "Basilisk 2"], "g-1"
+    bridge.seats = view.Seats(ME, "player-0", "player-1", {"player-0": "human", "player-1": "Basilisk 2"})
+    return bridge
+
+
+def directive(kind: str, **fields) -> dict:
+    return {"kind": "directive", "fromPlayer": "player-0", "directive": {"type": kind, **fields}}
+
+
+def test_a_concession_ends_the_game_as_a_loss_and_tells_the_client() -> None:
+    bridge = bridge_in_game()
+    bridge._on_response("human", directive("concede"))
+    hub = bridge.hub
+    assert hub.game_over["reason"] == "conceded" and hub.game_over["winner"] == OPP
+    assert hub.results == [{"game_id": "g-1", "result": "loss", "reason": "conceded", "own_deck": "Wildfire", "seat": ME}]
+    bridge._push(hub.state())  # the pump: the client is told the game is over and the room's game is ended
+    kinds = [m["state"]["prompt"]["input"]["type"] for m in bridge.host.sent
+             if m.get("state", {}).get("kind") == "prompt"]
+    assert kinds == ["gameOver"]
+    assert {"type": "EndGame", "game_id": "g-1"} in bridge.host.sent
+    assert bridge.order is None  # ready for the next game
+    bridge._on_response("human", directive("concede"))  # a second one (the client repeats) changes nothing
+    assert len(hub.results) == 1
+
+
+def test_other_directives_are_ignored_without_an_error() -> None:
+    bridge = bridge_in_game()
+    for body in (directive("startRecording"), directive("stopRecording"), directive("requestRepeat", iterations=3),
+                 directive("repeatVote", voteId=1, accept=True), directive("setSnapshotRecording", enabled=True),
+                 directive("requestRestore", checkpointId=1), directive("restoreVote", voteId=1, accept=False)):
+        bridge._on_response("human", body)
+    assert bridge.host.sent == [] and bridge.hub.game_over is None and bridge.hub.results == []
+    bridge._on_response("someone else", directive("concede"))  # only the person at the table can concede
+    assert bridge.hub.game_over is None
+
+
+def test_a_lost_connection_ends_the_game_after_the_grace_period(capsys) -> None:
+    bridge = bridge_in_game()
+    bridge.DISCONNECT_GRACE_S = 0.1
+    bridge._on_host(None, {"type": "PlayerDisconnected", "username": "human"})
+    deadline = time.time() + 5
+    while bridge.hub.game_over is None and time.time() < deadline:
+        time.sleep(0.02)
+    assert bridge.hub.game_over["reason"] == "connection_lost"
+    assert bridge.hub.results[-1]["result"] == "loss"
+    out = capsys.readouterr().out
+    assert "disconnected during the game" in out and "connection_lost" in out and "press Start" in out
+
+
+def test_coming_back_in_time_keeps_the_game() -> None:
+    bridge = bridge_in_game()
+    bridge.DISCONNECT_GRACE_S = 0.2
+    bridge._on_host(None, {"type": "PlayerDisconnected", "username": "human"})
+    bridge._on_host(None, {"type": "PlayerConnected", "username": "human"})
+    time.sleep(0.5)
+    assert bridge.hub.game_over is None
+    bridge._on_host(None, {"type": "PlayerDisconnected", "username": "Basilisk 2"})  # not the person: nothing waits
+    assert bridge._grace is None
+
+
+def play_with_a_concession(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, when: str):
+    """Two games through the real arena and the human seat's relay. In game 1 the person concedes at ``when``:
+    ``decision`` (a decision is open and unanswered), ``thinking`` (none is open: the engine is working on the
+    bot's side) or ``prompt`` (a decision that is not a plain priority is open, or the second one if the game has
+    none), each through the host's directive handler. Game 2 is played out."""
+    roomy_machine(monkeypatch)
+    hub = Hub(log_dir=tmp_path / "logs")
+    bridge = Bridge(hub, relay_url="ws://127.0.0.1:1", relay_key="k", room_name="Room", bot_name="Bot",
+                    bot_deck=("d", []))
+    bridge.host = StubRelay()
+    bridge.human = "human"
+    server = make_server(hub)
+    host, port = server.server_address[:2]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setenv(relay.URL_ENV, f"http://{host}:{port}")
+    monkeypatch.setenv(relay.TOKEN_ENV, server.token)
+    stop = threading.Event()
+    conceded_at: list[str] = []
+
+    def concede(label: str) -> None:
+        bridge._on_response("human", directive("concede"))
+        conceded_at.append(label)
+
+    def player() -> None:
+        seen = set()
+        while not stop.is_set():
+            with hub.cond:
+                hub.cond.wait(0.02)
+                pending, waiting, game = hub.pending, hub.hello_waiting, hub.game
+            if waiting:
+                hub.control("next", {})
+                continue
+            first = game is not None and game.get("number") == 1 and hub.game_over is None
+            if first and not conceded_at:
+                if when == "thinking":
+                    if pending is None and hub.observation is not None and seen:
+                        concede("thinking")  # a decision was answered, none is open now
+                        continue
+                elif pending is not None and pending["seq"] not in seen:
+                    plain = (pending.get("context") or {}).get("kind") == "priority"
+                    if when == "decision" or not plain or len(seen) >= 1:
+                        concede(when)
+                        continue
+            if pending is not None and pending["seq"] not in seen:
+                seen.add(pending["seq"])
+                if pending["screen"] in ("attack", "block"):
+                    hub.plan_with(pending["seq"], {"kind": pending["screen"], "attackers": [], "blocks": {}})
+                else:
+                    hub.answer_with(pending["seq"], pending["candidates"][-1]["id"])
+
+    threading.Thread(target=player, daemon=True).start()
+    human = subprocess_bot("human", [sys.executable, str(Path(relay.__file__).resolve())])
+    human["version"] = relay.VERSION
+    config = make_config(tmp_path / "run", [human, builtin("uniform", seed=3)], pairs=1, include_self_play=False)
+    try:
+        summary = run(config)
+    finally:
+        stop.set()
+        server.shutdown()
+    return hub, summary, conceded_at
+
+
+@pytest.mark.parametrize("when", ["decision", "thinking", "prompt"])
+def test_a_conceded_game_is_a_recorded_loss_and_the_next_game_completes(tmp_path, monkeypatch, when) -> None:
+    hub, summary, conceded_at = play_with_a_concession(tmp_path, monkeypatch, when)
+    assert conceded_at, "the person never got a chance to concede"
+    assert summary.status == "complete"
+    first, second = hub.results[0], hub.results[1]
+    assert first["result"] == "loss" and first["reason"] == "conceded"
+    assert second["reason"] != "conceded" and second["game_id"] != first["game_id"]  # game 2 was played
+    assert len(hub.results) == 2  # the arena's own notice of game 1 did not add a second row
+    rows = ledger_rows(tmp_path / "run")
+    assert len(rows) == 2
+    by_game = {row["game_id"]: row for row in rows}
+    ledger_first = by_game[first["game_id"]]
+    # The arena can only file the human seat's failure as a forfeit; the session's records say why.
+    assert ledger_first["classification"] == "forfeit" and ledger_first["reason"] == "forfeit:agent_error"
+    assert ledger_first["winner"] != next(s["seat"] for s in ledger_first["seats"] if s["name"] == "human")
+    assert by_game[second["game_id"]]["classification"] == "natural"
