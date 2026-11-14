@@ -1,4 +1,4 @@
-"""The human seat of a Spellbench session, played through an unmodified Manabrew client.
+"""The human seat of a Spellbench session, played through a Manabrew client.
 
 This process is a room host on a Manabrew relay running on this machine (``manabrew-server``, unmodified): it
 creates a hosted room, seats the bot through a second relay session, and starts a game when the person who joined

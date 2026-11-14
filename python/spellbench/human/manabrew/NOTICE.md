@@ -13,7 +13,10 @@ by acting as a room host on a Manabrew relay. It contains no code from the Manab
   repository https://github.com/witchesofthehill/manabrew at commit
   8c1d79da381e785faa8df063ce5e047f7ad6d4a2, for interoperability only.
 - The Manabrew relay (`manabrew-server`) and client are separate programs licensed AGPL-3.0-or-later. Spellbench
-  runs them unmodified, as separate processes, on the player's own machine; it does not link, vendor or
-  redistribute them.
+  runs them as separate processes on the player's own machine; it does not link, vendor or redistribute them.
+  The relay is unmodified. The launcher serves, by default, a client built on the player's machine from the pinned
+  commit plus one local patch (a side panel that lists the engine's game-log messages, which the stock client
+  receives but does not display); `-Stock` serves the unmodified build instead. The patch keeps their license
+  headers, stays on that machine, and is not part of this repository or offered upstream.
 - `cards.json` (rules text for the Pauper pool) is built by `build_cards.py` from the XMage card data file in our
   mage repository; token text is written by hand.

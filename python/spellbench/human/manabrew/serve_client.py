@@ -1,4 +1,4 @@
-"""Serve a built Manabrew web client (its ``dist`` folder, unmodified) on 127.0.0.1, pointed at the local relay.
+"""Serve a built Manabrew web client (its ``dist`` folder, as built locally) on 127.0.0.1, pointed at the local relay.
 
 The client reads ``/config.js`` before it connects; this server answers that path itself with the local relay, a
 hub address that goes nowhere, and hosted play on. It answers the starter-deck list (``/preset_decks/``) with the
