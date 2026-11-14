@@ -11,15 +11,28 @@ import threading
 from urllib.parse import urlparse
 
 
+LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost")
+
+
 class Closed(Exception):
     pass
 
 
+def require_loopback(url: str, allow_remote: bool = False) -> None:
+    """The relay's key and the whole game go over this connection unencrypted: refuse a relay that is not on this
+    machine unless the caller says so explicitly (``--allow-remote-relay``)."""
+    host = urlparse(url).hostname or ""
+    if host not in LOOPBACK_HOSTS and not allow_remote:
+        raise ValueError(f"the relay {url!r} is not on this machine (127.0.0.1, ::1 or localhost); the connection is "
+                         f"not encrypted, so pass --allow-remote-relay only if you mean it")
+
+
 class WebSocket:
-    def __init__(self, url: str, timeout: float = 10.0) -> None:
+    def __init__(self, url: str, timeout: float = 10.0, *, allow_remote: bool = False) -> None:
         parsed = urlparse(url)
         if parsed.scheme != "ws":
             raise ValueError("only ws:// URLs are supported (a relay on this machine)")
+        require_loopback(url, allow_remote)
         host, port = parsed.hostname or "127.0.0.1", parsed.port or 80
         self.sock = socket.create_connection((host, port), timeout=timeout)
         key = base64.b64encode(os.urandom(16)).decode()

@@ -195,6 +195,7 @@ def replay(rows: list[Mapping[str, Any]], me: str, *, show: bool = False) -> dic
     total = 0
     previous = None
     log_mark = 0
+    all_lines: list[dict[str, Any]] = []  # every line of the game (the hub keeps only its newest LOG_LIMIT)
     leaks: list[str] = []
     hidden_names: set[str] = set()
     every_name = all_card_names(rows)
@@ -210,11 +211,11 @@ def replay(rows: list[Mapping[str, Any]], me: str, *, show: bool = False) -> dic
         hub.absorb_narrated(sd)
         seen = visible(sd.get("observation") or {}, me)
         _add_public(sd, public)
-        new_lines = hub.log[log_mark:]
+        new_lines, log_mark = hub.log_since(log_mark)
+        all_lines += new_lines
         # Time-ordered hidden-information check: a line may name only cards the seat has seen by this decision.
         unseen = every_name - public
         leaks += [line["text"] for line in new_lines if any(name in line["text"] for name in unseen)]
-        log_mark = len(hub.log)
         facts = [f for line in new_lines for f in line.get("facts") or []]
         turn_lines = [f for f in facts if f[0] == "turn"]
         intervals.append((facts, turn_lines))
@@ -242,7 +243,7 @@ def replay(rows: list[Mapping[str, Any]], me: str, *, show: bool = False) -> dic
             late.append(report)
         else:
             unexplained.append(report)
-    return {"changes": total, "unexplained": unexplained, "late": late, "refused": refused, "log": hub.log, "leaks": leaks,
+    return {"changes": total, "unexplained": unexplained, "late": late, "refused": refused, "log": all_lines, "leaks": leaks,
             "hidden_names": hidden_names}
 
 

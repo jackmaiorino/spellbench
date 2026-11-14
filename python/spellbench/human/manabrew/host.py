@@ -22,6 +22,7 @@ from typing import Any, Mapping
 
 import queue
 
+from ..server import log_since
 from . import decks, prompts, view
 from .ws import Closed, WebSocket
 
@@ -51,8 +52,9 @@ def pool_deck() -> tuple[str, list[dict[str, Any]]]:
 class Session:
     """One authenticated relay connection with a reader thread."""
 
-    def __init__(self, url: str, key: str, username: str, *, service: bool, on_message) -> None:
-        self.ws = WebSocket(url)
+    def __init__(self, url: str, key: str, username: str, *, service: bool, on_message,
+                 allow_remote: bool = False) -> None:
+        self.ws = WebSocket(url, allow_remote=allow_remote)
         self.username = username
         self.send({"type": "Authenticate", "username": username, "password": key, "service": service})
         reply = json.loads(self.ws.recv())
@@ -88,8 +90,10 @@ class Session:
 
 class Bridge:
     def __init__(self, hub, *, relay_url: str, relay_key: str, room_name: str, bot_name: str,
-                 bot_deck: tuple[str, list[Mapping[str, Any]]], bot_deck_for=None) -> None:
+                 bot_deck: tuple[str, list[Mapping[str, Any]]], bot_deck_for=None,
+                 allow_remote_relay: bool = False) -> None:
         self.hub = hub
+        self.allow_remote_relay = allow_remote_relay
         self.url, self.key = relay_url, relay_key
         self.room_name = room_name
         self.bot_name = bot_name
@@ -127,7 +131,8 @@ class Bridge:
         deadline = time.time() + self.RELAY_PATIENCE_S
         while True:
             try:
-                self.host = Session(self.url, self.key, HOST_NAME, service=True, on_message=self._on_host)
+                self.host = Session(self.url, self.key, HOST_NAME, service=True, on_message=self._on_host,
+                                    allow_remote=self.allow_remote_relay)
                 break
             except RuntimeError as exc:
                 if "taken" not in str(exc) or time.time() > deadline:
@@ -153,7 +158,8 @@ class Bridge:
             if kind == "RoomCreated":
                 self.room_id, self.room = msg["room_id"], msg.get("room")
                 print(f"  Manabrew room '{self.room_name}' is open on {self.url}", flush=True)
-                self.bot = Session(self.url, self.key, self.bot_name, service=False, on_message=self._on_bot)
+                self.bot = Session(self.url, self.key, self.bot_name, service=False, on_message=self._on_bot,
+                                   allow_remote=self.allow_remote_relay)
                 self.bot.send({"type": "JoinRoom", "room_id": self.room_id, "as_bot": True})
             elif kind == "RoomUpdate":
                 self.room = msg.get("room")
@@ -285,12 +291,13 @@ class Bridge:
                 self._envelope({"kind": "state", "forPlayer": self.seats.pid(game.get("seat")),
                                 "state": {"gameView": gv}})
         log = state.get("log") or []
-        for line in log[self.sent_log:]:
+        # sent_log counts lines ever sent (the hub keeps only its newest lines, so a list length is no cursor).
+        fresh, self.sent_log = log_since(log, state.get("log_total", len(log)), self.sent_log)
+        for line in fresh:
             self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
                 "entryType": LOG_TYPES.get(line.get("side"), "info"),
                 "message": ("  " if line.get("depth") else "") + str(line.get("text")),
                 "timestampMs": int(time.time() * 1000)}})
-        self.sent_log = len(log)
         pending = state.get("pending")
         if pending and (self.prompt is None or self.prompt["seq"] != pending["seq"]):
             self._send_prompt(pending, observation or {})

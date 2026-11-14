@@ -33,6 +33,12 @@ TOKENS = {
 }
 
 
+def plain(text: str) -> str:
+    """The repository keeps no long dash in its text: rules text writes the dash as a plain hyphen (ability words,
+    saga chapters)."""
+    return text.replace(chr(0x2014), "-")
+
+
 def build(data_file: Path, names: list[str]) -> dict:
     wanted = set()
     for name in names:
@@ -43,7 +49,7 @@ def build(data_file: Path, names: list[str]) -> dict:
         if len(parts) < 9 or parts[0] not in wanted or parts[0] in found:
             continue
         found[parts[0]] = {"mana_cost": parts[4], "type_line": parts[5], "power": parts[6] or None,
-                           "toughness": parts[7] or None, "text": parts[8].replace("$", "\n")}
+                           "toughness": parts[7] or None, "text": plain(parts[8].replace("$", "\n"))}
     out = {name: found[name] for name in sorted(found)}
     for name, token in TOKENS.items():
         out[name] = {"mana_cost": "", "power": None, "toughness": None, **token}

@@ -30,7 +30,7 @@ import time
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from ..arena import engine_records, runner
 from ..arena.allocation import Allocation
@@ -161,6 +161,21 @@ def page_closer(hub: Hub) -> Any:
 PERSON_ENDED = ("conceded", "connection_lost")  # reasons the session gives a game the person (or their connection) ended
 
 
+def person_end(final: dict[str, Any] | None, ledger: Mapping[str, Any] | None) -> str | None:
+    """Why the person's side ended game ``final`` (the page's result row), or None. The arena's ledger row is the
+    truth: a concession or lost connection counts only when the ledger filed the game as a forfeit. When the engine
+    had already ended the game (the bot's move won it a moment before the person gave up), the ledger keeps its
+    natural result and the page's row is corrected to it, so the ledger and the ends file never disagree."""
+    if not final or final.get("reason") not in PERSON_ENDED:
+        return None
+    if ledger is None or ledger.get("classification") == "forfeit":
+        return final["reason"]
+    winner = ledger.get("winner")
+    final["reason"] = ledger.get("reason")
+    final["result"] = "draw" if winner is None else ("win" if winner == final.get("seat") else "loss")
+    return None
+
+
 class OneGame(Exception):
     """Raised by the per-game hook: a picked game is the first game of a one-pair run."""
 
@@ -204,7 +219,8 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
         return args.opponent_deck
 
     bridge = manabrew_host.Bridge(hub, relay_url=args.relay_url, relay_key=args.relay_key, room_name=args.room_name,
-                                  bot_name=shown, bot_deck=manabrew_host.pool_deck(), bot_deck_for=bot_deck_for)
+                                  bot_name=shown, bot_deck=manabrew_host.pool_deck(), bot_deck_for=bot_deck_for,
+                                  allow_remote_relay=args.allow_remote_relay)
     bridge.start()
     print(f"  Manabrew: join table '{args.room_name}', pick a training deck, press Start game\n", flush=True)
     picks = out / "runs" / f"{name}.picks.jsonl"
@@ -235,8 +251,10 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                                          "human_seat": "p0" if human_first else "p1",
                                          "opponent_deck_rule": args.opponent_deck}) + "\n")
             closer = page_closer(hub)
+            ledger: list[dict[str, Any]] = []
 
-            def after_game(row: Any, closer: Any = closer) -> None:
+            def after_game(row: Any, closer: Any = closer, ledger: list[dict[str, Any]] = ledger) -> None:
+                ledger.append(row.to_json())
                 closer(row)
                 raise OneGame()
 
@@ -247,7 +265,7 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                 pass
             played += 1
             final = next((r for r in reversed(hub.results) if r.get("game_id") == (hub.game or {}).get("game_id")), None)
-            ended = final["reason"] if final and final.get("reason") in PERSON_ENDED else None
+            ended = person_end(final, ledger[0] if ledger else None)
             if ended:  # the arena's ledger can only say forfeit:agent_error for this; the session says why
                 with (out / "runs" / f"{name}.ends.jsonl").open("a", encoding="utf-8") as stream:
                     stream.write(json.dumps({"game": played, "run": run_name, "game_id": final["game_id"],
@@ -280,12 +298,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--client", choices=("page", "manabrew"), default="page",
                         help="page: the built-in play page; manabrew: host a room on a local Manabrew relay")
     parser.add_argument("--relay-url", default="ws://127.0.0.1:9443", help="Manabrew relay (a ws:// URL on this machine)")
+    parser.add_argument("--allow-remote-relay", action="store_true",
+                        help="accept a --relay-url that is not on this machine (the connection is not encrypted)")
     parser.add_argument("--relay-key", default="forge", help="the relay's shared key (MANABREW_SERVER_KEY)")
     parser.add_argument("--room-name", default="Spellbench", help="the Manabrew room the session opens")
     parser.add_argument("--opponent-deck", default="mirror",
                         help="manabrew: the bot's deck against the person's pick: mirror (default), random (drawn "
                              "from the pool for each game, recorded), or a pool deck name")
     args = parser.parse_args(argv)
+    if args.client == "manabrew":
+        from .manabrew import ws as manabrew_ws
+        try:
+            manabrew_ws.require_loopback(args.relay_url, args.allow_remote_relay)
+        except ValueError as exc:
+            parser.error(str(exc))
 
     name = args.name or datetime.now().strftime("session-%Y%m%d-%H%M%S")
     out = args.out.resolve()

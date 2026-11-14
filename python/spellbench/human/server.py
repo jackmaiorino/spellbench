@@ -43,6 +43,13 @@ NARRATED_KINDS = frozenset({"pass", "cast_spell", "activate_ability", "activate_
                             "declare_block", "special_action"})
 
 
+def log_since(log: list[dict[str, Any]], total: int, cursor: int) -> tuple[list[dict[str, Any]], int]:
+    """The lines of ``log`` (the newest ones of ``total`` ever appended) at or after position ``cursor``, and the
+    new cursor (``total``). Positions count lines ever appended, so they keep meaning once the list is trimmed."""
+    first = total - len(log)  # position of log[0]
+    return list(log[max(cursor - first, 0):]), total
+
+
 def _ms() -> int:
     return int(time.time() * 1000)
 
@@ -68,6 +75,7 @@ class Hub:
         self.game: dict[str, Any] | None = None
         self.results: list[dict[str, Any]] = []
         self.log: list[dict[str, Any]] = []
+        self.log_total = 0          # lines ever appended this game (the list keeps only the newest LOG_LIMIT)
         self.observation: dict[str, Any] | None = None
         self.clock: dict[str, Any] | None = None
         self.pending: dict[str, Any] | None = None
@@ -96,7 +104,15 @@ class Hub:
         turn = (self.observation or {}).get("turn")
         self.log.append({"side": side, "text": line, "turn": turn, "depth": depth, "facts": facts or [],
                          "header": header})
+        self.log_total += 1
         del self.log[:-LOG_LIMIT]
+
+    def log_since(self, cursor: int) -> tuple[list[dict[str, Any]], int]:
+        """The log lines at or after position ``cursor`` (a count of lines ever appended this game, as returned by
+        an earlier call; 0 for a reader that starts at the beginning) and the cursor to pass next time. A reader
+        that fell more than LOG_LIMIT lines behind gets the oldest line still kept."""
+        with self.cond:
+            return log_since(self.log, self.log_total, cursor)
 
     def _write(self, record: dict[str, Any]) -> None:
         if self._log_file is not None:
@@ -131,6 +147,7 @@ class Hub:
                          "bank_ms": (request.get("time_control") or {}).get("bank_ms"),
                          "rules": request.get("rules") or {}}
             self.log, self.observation, self.clock, self.pending = [], None, None, None
+            self.log_total = 0
             self.plan = self.skip = self.game_over = None
             self._combat_logged = set()
             self.narrator = narrate.Narrator(seat) if seat else None
@@ -431,6 +448,7 @@ class Hub:
                 "results": self.results, "wins": wins, "losses": losses, "draws": len(self.results) - wins - losses,
                 "hello_waiting": self.hello_waiting, "ready": self.ready, "game": self.game,
                 "observation": self.observation, "clock": self.clock, "pending": self.pending, "log": self.log,
+                "log_total": self.log_total,
                 "game_over": self.game_over, "stops": self.stops, "skip": self.skip, "now": _ms(),
                 "phases": list(PHASE_STEPS)}
 

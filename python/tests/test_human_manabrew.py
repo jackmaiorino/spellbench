@@ -133,8 +133,8 @@ class StubRelay:
         self.sent.append(message)
 
 
-def bridge_in_game() -> Bridge:
-    hub = Hub(opponent="Basilisk 2")
+def bridge_in_game(hub: Hub | None = None) -> Bridge:
+    hub = hub or Hub(opponent="Basilisk 2")
     hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Wildfire"}, "opponent_deck": {"name": "Rally"}})
     bridge = Bridge(hub, relay_url="ws://127.0.0.1:1", relay_key="k", room_name="Room", bot_name="Basilisk 2",
                     bot_deck=("Rally", []))
@@ -309,3 +309,117 @@ def test_the_table_is_opened_again_while_the_relay_still_holds_the_earlier_one()
     while not bridge.host.sent and time.time() < deadline:
         time.sleep(0.02)
     assert bridge.host.sent and bridge.host.sent[0]["type"] == "CreateRoom" and bridge.host.sent[0]["hosted"] is True
+
+
+# -- the log keeps flowing past the hub's line limit ------------------------------------------------------------------
+
+
+def log_messages(bridge: Bridge) -> list[str]:
+    return [m["state"]["entry"]["message"] for m in bridge.host.sent if m.get("state", {}).get("kind") == "log"]
+
+
+def test_every_log_line_reaches_a_client_that_joined_at_the_start_once_and_in_order() -> None:
+    from spellbench.human.server import LOG_LIMIT
+    bridge = bridge_in_game()
+    hub = bridge.hub
+    expected = [hub.log[0]["text"]]  # the game's first line
+    batches = [1, 7, 40, LOG_LIMIT, 3, 250, 1, 599, 600, 5]  # no batch holds more than the hub keeps
+    count, turn = 0, 0
+    while count < 2000:
+        for _ in range(batches[turn % len(batches)]):
+            hub._note("you", f"line {count}")
+            expected.append(f"line {count}")
+            count += 1
+        turn += 1
+        bridge._push(hub.state())
+    assert len(hub.log) == LOG_LIMIT and hub.log_total == len(expected) and len(expected) > 3 * LOG_LIMIT
+    assert log_messages(bridge) == expected
+    bridge._push(hub.state())  # nothing new: nothing sent again
+    assert log_messages(bridge) == expected
+
+
+def test_a_client_that_joins_late_gets_the_kept_tail_then_every_later_line() -> None:
+    from spellbench.human.server import LOG_LIMIT
+    hub = Hub(opponent="Basilisk 2")
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Wildfire"}, "opponent_deck": {"name": "Rally"}})
+    for n in range(2000):
+        hub._note("opp", f"early {n}")
+    late = Bridge(hub, relay_url="ws://127.0.0.1:1", relay_key="k", room_name="Room", bot_name="Basilisk 2",
+                  bot_deck=("Rally", []))
+    late.host = StubRelay()
+    late.human, late.order, late.game_id = "human", ["human", "Basilisk 2"], "g-1"
+    late.seats = view.Seats(ME, "player-0", "player-1", {"player-0": "human", "player-1": "Basilisk 2"})
+    tail = [line["text"] for line in hub.log]
+    assert len(tail) == LOG_LIMIT and tail[-1] == "early 1999"
+    late._push(hub.state())
+    assert log_messages(late) == tail  # the newest lines the hub still has, in order
+    later = []
+    for n in range(300):
+        hub._note("you", f"later {n}")
+        later.append(f"later {n}")
+        if n % 11 == 0:
+            late._push(hub.state())
+    late._push(hub.state())
+    assert log_messages(late) == tail + later
+
+
+def test_log_since_counts_lines_ever_appended() -> None:
+    from spellbench.human.server import LOG_LIMIT
+    hub = Hub()
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "A"}, "opponent_deck": {"name": "B"}})
+    for n in range(2000):
+        hub._note("you", f"l{n}")
+    total = 2001  # the game's first line and 2000 more
+    lines, cursor = hub.log_since(0)
+    assert cursor == total and len(lines) == LOG_LIMIT and lines[-1]["text"] == "l1999"
+    lines, cursor = hub.log_since(total - 10)
+    assert [line["text"] for line in lines] == [f"l{n}" for n in range(1990, 2000)] and cursor == total
+    assert hub.log_since(total) == ([], total)
+    hub.game_start({"game_id": "g-2", "seat": ME, "own_deck": {"name": "A"}, "opponent_deck": {"name": "B"}})
+    assert hub.log_total == 1  # a new game restarts the count with its first line
+
+
+# -- the relay must be on this machine; a concession racing the engine's own end -----------------------------------------
+
+
+def test_a_relay_that_is_not_on_this_machine_is_refused_unless_allowed() -> None:
+    from spellbench.human.manabrew import ws
+    for url in ("ws://127.0.0.1:9443", "ws://localhost:9443", "ws://[::1]:9443"):
+        ws.require_loopback(url)
+    for url in ("ws://192.168.1.20:9443", "ws://relay.example.com:9443", "ws://0.0.0.0:9443"):
+        with pytest.raises(ValueError, match="not on this machine"):
+            ws.require_loopback(url)
+        with pytest.raises(ValueError, match="not on this machine"):
+            ws.WebSocket(url)  # refused before any connection is made
+        ws.require_loopback(url, allow_remote=True)
+
+
+def test_the_session_refuses_a_remote_relay_before_starting(tmp_path) -> None:
+    from spellbench.human import session
+    argv = ["--client", "manabrew", "--relay-url", "ws://192.168.1.20:9443", "--local", str(tmp_path / "local.json"),
+            "--out", str(tmp_path / "out")]
+    with pytest.raises(SystemExit) as exit_info:
+        session.main(argv)
+    assert exit_info.value.code == 2 and not (tmp_path / "out").exists()
+
+
+def test_a_concession_after_the_engine_ended_the_game_leaves_the_ledger_and_the_ends_file_agreeing() -> None:
+    """The bot's move ended the game (the ledger files it natural) a moment before the person's concession reached
+    the hub, which had not heard yet: the hub's row says conceded. The ledger is the truth; the ends file says nothing."""
+    from spellbench.human import session
+    won_by_the_bot = {"classification": "natural", "reason": "natural", "winner": OPP}
+    row = {"game_id": "g-1", "result": "loss", "reason": "conceded", "seat": ME}
+    assert session.person_end(row, won_by_the_bot) is None
+    assert row["reason"] == "natural" and row["result"] == "loss"  # the page's row now says what the ledger says
+    won_by_the_person = {"classification": "natural", "reason": "natural", "winner": ME}
+    row = {"game_id": "g-1", "result": "loss", "reason": "connection_lost", "seat": ME}
+    assert session.person_end(row, won_by_the_person) is None
+    assert row["result"] == "win" and row["reason"] == "natural"  # the engine had already decided it
+    # a real concession: the ledger filed a forfeit, so the ends file records why
+    row = {"game_id": "g-1", "result": "loss", "reason": "conceded", "seat": ME}
+    assert session.person_end(row, {"classification": "forfeit", "reason": "forfeit:agent_error", "winner": OPP}) == "conceded"
+    assert row["reason"] == "conceded"
+    assert session.person_end(dict(row), None) == "conceded"  # no ledger row to compare: the hub's word stands
+    natural = {"game_id": "g-1", "result": "win", "reason": "natural", "seat": ME}
+    assert session.person_end(natural, won_by_the_person) is None and natural["reason"] == "natural"
+    assert session.person_end(None, None) is None

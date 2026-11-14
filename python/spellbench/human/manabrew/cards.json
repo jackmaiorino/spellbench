@@ -457,7 +457,7 @@
  "Lotleth Giant": {
   "mana_cost": "{6}{B}",
   "power": "6",
-  "text": "Undergrowth — When Lotleth Giant enters the battlefield, it deals 1 damage to target opponent for each creature card in your graveyard.",
+  "text": "Undergrowth - When Lotleth Giant enters the battlefield, it deals 1 damage to target opponent for each creature card in your graveyard.",
   "toughness": "5",
   "type_line": "Creature - Zombie Giant"
  },
@@ -758,7 +758,7 @@
  "The Modern Age": {
   "mana_cost": "{1}{U}",
   "power": null,
-  "text": "(As this Saga enters and after your draw step, add a lore counter.)\nI, II — Draw a card, then discard a card.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.",
+  "text": "(As this Saga enters and after your draw step, add a lore counter.)\nI, II - Draw a card, then discard a card.\nIII - Exile this Saga, then return it to the battlefield transformed under your control.",
   "toughness": null,
   "type_line": "Enchantment - Saga"
  },
