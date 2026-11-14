@@ -127,6 +127,7 @@ def changes(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[tuple]:
     return out
 
 
+LATE_INTERVALS = 3  # the decisions after a change in which a later log line may still explain it
 ZONE_CAUSES = {"cast", "resolved", "played", "sacrificed", "lethal damage", "destroyed", "effect", "state",
                "discarded", "milled", "searched", "exiled", "moved", "drawn", "token", "cost"}
 
@@ -158,8 +159,8 @@ def explained(change: tuple, facts: list[tuple], turn_lines: list[tuple]) -> boo
     if kind in ("counters", "pt", "damage"):
         if turn_lines:  # cleanup removes damage and ends "until end of turn" effects
             return True
-        return any(f[0] in ("counters", "pt", "damage", "stack-", "zone") and f[2] == name for f in facts) or \
-            any(f[0] == "stack-" for f in facts)
+        # A line must name the permanent and say what changed on it (a resolving ability alone does not).
+        return any(f[0] in ("counters", "pt", "damage") and f[2] == name for f in facts)
     if kind in ("attached", "controller"):
         return any(f[0] == "stack-" for f in facts) or any(f[2] == name for f in facts if len(f) > 2)
     if kind == "life":
@@ -196,6 +197,11 @@ def replay(rows: list[Mapping[str, Any]], me: str, *, show: bool = False) -> dic
     log_mark = 0
     leaks: list[str] = []
     hidden_names: set[str] = set()
+    every_name = all_card_names(rows)
+    public: set[str] = set()
+    intervals: list[tuple[list[tuple], list[tuple]]] = []  # (facts, turn facts) of each interval, in order
+    refused_at: set[int] = set()                            # intervals whose decision the engine gave no snapshot for
+    held: list[tuple[int, tuple, tuple]] = []               # (interval, change, report) not explained in its own
     for sd in decisions(rows):
         hub.narrator.engine_decision(sd)
         _collect_hidden(sd, me, hidden_names)
@@ -203,18 +209,40 @@ def replay(rows: list[Mapping[str, Any]], me: str, *, show: bool = False) -> dic
             continue
         hub.absorb_narrated(sd)
         seen = visible(sd.get("observation") or {}, me)
+        _add_public(sd, public)
         new_lines = hub.log[log_mark:]
+        # Time-ordered hidden-information check: a line may name only cards the seat has seen by this decision.
+        unseen = every_name - public
+        leaks += [line["text"] for line in new_lines if any(name in line["text"] for name in unseen)]
         log_mark = len(hub.log)
         facts = [f for line in new_lines for f in line.get("facts") or []]
         turn_lines = [f for f in facts if f[0] == "turn"]
+        intervals.append((facts, turn_lines))
+        if not ((sd.get("extensions") or {}).get("x_kernel_infoset_v1") or {}).get("payload_json"):
+            # The engine gave this decision no snapshot (a refusal such as R1 same_name_hand_reveal, or none at all):
+            # the log catches up at the next one.
+            refused_at.add(len(intervals) - 1)
         if previous is not None:
             for change in changes(previous, seen):
                 total += 1
                 if not explained(change, facts, turn_lines):
-                    unexplained.append((sd.get("observation", {}).get("turn"), sd.get("observation", {}).get("phase_step"),
-                                        change, [line["text"] for line in new_lines]))
+                    held.append((len(intervals) - 1, change,
+                                 (sd.get("observation", {}).get("turn"), sd.get("observation", {}).get("phase_step"),
+                                  change, [line["text"] for line in new_lines])))
         previous = seen
-    return {"changes": total, "unexplained": unexplained, "log": hub.log, "leaks": leaks,
+    # A spell or ability is logged when its cast or activation completes, so the board can show it on the stack
+    # (choosing a cost or target) a decision or two before its line. Those changes are "late", not missing.
+    late: list[tuple] = []
+    refused: list[tuple] = []
+    for at, change, report in held:
+        window = intervals[at + 1:at + 1 + LATE_INTERVALS]
+        if at in refused_at:
+            refused.append(report)  # counted apart, never as explained
+        elif any(explained(change, facts, turn_lines) for facts, turn_lines in window):
+            late.append(report)
+        else:
+            unexplained.append(report)
+    return {"changes": total, "unexplained": unexplained, "late": late, "refused": refused, "log": hub.log, "leaks": leaks,
             "hidden_names": hidden_names}
 
 
@@ -223,40 +251,50 @@ def _collect_hidden(sd: Mapping[str, Any], me: str, names: set[str]) -> None:
     hidden (hand is null). The hidden check instead compares log text against public sightings (see leak_check)."""
 
 
-def leak_check(rows: list[Mapping[str, Any]], me: str, log: list[Mapping[str, Any]]) -> list[str]:
-    """Card names in the log that the human seat never saw publicly by that point."""
-    public: set[str] = set()
-    for sd in decisions(rows):
-        if sd.get("acting_seat") != me:
-            continue
-        obs = sd.get("observation") or {}
-        for player in obs.get("players") or []:
-            for zone in ("battlefield", "graveyard", "exile", "hand"):
-                for card in player.get(zone) or []:
-                    if card.get("card_name"):
-                        public.add(card["card_name"])
-        for entry in obs.get("stack") or []:
-            if entry.get("card_name"):
-                public.add(entry["card_name"])
-            for t in entry.get("targets") or []:
-                o = (t or {}).get("object") or {}
-                if o.get("card_name"):
-                    public.add(o["card_name"])
-        for entry in obs.get("known") or []:
-            if entry.get("card_name"):
-                public.add(entry["card_name"])
-        for event in ((sd.get("extensions") or {}).get("x_public_history_v1") or {}).get("events") or []:
-            for ref in [event.get("card")] + [c.get("card") for c in event.get("cards") or []]:
-                if isinstance(ref, Mapping) and ref.get("card_name"):
-                    public.add(ref["card_name"])
-    all_names: set[str] = set()
+def _add_public(sd: Mapping[str, Any], public: set[str]) -> None:
+    """Names the human seat has seen at this decision: its own observation (public zones and its own hand, the
+    stack and its targets, what it knows) and its public history (draws, moves, looks, reveals)."""
+    obs = sd.get("observation") or {}
+    for player in obs.get("players") or []:
+        for zone in ("battlefield", "graveyard", "exile", "hand"):
+            for card in player.get(zone) or []:
+                if card.get("card_name"):
+                    public.add(card["card_name"])
+    for entry in obs.get("stack") or []:
+        if entry.get("card_name"):
+            public.add(entry["card_name"])
+        for t in entry.get("targets") or []:
+            o = (t or {}).get("object") or {}
+            if o.get("card_name"):
+                public.add(o["card_name"])
+    for entry in obs.get("known") or []:
+        if entry.get("card_name"):
+            public.add(entry["card_name"])
+    for event in ((sd.get("extensions") or {}).get("x_public_history_v1") or {}).get("events") or []:
+        for ref in [event.get("card")] + [c.get("card") for c in event.get("cards") or []]:
+            if isinstance(ref, Mapping) and ref.get("card_name"):
+                public.add(ref["card_name"])
+
+
+def all_card_names(rows: list[Mapping[str, Any]]) -> set[str]:
+    """Every card name in any engine state of the game (both hands and libraries included)."""
+    names: set[str] = set()
     for sd in decisions(rows):
         raw = ((sd.get("extensions") or {}).get("x_kernel_infoset_v1") or {}).get("payload_json")
         if isinstance(raw, str):
             for o in json.loads(raw)["state"]["objects"]["items"]:
                 if isinstance(o, Mapping) and o.get("name"):
-                    all_names.add(o["name"])
-    never_public = all_names - public
+                    names.add(o["name"])
+    return names
+
+
+def leak_check(rows: list[Mapping[str, Any]], me: str, log: list[Mapping[str, Any]]) -> list[str]:
+    """Card names in the log that the human seat never saw publicly anywhere in the game (whole-game form)."""
+    public: set[str] = set()
+    for sd in decisions(rows):
+        if sd.get("acting_seat") == me:
+            _add_public(sd, public)
+    never_public = all_card_names(rows) - public
     return [line["text"] for line in log if any(name in line["text"] for name in never_public)]
 
 
@@ -274,12 +312,14 @@ def main(argv: list[str] | None = None) -> int:
         rows = read_record(path)
         me = args.seat or human_seat(rows, args.decision_logs) or "p0"
         result = replay(rows, me)
-        leaks = leak_check(rows, me, result["log"])
+        leaks = result["leaks"] + [leak for leak in leak_check(rows, me, result["log"]) if leak not in result["leaks"]]
         if args.print:
             for line in result["log"]:
                 indent = "    " if line.get("depth") else ""
                 print(f"{indent}{line['text']}")
-        print(f"{path.name}: seat {me}, {result['changes']} visible changes, {len(result['unexplained'])} unexplained, "
+        print(f"{path.name}: seat {me}, {result['changes']} visible changes, {len(result['unexplained'])} unexplained "
+              f"(+{len(result['late'])} explained by a line of the same action a decision or two later, "
+              f"+{len(result['refused'])} in decisions the engine gave no snapshot for), "
               f"{len(leaks)} hidden-card leaks")
         for turn, step, change, lines in result["unexplained"][:args.unexplained]:
             print(f"  turn {turn} {step}: {change}")

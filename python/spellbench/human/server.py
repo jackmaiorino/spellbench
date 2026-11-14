@@ -265,7 +265,7 @@ class Hub:
         me = (self.game or {}).get("seat")
         observation = decision.get("observation") or {}
         history = ((decision.get("extensions") or {}).get("x_public_history_v1") or {}).get("events") or []
-        lines = self.narrator.merge(history)
+        lines = self.narrator.merge(history) + self.narrator.board_changes(observation)
         players = {p.get("seat"): p for p in observation.get("players") or []}
         last_life: dict[Any, int] = {}
         for n, line in enumerate(lines):

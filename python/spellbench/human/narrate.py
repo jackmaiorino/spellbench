@@ -205,6 +205,8 @@ class Narrator:
         self.damaged: dict[tuple[str | None, str], str] = {}
         self.step: tuple[Any, Any, Any] | None = None
         self.resolver_hint: str | None = None
+        self.explore_by: list[str | None] = []  # controllers of resolved explore effects awaiting their reveal
+        self.permanents: dict[str, tuple] | None = None  # object_id -> (name, controller, counters, (power, toughness))
 
     # -- engine side -----------------------------------------------------------------------------------------
 
@@ -354,7 +356,8 @@ class Narrator:
                     add(index, Line(side="you" if c == me else "opp", depth=0,
                                     text=f"{seat_word(c, me)} activate{'s' if c != me else ''} {nm} (tapping and "
                                          f"sacrificing it)" + (f": {text_}" if text_ else ""),
-                                    facts=[("tap", c, nm), ("zone", c, nm, "battlefield", "graveyard", "cost")]))
+                                    facts=[("tap", c, nm), ("zone", c, nm, "battlefield", "graveyard", "cost"),
+                                           ("stack+", c, nm), ("stack-", c, nm)]))  # activated and resolved at once
                     self.resolver_hint = nm
                     for j in range(i + 1, sac):  # payment between the tap and the sacrifice stays in the mana line
                         pass
@@ -567,11 +570,14 @@ class Narrator:
             facts = [("stack+", controller, label["name"])]
             for ref in item["v4"].get("paid_cost_refs") or []:
                 nm = snap.name(ref.get("object"), allow_command=True)
-                facts.append(("zone", snap.seat(ref.get("controller")), nm, "battlefield",
+                facts.append(("zone", snap.seat(ref.get("controller")), nm,
+                              ZONE_WORD.get(origins.get(ref.get("object")), "battlefield"),
                               ZONE_WORD.get(ref.get("zone"), "graveyard"), "cost"))
             if item.get("kind") == "ActivatedAbility":
                 facts.append(("tap", controller, label["name"]))
             self.announced.add(sid)
+            if "ExploreTarget" in json.dumps(item.get("inline_effect") or ""):
+                self.explore_by.append(controller)  # its reveal arrives in the seat's public history
             add(at, Line(side="you" if controller == me else "opp", depth=0, text=txt, facts=facts))
 
         # Remember the stack as last seen (with names resolved while the items were visible).
@@ -584,6 +590,55 @@ class Narrator:
         self.seen_items = seen
         out.sort(key=lambda pair: pair[0])
         self.pending_lines.extend(out)
+
+    # -- what the board shows: counters and size (the engine's event history has no event for them) ------------------
+
+    def board_changes(self, observation: Mapping[str, Any]) -> list[Line]:
+        """Lines for counters added or removed and for size changes of permanents, read from the human seat's own
+        observation between its consecutive decisions ("Writhing Chrysalis (opp) gets a +1/+1 counter (now 4/5)").
+        Size changes that only follow a new turn (an "until end of turn" effect ending) are not narrated."""
+        now: dict[str, tuple] = {}
+        for player in observation.get("players") or []:
+            for card in player.get("battlefield") or []:
+                permanent = card.get("permanent") or {}
+                chars = card.get("characteristics") or {}
+                now[card["object_id"]] = (card.get("card_name"), card.get("controller_seat"),
+                                          tuple(sorted((permanent.get("counters") or {}).items())),
+                                          (chars.get("power"), chars.get("toughness")))
+        before, self.permanents = self.permanents, now
+        key = (observation.get("turn"), observation.get("active_seat"))
+        new_turn = key != getattr(self, "_board_turn", key)
+        self._board_turn = key
+        lines: list[Line] = []
+        if before is None:
+            return lines
+        for oid, (name, controller, counters, size) in now.items():
+            old = before.get(oid)
+            if old is None or not name:
+                continue
+            _, _, old_counters, old_size = old
+            side = "you" if controller == self.me else "opp"
+            mark = f"{name} ({whose(controller, self.me)})"
+            now_size = f" (now {size[0]}/{size[1]})" if None not in size else ""
+            if counters != old_counters:
+                delta = {k: dict(counters).get(k, 0) - dict(old_counters).get(k, 0)
+                         for k in set(dict(counters)) | set(dict(old_counters))}
+                parts = []
+                for kind, change in sorted(delta.items()):
+                    if not change:
+                        continue
+                    label = "+1/+1" if kind == "p1p1" else "-1/-1" if kind == "m1m1" else str(kind)
+                    parts.append(f"{'a' if abs(change) == 1 else abs(change)} {label} counter{'s' if abs(change) != 1 else ''}")
+                if parts:
+                    verb = "gets" if all(v > 0 for v in delta.values() if v) else "loses" if all(
+                        v < 0 for v in delta.values() if v) else "has counters changed:"
+                    lines.append(Line(side=side, depth=1, text=f"{mark} {verb} {', '.join(parts)}{now_size}",
+                                      facts=[("counters", controller, name), ("pt", controller, name)]))
+                    continue
+            if size != old_size and None not in size and not new_turn:
+                lines.append(Line(side=side, depth=1, text=f"{mark} is now {size[0]}/{size[1]}",
+                                  facts=[("pt", controller, name)]))
+        return lines
 
     # -- helpers -----------------------------------------------------------------------------------------------
 
@@ -847,6 +902,11 @@ class Narrator:
                         facts=[("zone", seat, name, frm, to, "moved")])
         if kind == "looked_at":
             names = ", ".join(text.card(entry.get("card")) for entry in event.get("cards") or [])
+            if self.explore_by:  # the top card an explore revealed (public); the creature's counter follows from the board
+                who = self.explore_by.pop(0)
+                return Line(side="you" if who == me else "opp", depth=1,
+                            text=f"Explore: {seat_word(who, me)} reveal{'s' if who != me else ''} {names} from the top "
+                                 f"of {'your' if who == me else 'their'} library", facts=[("look", me)])
             return Line(side="you", depth=1, text=f"You look at: {names}", facts=[("look", me)])
         if kind == "card_revealed":
             seat = event.get("owner_seat")

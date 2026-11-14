@@ -281,3 +281,18 @@ def test_other_effect_options_name_their_source() -> None:
     prompt, labels = text.effect_options(_option_decision("Some Spell", []), "p0")
     assert "Some Spell" in prompt and labels[1] == "Some Spell: effect 2 of 2"
     assert text.effect_options({"candidates": [{"candidate_id": 0, "semantic": {"kind": "pass"}}]}, "p0") is None
+
+
+def test_the_log_records_the_explore_choice() -> None:
+    """The person's keep-or-graveyard answer to an explore is echoed in the log with what it did."""
+    hub = Hub()
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    top = {"card_name": "Refurbished Familiar", "zone": "library", "owner_seat": ME, "position_from_top": 0,
+           "object_id": None, "how": "looked_at"}
+    request = _option_decision("Map Token", [top])
+    request["acting_seat"] = ME
+    request["observation"] = {**observation(), "known": [top]}
+    thread = answer_in_background(hub, lambda p: hub.answer_with(p["seq"], 1))
+    assert hub.choose({"decision": request}) == 1
+    thread.join()
+    assert "You choose: Put Refurbished Familiar into your graveyard" in [line["text"] for line in hub.log]
