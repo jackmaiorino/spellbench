@@ -330,7 +330,7 @@ class Hub:
     def state(self) -> dict[str, Any]:
         wins = sum(r["result"] == "win" for r in self.results)
         losses = sum(r["result"] == "loss" for r in self.results)
-        return {"version": self.version, "label": self.label, "games_total": self.games_total,
+        return {"version": self.version, "label": self.label, "opponent": self.opponent, "games_total": self.games_total,
                 "results": self.results, "wins": wins, "losses": losses, "draws": len(self.results) - wins - losses,
                 "hello_waiting": self.hello_waiting, "ready": self.ready, "game": self.game,
                 "observation": self.observation, "clock": self.clock, "pending": self.pending, "log": self.log,

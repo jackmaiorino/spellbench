@@ -205,3 +205,23 @@ def test_the_page_needs_the_token(tmp_path: Path) -> None:
             assert b"Spellbench Play" in response.read()
     finally:
         server.shutdown()
+
+
+def test_a_host_ended_game_ends_on_the_page() -> None:
+    from spellbench.human.session import page_closer
+
+    hub = Hub(opponent="Basilisk 2")
+    hub.game = {"game_id": "g-1", "seat": "p0", "own_deck": "Rally", "number": 1}
+    hub.pending = {"seq": 1, "candidates": []}
+
+    class Row:
+        def to_json(self) -> dict:
+            return {"game_id": "g-1", "outcome": "p1_win", "classification": "forfeit", "winner": "p1",
+                    "reason": "forfeit:timeout"}
+
+    page_closer(hub)(Row())
+    assert hub.pending is None and hub.game_over["reason"] == "forfeit:timeout"
+    assert hub.results[-1]["result"] == "loss"
+    page_closer(hub)(Row())  # a second notice for the same game changes nothing
+    assert len(hub.results) == 1
+    assert hub.state()["opponent"] == "Basilisk 2"
