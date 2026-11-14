@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import parse_qs, urlparse
 
-from . import text
+from . import narrate, text
 
 LOG_SCHEMA = "spellbench-human-log/v1"
 PAGE = Path(__file__).with_name("page.html")
@@ -35,7 +35,12 @@ PHASE_STEPS = ("upkeep", "draw", "precombat_main", "beginning_of_combat", "decla
                "combat_damage", "end_of_combat", "postcombat_main", "end_step")
 DEFAULT_STOPS = {f"{side}_{step}": False for side in ("own", "opp") for step in PHASE_STEPS}
 DEFAULT_STOPS.update(own_precombat_main=True, own_postcombat_main=True, opp_stack=True, own_stack=False)
-LOG_LIMIT = 400
+LOG_LIMIT = 600
+# Answers the causal log already narrates from the engine's events (a cast, an activation, a target, a cost, an
+# attack); other answers are echoed as "You choose: ...".
+NARRATED_KINDS = frozenset({"pass", "cast_spell", "activate_ability", "activate_mana_ability", "play_land",
+                            "choose_target", "finish_target_selection", "choose_cost_target", "declare_attack",
+                            "declare_block", "special_action"})
 
 
 def _ms() -> int:
@@ -46,7 +51,7 @@ class Hub:
     """All session state, guarded by one condition variable."""
 
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
-                 opponent: str = "the bot") -> None:
+                 opponent: str = "the bot", record_root: Path | None = None) -> None:
         self.cond = threading.Condition()
         self.version = 0
         self.log_dir = log_dir
@@ -68,9 +73,13 @@ class Hub:
         self.skip: dict[str, Any] | None = None  # {"turn", "active", "hard"}
         self.game_over: dict[str, Any] | None = None
         self._log_file = None
-        self._seen_stack: set[str] = set()
-        self._stack_targets: dict[str, str] = {}  # object id -> targets already logged for it
         self._combat_logged: set[tuple[Any, str]] = set()
+        # The causal log (narrate.py): fed from this session's own engine record when recording is on, else from
+        # the human seat's decisions alone.
+        self.record_root = record_root
+        self.narrator: narrate.Narrator | None = None
+        self._tail: narrate.RecordTail | None = None
+        self._step: tuple[Any, Any, Any] | None = None
 
     # -- bookkeeping --------------------------------------------------------------------------------------------
 
@@ -78,9 +87,10 @@ class Hub:
         self.version += 1
         self.cond.notify_all()
 
-    def _note(self, side: str, line: str) -> None:
+    def _note(self, side: str, line: str, *, depth: int = 0, facts: list | None = None, header: bool = False) -> None:
         turn = (self.observation or {}).get("turn")
-        self.log.append({"side": side, "text": line, "turn": turn})
+        self.log.append({"side": side, "text": line, "turn": turn, "depth": depth, "facts": facts or [],
+                         "header": header})
         del self.log[:-LOG_LIMIT]
 
     def _write(self, record: dict[str, Any]) -> None:
@@ -111,8 +121,9 @@ class Hub:
                          "rules": request.get("rules") or {}}
             self.log, self.observation, self.clock, self.pending = [], None, None, None
             self.plan = self.skip = self.game_over = None
-            self._seen_stack, self._combat_logged = set(), set()
-            self._stack_targets = {}
+            self._combat_logged = set()
+            self.narrator = narrate.Narrator(seat) if seat else None
+            self._tail, self._step = None, None
             self._note("game", f"Game {self.game['number']}: you ({own.get('name')}, {seat}) vs {self.opponent} "
                                f"({opp.get('name')})")
             if self.log_dir is not None:
@@ -156,6 +167,7 @@ class Hub:
             started = time.monotonic()
             self._absorb(decision, request.get("clock") or {})
             how, candidate_id = self._automatic(decision)
+            chosen_text = None
             if candidate_id is None:
                 self.seq += 1
                 self.pending = self._view(decision)
@@ -166,12 +178,14 @@ class Hub:
                     if self.pending is None:  # the game ended underneath (host adjudication)
                         raise RuntimeError("decision withdrawn")
                 candidate_id, how = self.answer, self.pending.get("how", "human")
+                chosen_text = next((c["text"] for c in self.pending["candidates"] if c["id"] == candidate_id), None)
                 self.pending = None
             chosen = next(c for c in decision["candidates"] if c["candidate_id"] == candidate_id)
             semantic = chosen.get("semantic") or {}
             me = (self.game or {}).get("seat")
-            if semantic.get("kind") != "pass" and how != "plan" and len(decision["candidates"]) > 1:
-                self._note("you", f"You: {text.candidate(semantic, me)}")
+            if semantic.get("kind") not in NARRATED_KINDS and how != "plan" and len(decision["candidates"]) > 1:
+                label = chosen_text or text.candidate(semantic, me)
+                self._note("you", f"You choose: {label}", depth=1, facts=[("choice", me)])
             self._write({"kind": "decision", "step": decision.get("seat_step"), "candidate_id": candidate_id,
                          "how": how, "elapsed_ms": int((time.monotonic() - started) * 1000),
                          "candidate_count": len(decision["candidates"]), "semantic": semantic,
@@ -183,51 +197,80 @@ class Hub:
     # -- what the human sees ------------------------------------------------------------------------------------
 
     def _absorb(self, decision: Mapping[str, Any], clock: Mapping[str, Any]) -> None:
-        """Fold one decision's observation and public history into the log."""
+        """Fold one decision's observation and the engine events since the previous one into the log."""
+        if self.narrator is not None:
+            tail = self._record_tail()
+            if tail is not None:
+                for row in tail.read():
+                    message = row.get("message") or {}
+                    if row.get("dir") == "engine_to_host" and message.get("response_type") == "decision":
+                        self.narrator.engine_decision(message["seat_decision"])
+            else:
+                self.narrator.engine_decision(decision)
+            self.absorb_narrated(decision)
+        else:
+            self._absorb_plain(decision)
+        self.observation = dict(decision.get("observation") or {})
+        self.clock = {"remaining_ms": clock.get("remaining_ms"), "max_decision_ms": clock.get("max_decision_ms"),
+                      "at": _ms()}
+
+    def _record_tail(self) -> narrate.RecordTail | None:
+        """This game's engine record, written by the runner in this process (operator recording on)."""
+        if self._tail is None and self.record_root is not None and self.game is not None:
+            found = sorted(Path(self.record_root).glob(f"game-*-{self.game.get('game_id')}-*/engine.jsonl"))
+            if found:
+                self._tail = narrate.RecordTail(found[-1])
+        return self._tail
+
+    def absorb_narrated(self, decision: Mapping[str, Any]) -> None:
+        """Append the narrator's lines for the span ending at this human decision, then the combat declarations and
+        the step the human is now in."""
         me = (self.game or {}).get("seat")
         observation = decision.get("observation") or {}
-        previous = self.observation
         history = ((decision.get("extensions") or {}).get("x_public_history_v1") or {}).get("events") or []
-        for side, line in text.history(history, me):
-            self._note(side, line)
-        for entry in observation.get("stack") or []:
-            object_id = entry.get("object_id")
-            seat = entry.get("controller_seat")
-            side = "you" if seat == me else "opp"
-            # The public history's cast line has no targets; the stack object on the board carries them. A cast or
-            # activation can first appear with no targets and gain them once chosen (same object id), so targets are
-            # logged whenever they first appear or change, not only on the object's first sighting.
-            chosen = text.stack_targets(entry, me)
-            if object_id not in self._seen_stack:
-                self._seen_stack.add(object_id)
-                aimed = f" targeting {chosen}" if chosen else ""
-                if entry.get("stack_kind") == "activated_ability":
-                    self._note(side, f"{text.seat_name(seat, me)} activates {text.card(entry)}{aimed}")
-                elif entry.get("stack_kind") == "triggered_ability":
-                    self._note(side, f"{text.card(entry)} triggers ({'yours' if seat == me else 'opp'}){aimed}")
-                elif chosen:
-                    self._note(side, f"{text.card(entry)} targets {chosen}")
-                if chosen:
-                    self._stack_targets[object_id] = chosen
-            elif chosen and self._stack_targets.get(object_id) != chosen:
-                self._stack_targets[object_id] = chosen
-                self._note(side, f"{text.card(entry)} targets {chosen}")
+        lines = self.narrator.merge(history)
         players = {p.get("seat"): p for p in observation.get("players") or []}
-        if previous is not None:
-            for p in previous.get("players") or []:
-                now = players.get(p.get("seat"))
-                if now is not None and now.get("life") != p.get("life"):
-                    seat = p.get("seat")
-                    self._note("you" if seat == me else "opp",
-                               f"{'Your' if seat == me else 'Opp'} life {p.get('life')} -> {now.get('life')}")
+        last_life: dict[Any, int] = {}
+        for n, line in enumerate(lines):
+            for fact in line.get("facts") or []:
+                if fact[0] == "life":
+                    last_life[fact[1]] = n
+        for seat, n in last_life.items():
+            life = (players.get(seat) or {}).get("life")
+            if life is not None:
+                lines[n] = narrate.Line(lines[n], text=lines[n]["text"] + f" ({'you' if seat == me else 'Opp'}: {life} life)")
+        for line in lines:
+            if line.get("quiet"):  # accounted for by the line before it; not worth its own line
+                if self.log:
+                    self.log[-1]["facts"] = list(self.log[-1].get("facts") or []) + list(line.get("facts") or [])
+                continue
+            if line.get("header"):
+                self._step = (observation.get("turn"), observation.get("active_seat"), None)
+            self._note(line["side"], line["text"], depth=line.get("depth", 0), facts=list(line.get("facts") or []),
+                       header=bool(line.get("header")))
+        self._combat(observation, me)
+        step = (observation.get("turn"), observation.get("active_seat"), observation.get("phase_step"))
+        if step != self._step:
+            name = text.PHASES.get(observation.get("phase_step"), observation.get("phase_step"))
+            self._note("game", str(name), facts=[("step",)], header=True)
+            self._step = step
+
+    def _combat(self, observation: Mapping[str, Any], me: Any) -> None:
+        """Attack and block declarations, from the observation's combat state."""
         turn_key = (observation.get("turn"), observation.get("active_seat"))
-        for seat, player in players.items():
+        for player in observation.get("players") or []:
+            seat = player.get("seat")
             battlefield = player.get("battlefield") or []
             attackers = [c for c in battlefield if (c.get("permanent") or {}).get("attacking")]
             if attackers and (turn_key, "attack") not in self._combat_logged:
                 self._combat_logged.add((turn_key, "attack"))
+                parts = []
+                for c in attackers:
+                    aim = (c.get("permanent") or {}).get("attack_target")
+                    parts.append(text.card(c) + (f" -> {text.target(aim, me)}" if isinstance(aim, Mapping) else ""))
                 self._note("you" if seat == me else "opp", f"{text.seat_name(seat, me)} attack"
-                           f"{'' if seat == me else 's'} with " + ", ".join(text.card(c) for c in attackers))
+                           f"{'' if seat == me else 's'} with " + ", ".join(parts),
+                           facts=[("attack", seat, text.card(c)) for c in attackers])
             blockers = [c for c in battlefield if (c.get("permanent") or {}).get("blocking")]
             if blockers and (turn_key, "block") not in self._combat_logged:
                 self._combat_logged.add((turn_key, "block"))
@@ -235,10 +278,16 @@ class Hub:
                 for c in blockers:
                     blocked = (c.get("permanent") or {}).get("blocked_attackers") or []
                     parts.append(f"{text.card(c)} blocks " + (", ".join(text.card(a) for a in blocked) or "?"))
-                self._note("you" if seat == me else "opp", f"{text.seat_name(seat, me)}: " + "; ".join(parts))
-        self.observation = dict(observation)
-        self.clock = {"remaining_ms": clock.get("remaining_ms"), "max_decision_ms": clock.get("max_decision_ms"),
-                      "at": _ms()}
+                self._note("you" if seat == me else "opp", f"{text.seat_name(seat, me)} block"
+                           f"{'' if seat == me else 's'}: " + "; ".join(parts),
+                           facts=[("block", seat, text.card(c)) for c in blockers])
+
+    def _absorb_plain(self, decision: Mapping[str, Any]) -> None:
+        """The log before a game has a seat: public history lines only."""
+        me = (self.game or {}).get("seat")
+        history = ((decision.get("extensions") or {}).get("x_public_history_v1") or {}).get("events") or []
+        for side, line in text.history(history, me):
+            self._note(side, line)
 
     def _automatic(self, decision: Mapping[str, Any]) -> tuple[str, int | None]:
         candidates = decision.get("candidates") or []
