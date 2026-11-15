@@ -639,6 +639,25 @@ def test_an_empty_hero_says_so() -> None:
     assert "No rated benchmark yet." in render.render_home(view)
 
 
+def test_a_headline_table_names_its_board_and_its_pending_bots() -> None:
+    view = copy.deepcopy(HOME)
+    view["hero"]["headline"] = {"id": "pauper-kernel", "title": "Pauper <kernel>", "href": "b/pauper-kernel/index.html",
+                                "pending": ["searcher", "other"]}
+    hero = _html(render.render_home(view), "section", "id", "hero")
+    assert ('Each bot\'s Elo minus the random bot\'s on <a href="b/pauper-kernel/index.html">Pauper &lt;kernel&gt;</a>, '
+            "the current rated board.") in hero
+    assert "averaged over the benchmarks" not in hero and "in the chart" not in hero
+    assert ("This table shows pauper-kernel only. The other benchmarks are on their own pages, listed below, each "
+            "with its own scale. Pending on this board, no results yet: searcher, other.") in hero
+    assert '<li data-bot="heuristic"' in hero  # the rows themselves are drawn as before
+    view["hero"]["headline"].update(href=None, pending=[])
+    plain = _html(render.render_home(view), "section", "id", "hero")
+    assert "on Pauper &lt;kernel&gt;, the current rated board." in plain and "Pending" not in plain
+    view["hero"].update(rows=[], benchmark_count=0)
+    assert "pauper-kernel has no rated snapshot yet." in render.render_home(view)
+    assert "averaged over the benchmarks" in render.render_home(HOME)  # without a headline, the chart of every board
+
+
 def test_approximate_intervals_are_labelled() -> None:
     view = copy.deepcopy(HOME)
     view["hero"]["approximate"] = True

@@ -93,6 +93,12 @@ _HERO_SUBTITLE = (
     "The score compares skill above random across formats, not head-to-head results."
 )
 
+# The top table when the home view names one benchmark (``hero["headline"]``): {board} is its linked title.
+_HEADLINE_SUBTITLE = (
+    "Each bot's Elo minus the random bot's on {board}, the current rated board. "
+    "Whiskers show 95% intervals."
+)
+
 # How a benchmark pairs the decks of its pool, as the Hero note says it.
 _PAIRING_NOTES = {"mirror": "Mirror-only (both seats play the same deck)", "all_pairs": "Every ordered deck pairing"}
 
@@ -156,10 +162,11 @@ _METHOD_SECTIONS = (
     ),
     (
         "Hero score",
-        "A bot's Hero score is its Elo above the random bot, averaged over the benchmarks it entered. With "
-        "one benchmark, its interval is that benchmark's interval. With several, the per-benchmark errors "
-        "are combined as if independent, so the interval is approximate. The Hero score compares skill "
-        "above random across formats; it is not a head-to-head result.",
+        "A bot's Hero score is its Elo above the random bot. When the home page's table names one "
+        "benchmark, the current rated board, the score and its interval are that benchmark's alone, and "
+        "every other benchmark is on its own page with its own scale. A table over several benchmarks "
+        "averages the score over the benchmarks a bot entered and combines the per-benchmark errors as if "
+        "independent, so its interval is approximate. The Hero score is not a head-to-head result.",
     ),
 )
 
@@ -915,10 +922,17 @@ def _arrow(start: float, bound: str, y: int) -> str:
 def _hero(hero: Mapping[str, Any]) -> str:
     """The Hero chart: one row per bot, bars on a scale shared by every row."""
     rows = hero["rows"]
+    headline = hero.get("headline")
+    subtitle = _HERO_SUBTITLE
+    if headline is not None:
+        board = _e(headline["title"])
+        if headline["href"]:
+            board = f'<a href="{_e(headline["href"])}">{board}</a>'
+        subtitle = _HEADLINE_SUBTITLE.format(board=board)
     parts = [
         '<section id="hero">',
         "<h2>Elo above the random bot</h2>",
-        f'<p class="lead">{_HERO_SUBTITLE}</p>',
+        f'<p class="lead">{subtitle}</p>',
     ]
     if rows:
         values = [0.0]
@@ -935,7 +949,15 @@ def _hero(hero: Mapping[str, Any]) -> str:
         )
         parts.extend(_hero_row(row, scale, ticks) for row in rows)
         parts.append("</ol>")
-        note = f"{_count(hero['benchmark_count'], 'benchmark')} in the chart."
+        if headline is not None:
+            note = (
+                f"This table shows {_e(headline['id'])} only. The other benchmarks are on their own pages,"
+                " listed below, each with its own scale."
+            )
+            if headline["pending"]:
+                note += f" Pending on this board, no results yet: {_e(', '.join(headline['pending']))}."
+        else:
+            note = f"{_count(hero['benchmark_count'], 'benchmark')} in the chart."
         if hero["approximate"]:
             note += " Intervals that combine several benchmarks are approximate."
         if hero["benchmark_count"] > 1:
@@ -954,6 +976,8 @@ def _hero(hero: Mapping[str, Any]) -> str:
                 "the bot won every game, or lost every game, in a benchmark it entered."
             )
         parts.append(_note(note))
+    elif headline is not None:
+        parts.append(f'<p class="empty">{_e(headline["id"])} has no rated snapshot yet.</p>')
     else:
         parts.append('<p class="empty">No rated benchmark yet.</p>')
     parts.append("</section>")

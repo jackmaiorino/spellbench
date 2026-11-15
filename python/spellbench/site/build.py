@@ -65,6 +65,7 @@ from ..arena.config import TournamentConfig
 from ..arena.ledger import LedgerRow, parse_ledger
 from ..arena.validate import validate_tournament_dir
 from ..bench import definition, panel
+from ..errors import MalformedJsonError
 from ..messages import ENGINE_DEFAULT_KEYS, EngineIdentity
 from . import charts, hero, render
 
@@ -83,6 +84,9 @@ SITEMAP_NAME = "sitemap.xml"
 _SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": REPO_URL,
          "site_url": SITE_URL, "google_site_verification": GOOGLE_SITE_VERIFICATION}
 _MARKER_TEXT = "spellbench site output; rebuilt by spellbench site\n"
+# The home page's top table shows one benchmark, the current rated board, when this file names it.
+HEADLINE_FILE = "headline.json"
+HEADLINE_SCHEMA = "spellbench-headline/v1"
 _GAME_COUNTS = ("total", "rated", "forfeit", "truncated", "halted")
 _ANCHOR_WITHOUT_PAIRS = "reference_id has no games"  # the fit's error when the anchor has no complete pair
 _ANCHOR_ELO_MILLI = 1_000_000  # the anchor's fixed Elo in milli-Elo (hero.py)
@@ -155,7 +159,8 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
     published after the board run (unrated), benchmarks without a published
     run, protocol v1 board runs, definitions changed since their v2 board
     run, benchmarks left out of the Hero chart, and Hero rows that average
-    different registry bots under one name. Raises SiteError before anything
+    different registry bots under one name. With ``headline.json`` the Hero
+    chart shows that one benchmark only. Raises SiteError before anything
     is written when a definition is invalid, a board run or a run after it
     fails validation, or ``out_dir`` is not a site build (or is or contains
     ``benchmarks_dir``).
@@ -213,7 +218,9 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
     for benchmark in benchmarks:
         warnings.extend(f"{benchmark.id} runs/{run}: excluded from measurement: {reason}"
                         for run, reason in definition.excluded_runs(benchmarks_dir / benchmark.id, benchmark))
-    table = hero.hero_table([(bench_id, run.board) for bench_id, run in runs.items()])
+    headline = _load_headline(benchmarks_dir, benchmarks)
+    table = hero.hero_table([(bench_id, run.board) for bench_id, run in runs.items()
+                             if headline is None or bench_id == headline])
     warnings.extend(table.warnings)
     warnings.extend(_mixed_hero_bots(runs, table.benchmark_ids))
 
@@ -233,7 +240,8 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
     files = {
         SITE_MARKER: _MARKER_TEXT.encode("utf-8"),  # first: a partial write can still be replaced
         "index.html": render.render_home({**_home_view(benchmarks, runs, stale, table, proposed,
-            publications={name: newer[name] + withheld[name] for name in listings}), "tracks": tracks}).encode("utf-8"),
+            publications={name: newer[name] + withheld[name] for name in listings}, headline=headline),
+            "tracks": tracks}).encode("utf-8"),
         "models.html": render.render_models(_models_view(benchmarks, runs, stale)).encode("utf-8"),
         "join.html": render.render_join(info).encode("utf-8"),
         "method.html": render.render_method(info).encode("utf-8"),
@@ -365,6 +373,39 @@ def _board_run_check(benchmark: definition.Benchmark, run: _Run) -> tuple[list[s
         "rerun to publish the change"
     )
     return [warning], stale
+
+
+def _load_headline(benchmarks_dir: Path, benchmarks: Sequence[definition.Benchmark]) -> str | None:
+    """The id of the benchmark the home page's top table shows: ``headline.json``, ``{schema, benchmark}``.
+
+    None without the file: the table then charts every anchored benchmark. The named benchmark needs a
+    definition; it does not need a rated run yet (the table then says so)."""
+    path = benchmarks_dir / HEADLINE_FILE
+    if not path.is_file():
+        return None
+    try:
+        data = charts.strict_json_loads(path.read_bytes())
+    except MalformedJsonError as exc:
+        raise SiteError(f"{path}: not a JSON object") from exc
+    if (not isinstance(data, dict) or set(data) != {"schema", "benchmark"} or data["schema"] != HEADLINE_SCHEMA
+            or not isinstance(data["benchmark"], str)):
+        raise SiteError(f"{path}: must be {{schema: {HEADLINE_SCHEMA}, benchmark: <id>}}")
+    if data["benchmark"] not in {benchmark.id for benchmark in benchmarks}:
+        raise SiteError(f"{path}: benchmark {data['benchmark']!r} has no definition")
+    return data["benchmark"]
+
+
+def _headline_view(headline: str, benchmarks: Sequence[definition.Benchmark], runs: Mapping[str, _Run]) -> dict[str, Any]:
+    """What the top table says about its one benchmark: its title, its page when it has a board run, and the bots
+    its snapshot lists as pending (no results yet)."""
+    run = runs.get(headline)
+    manifest = (run.manifest or {}) if run is not None else {}
+    return {
+        "id": headline,
+        "title": next(benchmark.title for benchmark in benchmarks if benchmark.id == headline),
+        "href": None if run is None else f"b/{headline}/index.html",
+        "pending": list(manifest.get("pending", ())),
+    }
 
 
 def _load_proposed(benchmarks_dir: Path) -> tuple[definition.ProposedBenchmark, ...]:
@@ -555,7 +596,7 @@ def _home_view(
     stale: Mapping[str, frozenset[str]],
     table: hero.HeroTable,
     proposed: Sequence[definition.ProposedBenchmark],
-    *, publications: Mapping[str, Sequence[dict[str, Any]]] | None = None,
+    *, publications: Mapping[str, Sequence[dict[str, Any]]] | None = None, headline: str | None = None,
 ) -> dict[str, Any]:
     """The view of ``index.html``: the Hero chart, a card per benchmark, the proposed cards."""
     return {
@@ -565,6 +606,7 @@ def _home_view(
             "benchmark_count": len(table.benchmark_ids),
             "approximate": any(row.approximate for row in table.rows),
             "deck_pairings": {bench_id: _deck_pairing(runs[bench_id]) for bench_id in table.benchmark_ids},
+            "headline": None if headline is None else _headline_view(headline, benchmarks, runs),
         },
         "benchmarks": [{**_card(benchmark, runs.get(benchmark.id), stale.get(benchmark.id, frozenset())),
                         "other_runs": list((publications or {}).get(benchmark.id, ()))} for benchmark in benchmarks],

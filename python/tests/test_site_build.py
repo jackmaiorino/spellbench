@@ -571,6 +571,104 @@ def test_an_unanchored_run_is_left_out_of_the_hero_chart(copy_tree: Path, tmp_pa
     assert "delta" not in hero and "alpha" in hero
 
 
+def _headline(root: Path, value: Any) -> None:
+    text = value if isinstance(value, str) else json.dumps(value)
+    (root / build.HEADLINE_FILE).write_text(text, encoding="utf-8", newline="\n")
+
+
+def test_the_top_table_shows_only_the_headline_benchmark(copy_tree: Path, tmp_path: Path) -> None:
+    """With headline.json the table is that board's leaderboard: its bots, its order, its intervals, no mean."""
+    build_site(copy_tree, tmp_path / "all")
+    _headline(copy_tree, {"schema": build.HEADLINE_SCHEMA, "benchmark": "alpha"})
+    warnings = build_site(copy_tree, tmp_path / "one")
+    assert not any("Hero chart" in warning for warning in warnings)
+    home = (tmp_path / "one/index.html").read_text(encoding="utf-8")
+    hero = home[home.index('id="hero"'):home.index('id="benchmarks"')]
+    board = json.loads((copy_tree / "alpha/runs/2026-09-26/leaderboard.json").read_text(encoding="utf-8"))
+    rated = [row for row in board["rows"] if row["rated"]]
+    # exactly the board's rated bots, best first (the anchor sits where its margin of 0 puts it)
+    order = sorted(rated, key=lambda row: (-(row["elo_milli"] - 1_000_000), row["name"]))
+    assert re.findall(r'<li data-bot="([^"]+)"', hero) == [row["name"] for row in order]
+    for row in rated:
+        item = _html(home, "li", "data-bot", row["name"])
+        assert "beta" not in item  # one chip, the headline board's
+        if row["bot_id"] == board["anchor"]["bot_id"]:
+            continue
+        margin, bound = (row["elo_milli"] - 1_000_000) / 1000, _bound(row, board)
+        value = {"lower": GE + NBSP, "upper": LE + NBSP}.get(bound, "") + render.format_margin(margin)
+        assert f'<span class="value">{value}</span>' in item, row["name"]  # the board's own margin, not a mean
+        if bound is None:
+            low, high = ((end - 1_000_000) / 1000 for end in row["ci95_elo_milli"])
+            assert f"95% interval {render.format_margin(low)} to {render.format_margin(high)}" in _aria_label(item)
+    assert '<a href="b/alpha/index.html">Bench alpha</a>, the current rated board' in hero
+    assert "This table shows alpha only." in hero and "each with its own scale" in hero
+    assert "approximate" not in hero and "in the chart" not in hero and "not comparable" not in hero
+    # every board keeps its card and its page, byte for byte
+    assert 'href="b/beta/index.html"' in home[home.index('id="benchmarks"'):]
+    one, every = _files(tmp_path / "one"), _files(tmp_path / "all")
+    assert set(one) == set(every)
+    assert {name for name in one if one[name] != every[name]} == {"index.html"}
+
+
+def test_a_headline_benchmark_without_a_rated_run_leaves_the_table_empty(copy_tree: Path, tmp_path: Path) -> None:
+    _write_definition(copy_tree / "gamma", _definition("gamma"))
+    _headline(copy_tree, {"schema": build.HEADLINE_SCHEMA, "benchmark": "gamma"})
+    build_site(copy_tree, tmp_path / "site")
+    home = (tmp_path / "site/index.html").read_text(encoding="utf-8")
+    hero = home[home.index('id="hero"'):home.index('id="benchmarks"')]
+    assert "gamma has no rated snapshot yet." in hero and "<li data-bot" not in hero
+    assert "Bench gamma, the current rated board" in hero and "b/gamma/" not in hero  # no page to link yet
+    assert (tmp_path / "site/b/alpha/index.html").is_file()
+
+
+@pytest.mark.parametrize("value, message", [
+    ({"schema": build.HEADLINE_SCHEMA, "benchmark": "nowhere"}, "has no definition"),
+    ({"schema": "other", "benchmark": "alpha"}, "must be {schema"),
+    ({"schema": build.HEADLINE_SCHEMA, "benchmark": "alpha", "extra": 1}, "must be {schema"),
+    ({"schema": build.HEADLINE_SCHEMA, "benchmark": ["alpha"]}, "must be {schema"),
+    ("[]", "not a JSON object"),
+])
+def test_a_bad_headline_file_is_refused_and_nothing_is_written(copy_tree: Path, tmp_path: Path, value: Any, message: str) -> None:
+    _headline(copy_tree, value)
+    with pytest.raises(SiteError, match=re.escape(message)):
+        build_site(copy_tree, tmp_path / "site")
+    assert not (tmp_path / "site").exists()
+
+
+def test_the_headline_view_lists_the_snapshots_pending_bots() -> None:
+    from types import SimpleNamespace as Fake
+    benchmarks = [Fake(id="alpha", title="Bench alpha"), Fake(id="beta", title="Bench beta")]
+    runs = {"alpha": Fake(manifest={"pending": ["searcher"]}), "beta": Fake(manifest=None)}
+    assert build._headline_view("alpha", benchmarks, runs) == {
+        "id": "alpha", "title": "Bench alpha", "href": "b/alpha/index.html", "pending": ["searcher"]}
+    assert build._headline_view("beta", benchmarks, runs)["pending"] == []
+    assert build._headline_view("alpha", benchmarks, {}) == {
+        "id": "alpha", "title": "Bench alpha", "href": None, "pending": []}
+
+
+def test_this_repositorys_top_table_is_the_current_rated_boards_snapshot() -> None:
+    """The published headline: a defined benchmark, and the table over its latest rated snapshot lists exactly
+    that snapshot's rated bots in rating order with its intervals; its pending bots are not rows."""
+    from spellbench.site import hero as hero_module
+    benchmarks = REPO / "benchmarks"
+    headline = json.loads((benchmarks / build.HEADLINE_FILE).read_text(encoding="utf-8"))
+    assert headline == {"schema": build.HEADLINE_SCHEMA, "benchmark": "pauper-ladder-v3"}
+    snapshots = sorted(path for path in (benchmarks / headline["benchmark"] / "snapshots").iterdir()
+                       if json.loads((path / "manifest.json").read_text(encoding="utf-8"))["run"]["rated"])
+    manifest = json.loads((snapshots[-1] / "manifest.json").read_text(encoding="utf-8"))
+    board = json.loads((snapshots[-1] / "leaderboard.json").read_text(encoding="utf-8"))
+    table = hero_module.hero_table([(headline["benchmark"], board)])
+    assert table.benchmark_ids == (headline["benchmark"],) and not table.warnings
+    assert [row.name for row in table.rows] == [row["name"] for row in board["rows"]]  # the board's own ranking
+    for row, expected in zip(table.rows, board["rows"]):
+        assert not row.approximate and len(row.chips) == 1
+        assert round(row.score * 1000) == expected["elo_milli"] - 1_000_000
+        if not row.reference:
+            assert [round(row.lower * 1000), round(row.upper * 1000)] == [
+                end - 1_000_000 for end in expected["ci95_elo_milli"]]
+    assert manifest["pending"] and not set(manifest["pending"]) & {row.name for row in table.rows}
+
+
 def test_the_cli_builds_the_site(tree: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     out = tmp_path / "site"
     assert cli.main(["site", str(tree), str(out)]) == 0
