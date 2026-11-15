@@ -644,6 +644,12 @@ def _committed_run(
         commit.mark_started(run_dir, benchmark_id=benchmark.id, environ=environ)
         # From here every ending publishes the run: a guard's refusal reveals it with reason "guard" (Decision 10).
         with _revealed_on_failure(run_dir, benchmark_id=benchmark.id, environ=environ):
+            from . import panel
+            try:
+                # A committed run never plays a matchup again that a committed run of this evaluation failed.
+                panel.refuse_replay(benchmark_dir, checked)
+            except BenchmarkError as exc:
+                raise GuardError(str(exc)) from None
             catalog = _catalog(environ, local)
             executed = runner.executed_config(config, resolve)
             engine, files = _launch_files(executed)

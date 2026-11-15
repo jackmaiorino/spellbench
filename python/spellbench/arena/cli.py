@@ -248,6 +248,16 @@ def _bench_run(directory: Path, args: Sequence[str]) -> int | None:
     _print_games(result.summary)
     code = _report_failures(result.failures)
     _print_allocation(result.summary)
+    record = result.summary.manifest.get("validity")
+    if record is not None:
+        print(f"validity: {record['verdict']} ({record['unit']['unit']})")
+    if record is not None and record["verdict"] == "fail":
+        # Published in full and excluded by its own record: no rating, and no snapshot from it.
+        for failure in record["failures"]:
+            print(f"validity: {failure}", file=sys.stderr)
+        print("the run stays published and is excluded from measurement; it is not topped up or replaced",
+              file=sys.stderr)
+        return 1
     if code == 0 and result.summary.status == "complete":
         from ..bench import definition, panel
         benchmark = definition.load_benchmark(directory)

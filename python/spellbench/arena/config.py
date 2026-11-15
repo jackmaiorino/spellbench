@@ -42,6 +42,13 @@ DEFAULT_WORKERS = 1
 # "sequential" reserves the larger share, since the engine and the seats take turns.
 CORE_ACCOUNTING = ("concurrent", "sequential")
 DECK_PAIRINGS = ("mirror", "all_pairs")  # deck_pairing: pool decks in both seats, or every pool deck pairing
+VALIDITY_UNIT_V1 = "spellbench-validity/v1"  # the validity unit a board may name (arena/validity.py)
+_VALIDITY_THRESHOLDS = (
+    "block_natural_permille",
+    "block_complete_pairs_permille",
+    "rung_natural_permille",
+    "pairing_natural_permille",
+)
 
 BOT_TYPES = frozenset({"builtin", "subprocess"})
 
@@ -57,6 +64,36 @@ _V1_FIELDS = {
 
 class TournamentError(Exception):
     """The tournament cannot proceed (bad config or a broken engine)."""
+
+
+@dataclass(frozen=True)
+class ValidityUnit:
+    """A board's validity thresholds, in thousandths (``arena/validity.py`` computes the verdict). The pairing
+    threshold always allows one game, at 1000 too."""
+
+    block_natural_permille: int
+    block_complete_pairs_permille: int
+    rung_natural_permille: int
+    pairing_natural_permille: int
+
+    def to_json(self) -> dict[str, Any]:
+        return {"unit": VALIDITY_UNIT_V1, **{name: getattr(self, name) for name in _VALIDITY_THRESHOLDS}}
+
+    @classmethod
+    def from_json(cls, value: Any, context: str = "validity") -> "ValidityUnit":
+        if not isinstance(value, dict):
+            raise TournamentError(f"{context}: must be an object")
+        fields = {"unit", *_VALIDITY_THRESHOLDS}
+        missing, extra = sorted(fields - set(value)), sorted(set(value) - fields)
+        if missing or extra:
+            raise TournamentError(f"{context}: fields mismatch: missing={missing} extra={extra}")
+        if value["unit"] != VALIDITY_UNIT_V1:
+            raise TournamentError(f'{context}.unit: must be "{VALIDITY_UNIT_V1}"')
+        for name in _VALIDITY_THRESHOLDS:
+            # type() rather than isinstance(): a boolean is not a threshold.
+            if type(value[name]) is not int or not 1 <= value[name] <= 1000:
+                raise TournamentError(f"{context}.{name}: must be an integer in [1, 1000] (thousandths)")
+        return cls(**{name: value[name] for name in _VALIDITY_THRESHOLDS})
 
 
 @dataclass(frozen=True)
@@ -411,6 +448,7 @@ class TournamentConfig:
     core_accounting: str = "concurrent"
     ladder: Ladder | None = None
     deck_pairing: str = "mirror"
+    validity: ValidityUnit | None = None  # the board's validity unit; None for boards that name none
 
     def deck_cycle(self) -> tuple[tuple[DeckSpec, DeckSpec], ...]:
         """The (p0, p1) deck pairings that pairs cycle through, in schedule order.
@@ -541,6 +579,8 @@ class TournamentConfig:
                 doc["evaluation_engine_inputs"] = list(self.evaluation_engine_inputs)
         if self.ladder is not None:  # written only for ladders, so panel configs keep their bytes
             doc["ladder"] = self.ladder.to_json()
+        if self.validity is not None:  # written only when the board names a unit, so earlier configs keep their bytes
+            doc["validity"] = self.validity.to_json()
         return doc
 
     @classmethod
@@ -583,6 +623,7 @@ class TournamentConfig:
             "core_accounting",
             "ladder",
             "deck_pairing",
+            "validity",
         }
         required = {
             "schema",
@@ -704,6 +745,7 @@ class TournamentConfig:
                 raise TournamentError("config.matchups: a ladder config lists its matchups")
             if not {frozenset(pair) for pair in matchups} <= ladder_pairs(tuple(panel), ladder):
                 raise TournamentError("config.matchups: a ladder config plays only ladder matchups")
+        validity = ValidityUnit.from_json(value["validity"], f"{context}.validity") if "validity" in value else None
         stats_seed = _req_uint(value["stats_seed"], f"{context}.stats_seed")
         rules = RulesSpec.from_json(value["rules"], f"{context}.rules") if "rules" in value else RulesSpec()
         raw_extensions = value.get("extensions", [])
@@ -803,4 +845,5 @@ class TournamentConfig:
             core_accounting=core_accounting,
             ladder=ladder,
             deck_pairing=deck_pairing,
+            validity=validity,
         )

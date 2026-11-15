@@ -427,6 +427,11 @@ def commit_run(
         contract(config)
         if not config.matchups:
             raise CommitError("no missing panel evaluations; use spellbench bench compose instead")
+        from . import panel
+        try:
+            panel.refuse_replay(benchmark_dir, benchmark)  # a failed evaluation is never committed again
+        except definition.BenchmarkError as exc:
+            raise CommitError(str(exc)) from None
     local = definition.load_local_values(benchmark_dir.parent)
     # 1. The local values the rated run needs, before anything is published (R3-14).
     note = _checked_local_values(environ, local, placement)

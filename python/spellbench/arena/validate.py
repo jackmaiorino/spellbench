@@ -39,6 +39,10 @@ read once, so the bytes whose digest is checked are the bytes that are parsed. T
     (R3-13), the rated flag (Decision 3, R3-7), the validator record, the isolation record (spec 11.7, R3-9),
     the information rules and the game counts are recomputed, never read.
 
+A config that names a validity unit (``arena/validity.py``) adds the manifest key ``validity``, recomputed in
+step 10 from the schedule and the ledger like every other section; step 8 then expects a failing run's
+leaderboard to withhold its ratings. A manifest holds the key exactly when its config names a unit.
+
 What the files cannot show is left to others: each game digest needs the engine and the bots (``bench rerun``),
 and whether the commitment was public before the first game needs the repository's history (spec 11.6).
 """
@@ -57,13 +61,14 @@ from ..errors import ValidationError
 from ..messages import CardNameDomain, EngineIdentity, EngineProfile, Rules
 from ..run_secret import RunSecret
 from ..wire import strict_json_loads
-from . import leaderboard, legacy_v1, store
+from . import leaderboard, legacy_v1, store, validity
 from .allocation import Allocation
 from .config import BotSpec, TournamentConfig
 from .ledger import LedgerDeck, LedgerRow, LedgerSeat, parse_ledger
 from .manifest import (
     MANIFEST_KEYS,
     TOURNAMENT_SCHEMA_V2,
+    VALIDITY_KEY,
     CommitmentProof,
     EngineFile,
     commitment_record,
@@ -169,7 +174,9 @@ def _validate_v2(directory: Path, failures: list[str]) -> None:
     if gate is not None:
         failures.append(gate)
         return
-    missing, extra = sorted(set(MANIFEST_KEYS) - set(manifest)), sorted(set(manifest) - set(MANIFEST_KEYS))
+    # The optional validity record is checked against the config in step 10.
+    missing = sorted(set(MANIFEST_KEYS) - set(manifest))
+    extra = sorted(set(manifest) - set(MANIFEST_KEYS) - {VALIDITY_KEY})
     if missing or extra:
         failures.append(f"{store.MANIFEST_NAME} fields mismatch: missing={missing} extra={extra}")
         return
@@ -206,10 +213,12 @@ def _validate_v2(directory: Path, failures: list[str]) -> None:
         _check_rows(rows, identity, failures)
         violations = _violations(rows, failures)
 
-    # 8. The leaderboard, recomputed.
+    # 8. The leaderboard, recomputed. A run that fails its board's validity unit withholds its ratings.
     board = None
-    if config is not None and entries is not None and rows is not None:
-        board = _check_leaderboard(config, entries, rows, blobs, failures)
+    record = None
+    if config is not None and entries is not None and rows is not None and contexts is not None:
+        record = validity.evaluate(config, contexts, rows, run_label=None if names is None else names[1])
+        board = _check_leaderboard(config, entries, rows, blobs, failures, withheld=validity.withheld_reason(record))
 
     # 9. The other recorded inputs, and the information rules they resolve to.
     profile = _parse("manifest", lambda: EngineProfile.from_json(manifest["engine_profile"], "engine_profile"),
@@ -236,11 +245,12 @@ def _validate_v2(directory: Path, failures: list[str]) -> None:
         info_rules=info_rules, rows=rows, violations=violations, scheduled=len(contexts),
         leaderboard_status=board["status"], status=status, benchmark_id=names[0], run_label=names[1],
         run_secret=_STAND_IN_SECRET if secret is None else secret, commitment_proof=proof, allocation=allocation,
-        engine_files=engine_files,
+        engine_files=engine_files, validity=record,
     )
     notes = {
         "run.status": "R3-13",
-        "run.rated": _rated_note(status, body["validator"]["verdict"], proof, allocation, engine_files),
+        "run.rated": _rated_note(status, body["validator"]["verdict"], proof, allocation, engine_files,
+                                 validity.verdict(record)),
         "validator": "spec 11.3",
         "isolation": "spec 11.7",
         "information_rules": "spec 12.2",
@@ -248,6 +258,12 @@ def _validate_v2(directory: Path, failures: list[str]) -> None:
     for key in MANIFEST_KEYS:
         if key not in ("files", "secrets"):  # checked in steps 3 and 5
             _report_differences(key, body[key], manifest[key], notes, failures)
+    # The validity record: present exactly when the config names a unit, and recomputed like the rest.
+    if (VALIDITY_KEY in body) != (VALIDITY_KEY in manifest):
+        failures.append(f"manifest {VALIDITY_KEY} is {'missing' if VALIDITY_KEY in body else 'present'}, but "
+                        f"{store.CONFIG_NAME} names {'a' if VALIDITY_KEY in body else 'no'} validity unit")
+    elif VALIDITY_KEY in body:
+        _report_differences(VALIDITY_KEY, body[VALIDITY_KEY], manifest[VALIDITY_KEY], notes, failures)
 
 
 # ---------------------------------------------------------------------------
@@ -711,14 +727,15 @@ def _violations(rows: Sequence[LedgerRow], failures: list[str]) -> list[dict[str
 
 def _check_leaderboard(
     config: TournamentConfig, entries: dict[str, RegistryEntry], rows: Sequence[LedgerRow],
-    blobs: dict[str, bytes], failures: list[str],
+    blobs: dict[str, bytes], failures: list[str], *, withheld: str | None = None,
 ) -> dict[str, Any] | None:
-    """Both leaderboard files recomputed from the ledger and compared byte for byte; returns the document."""
+    """Both leaderboard files recomputed from the ledger and compared byte for byte; returns the document.
+    ``withheld`` is the reason a run that failed its validity unit publishes no rating, else None."""
     try:
         document, markdown = leaderboard.build_leaderboard(
             rows, [entries[spec.name] for spec in config.bots], anchor_bot_id=entries[config.rating_anchor].bot_id,
             base_seed=config.stats_seed, bootstrap_replicates=config.bootstrap_replicates, format=config.format,
-            schema=leaderboard.LEADERBOARD_SCHEMA_V2,
+            schema=leaderboard.LEADERBOARD_SCHEMA_V2, withheld=withheld,
         )
     except Exception as exc:  # noqa: BLE001 - fail closed
         failures.append(f"the leaderboard cannot be recomputed from {store.LEDGER_NAME}: {exc}")
@@ -768,16 +785,18 @@ def _information_rules(
     return information_rules(rules, profile, native)
 
 
-def _rated_note(status: str, verdict: str, proof: Any, allocation: Allocation, engine_files: Sequence[Any]) -> str:
+def _rated_note(status: str, verdict: str, proof: Any, allocation: Allocation, engine_files: Sequence[Any],
+                validity_verdict: str | None = None) -> str:
     """Decision 3, and what a run the rule does not rate lacks."""
     if is_rated(status=status, verdict=verdict, commitment_proof=proof, allocation=allocation,
-                engine_files=engine_files):
+                engine_files=engine_files, validity_verdict=validity_verdict):
         return "Decision 3"
     lacking = [f"the run is {status}"] if status != "complete" else []
     lacking += ["the verdict is fail"] if verdict != "pass" else []
     lacking += ["no commitment proof"] if proof is None else []
     lacking += [f"the allocation is {allocation.label}"] if not allocation.measured else []
     lacking += ["no pinned engine files"] if not engine_files else []
+    lacking += ["the run fails its board's validity unit"] if validity_verdict == "fail" else []
     return f"Decision 3: {', '.join(lacking)}"
 
 

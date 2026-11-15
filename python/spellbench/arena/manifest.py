@@ -39,6 +39,8 @@ MANIFEST_KEYS = (
     "schema", "protocol", "tournament", "engine", "engine_profile", "information_rules", "validator", "isolation",
     "secrets", "run", "allocation", "engine_files", "games", "leaderboard_status", "files",
 )
+# Written only for a board that names a validity unit (``config.validity``), so earlier manifests keep their bytes.
+VALIDITY_KEY = "validity"
 
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40}")
@@ -227,16 +229,19 @@ def is_rated(
     commitment_proof: CommitmentProof | None,
     allocation: Allocation,
     engine_files: Sequence[EngineFile],
+    validity_verdict: str | None = None,
 ) -> bool:
     """Decision 3: a complete run, a passing verdict, a commitment proven public, a measured allocation, and
     pinned engine files (a non-empty ``engine_files``, so the library path cannot mint a rated run without
-    pins, R3-7)."""
+    pins, R3-7). On a board that names a validity unit, the run must also pass it (``arena/validity.py``):
+    ``validity_verdict`` is that verdict, None for a board without a unit."""
     return (
         status == "complete"
         and verdict == "pass"
         and commitment_proof is not None
         and allocation.measured
         and bool(engine_files)
+        and validity_verdict in (None, "pass")
     )
 
 
@@ -273,19 +278,23 @@ def manifest_body(
     commitment_proof: CommitmentProof | None,
     allocation: Allocation,
     engine_files: Sequence[EngineFile],
+    validity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Every section of ``manifest.json`` but ``files`` (the arena adds that when it hashes the published data
     files); ``entries`` in config order. Shared by the run and the validator, so the validator can rebuild it
-    from the published data (Task 36)."""
+    from the published data (Task 36). ``validity`` is the record ``validity.evaluate`` gives a board that names a
+    validity unit, None otherwise: it is published under ``VALIDITY_KEY`` and a failing verdict keeps the run
+    unrated."""
     counts = {"natural": 0, "truncated": 0, "halted": 0, "forfeit": 0}
     for row in rows:
         counts[row.classification] += 1
     validator = validator_record(rows, violations)
     rated = is_rated(
         status=status, verdict=validator["verdict"], commitment_proof=commitment_proof, allocation=allocation,
-        engine_files=engine_files,
+        engine_files=engine_files, validity_verdict=None if validity is None else validity["verdict"],
     )
     return {
+        **({} if validity is None else {VALIDITY_KEY: validity}),
         "schema": TOURNAMENT_SCHEMA_V2,
         "protocol": {"name": "spellbench/v2", "minor": protocol_minor},
         "tournament": {

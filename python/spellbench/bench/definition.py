@@ -38,6 +38,14 @@ a setting that changes play goes in the definition or in a file.
 ``excluded_runs`` lists published runs, each with a reason, that a failed
 validity rule keeps out of preparation, snapshots and the board. Their files
 stay published.
+
+``validity`` names the board's validity unit (``arena/validity.py``): the
+share of each block's scheduled games that must end natural and sit in
+complete seat-swapped pairs, and the share per bot and per ordered deck
+pairing. It is part of every run's config, so changing it is a new
+evaluation. A run of such a board publishes the verdict and its tables in
+its manifest; a failing run stays published, is not rated, and is excluded
+by its own record (:func:`excluded_runs`), with no hand-typed entry.
 """
 
 from __future__ import annotations
@@ -65,6 +73,7 @@ from ..arena.config import (
     Ladder,
     TournamentConfig,
     TournamentError,
+    ValidityUnit,
     ladder_pairs,
     parse_ladder,
 )
@@ -111,6 +120,7 @@ _OPTIONAL_FIELDS = (
     "excluded_runs",
     "ladder",
     "pairing",
+    "validity",
     "extensions",
     "native_id_audits",
     "time_control",
@@ -199,6 +209,7 @@ class Benchmark:
     ladder: Ladder | None = None
     excluded_runs: tuple[tuple[str, str], ...] = ()  # (run name, reason)
     pairing: str = _ROTATING_POOL  # rotating_pool plays pool mirrors; all_pairs plays every pool deck pairing
+    validity: ValidityUnit | None = None  # the board's validity unit (arena/validity.py); None names none
 
     def qualification_rules(self):
         from ..arena.qualification import current_rules
@@ -244,6 +255,8 @@ class Benchmark:
             document["core_accounting"] = self.core_accounting
         if self.pairing == _ALL_PAIRS:
             document["deck_pairing"] = _ALL_PAIRS
+        if self.validity is not None:
+            document["validity"] = self.validity.to_json()
         if self.opponent_panel:
             targets = {bot.name for bot in self.bots} if self.evaluation_targets is None else set(self.evaluation_targets)
             active = set(self.opponent_panel) | targets | {ANCHOR_BOT}
@@ -624,6 +637,12 @@ def parse_benchmark(value: Any) -> Benchmark:
                    or not item["reason"].strip() for item in excluded)
             or len({item["run"] for item in excluded}) != len(excluded)):
         raise BenchmarkError("benchmark.excluded_runs: must list distinct {run, reason} objects with dated run names")
+    unit = None
+    if "validity" in document:
+        try:
+            unit = ValidityUnit.from_json(document["validity"], "benchmark.validity")
+        except TournamentError as exc:
+            raise BenchmarkError(str(exc)) from exc
     identity = document.get("evaluation_engine_identity")
     if "evaluation_engine_identity" in document and (
         type(identity) is not str or not re.fullmatch(r"[0-9a-f]{64}", identity)
@@ -671,6 +690,7 @@ def parse_benchmark(value: Any) -> Benchmark:
         ladder=ladder,
         excluded_runs=tuple((item["run"], item["reason"]) for item in excluded),
         pairing=document.get("pairing", _ROTATING_POOL),
+        validity=unit,
     )
     if benchmark.pairing == _ALL_PAIRS and benchmark.pairs_per_deck % len(benchmark.deck_pool):
         raise BenchmarkError(
@@ -788,12 +808,33 @@ def check_ladder_arguments(benchmark: Benchmark, values: Mapping[str, str]) -> N
                                  "bytes are fingerprinted; write other settings into the definition or a file")
 
 
+def excluded_runs(benchmark_dir: Path, benchmark: Benchmark | None = None) -> tuple[tuple[str, str], ...]:
+    """Every excluded run of the benchmark in ``benchmark_dir``, each with its reason.
+
+    First the definition's ``excluded_runs`` (``benchmark``, read from the folder when not given; none when it
+    does not parse), then each published run whose own manifest records a failed validity unit
+    (``validity.run_exclusion``), oldest first, then each committed run that plays a failed matchup again
+    (``snapshot.replaying_runs``). A run named in the definition keeps the definition's reason.
+    """
+    from ..arena import snapshot, validity
+    if benchmark is None:
+        try:
+            benchmark = load_benchmark(benchmark_dir)
+        except BenchmarkError:
+            benchmark = None
+    listed = () if benchmark is None else benchmark.excluded_runs
+    named = {run for run, _ in listed}
+    published = published_runs(benchmark_dir)
+    generated = [found for found in map(validity.run_exclusion, published)
+                 if found is not None and found[0] not in named]
+    named |= {run for run, _ in generated}
+    generated += [(run, reason) for run, reason in snapshot.replaying_runs(published).items() if run not in named]
+    return (*listed, *generated)
+
+
 def excluded_run_names(benchmark_dir: Path) -> frozenset[str]:
-    """The runs a definition excludes (``excluded_runs``); none when it does not parse."""
-    try:
-        return frozenset(run for run, _ in load_benchmark(benchmark_dir).excluded_runs)
-    except BenchmarkError:
-        return frozenset()
+    """The runs excluded from measurement (:func:`excluded_runs`)."""
+    return frozenset(run for run, _ in excluded_runs(benchmark_dir))
 
 
 def placeholder_names(benchmark: Benchmark) -> tuple[str, ...]:

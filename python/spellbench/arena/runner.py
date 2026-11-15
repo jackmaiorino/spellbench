@@ -98,7 +98,7 @@ from ..host.game import GameResult, play_game
 from ..host.setup import GameSetup
 from ..messages import EngineIdentity, ResetRequest
 from ..run_secret import RunSecret
-from . import engine_records, leaderboard, registry, store
+from . import engine_records, leaderboard, registry, store, validity
 from .config import BotSpec, TournamentConfig, TournamentError  # re-exported
 from .drivers import make_driver
 from .executor import ExecutionResult, GameOutcome, execute
@@ -740,10 +740,12 @@ def _publish(
     (R3-13), and the run secret is revealed whatever it is (spec 11.6)."""
     status = run_status(scheduled=scheduled, rows=len(rows), violations=len(violations))
     anchor_bot_id = next(entry.bot_id for entry in entries if entry.name == config.rating_anchor)
+    # The board's validity unit, judged before anything is published: a failing run publishes no rating.
+    record = validity.evaluate(config, schedule(config, run_secret), rows, run_label=run_label)
     document, markdown = leaderboard.build_leaderboard(
         rows, entries, anchor_bot_id=anchor_bot_id, base_seed=config.stats_seed,
         bootstrap_replicates=config.bootstrap_replicates, format=config.format,
-        schema=leaderboard.LEADERBOARD_SCHEMA_V2,
+        schema=leaderboard.LEADERBOARD_SCHEMA_V2, withheld=validity.withheld_reason(record),
     )
     store.write_json_atomic(directory / store.LEADERBOARD_JSON_NAME, document)
     store.write_bytes_atomic(directory / store.LEADERBOARD_MD_NAME, markdown.encode("utf-8"))
@@ -753,7 +755,7 @@ def _publish(
         info_rules=information_rules(setup.rules, setup.profile, setup.native_id_extensions), rows=rows,
         violations=violations, scheduled=scheduled, leaderboard_status=document["status"], status=status,
         benchmark_id=benchmark_id, run_label=run_label, run_secret=run_secret, commitment_proof=commitment_proof,
-        allocation=allocation, engine_files=engine_files,
+        allocation=allocation, engine_files=engine_files, validity=record,
     )
     names = (store.COMMITMENT_NAME, *store.DATA_FILE_NAMES)  # the commitment first
     body["files"] = [store.file_entry(directory / name, name) for name in names]
