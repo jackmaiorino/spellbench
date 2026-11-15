@@ -140,6 +140,7 @@ class Hub:
         self.frames_total = 0
         self.game_over: dict[str, Any] | None = None
         self.conceded: str | None = None  # the game id the person gave up (or lost the connection to), if any
+        self._announcements: list[str] = []  # lines for the log of the game that starts next (``announce``)
         self._log_file = None
         self._combat_logged: set[tuple[Any, str]] = set()
         # The causal log (narrate.py): fed from this session's own engine record when recording is on, else from
@@ -175,9 +176,16 @@ class Hub:
             self._log_file.flush()
 
     def announce(self, text: str) -> None:
-        """A game-level line for the log, kept until the next game starts (it is shown first in that game)."""
+        """A game-level line for the log, kept until the next game starts (it is shown first in that game; several
+        are shown in the order given)."""
         with self.cond:
-            self._announcement = text
+            self._announcements.append(text)
+            self._bump()
+
+    def say(self, text: str) -> None:
+        """A game-level line for the log now (a notice of the session's, such as the person's clock running down)."""
+        with self.cond:
+            self._note("game", text)
             self._bump()
 
     # -- relay side ---------------------------------------------------------------------------------------------
@@ -213,9 +221,9 @@ class Hub:
             self._tail, self._step = None, None
             self._note("game", f"Game {self.game['number']}: you ({own.get('name')}, {seat}) vs {self.opponent} "
                                f"({opp.get('name')})")
-            if getattr(self, "_announcement", None):
-                self._note("game", self._announcement)
-                self._announcement = None
+            for line in self._announcements:
+                self._note("game", line)
+            self._announcements = []
             if self.log_dir is not None:
                 self.log_dir.mkdir(parents=True, exist_ok=True)
                 path = self.log_dir / f"{request.get('game_id')}.{seat}.jsonl"
@@ -257,7 +265,8 @@ class Hub:
 
     def concede(self, reason: str = "conceded") -> bool:
         """The person ends the current game as a loss (``conceded``), or the session does when the person is gone
-        (``connection_lost``). The page and the Manabrew client see the game over at once; a decision the engine
+        (``connection_lost``) or the table cannot go on (``relay_lost``, ``host_fault``). The page and the Manabrew
+        client see the game over at once; a decision the engine
         is waiting on, and every later one, is refused (``Conceded``), which the arena records as the human seat's
         forfeit. Returns False when there is no game in progress."""
         with self.cond:

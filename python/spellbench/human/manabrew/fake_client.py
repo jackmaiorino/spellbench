@@ -155,6 +155,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--concede-after", type=int, default=3)
     parser.add_argument("--drop-game", type=int, default=0,
                         help="close the connection in this game after --concede-after answered prompts (a closed tab)")
+    parser.add_argument("--leave-game", type=int, default=0,
+                        help="leave the table (the client's Leave or Abandon) in this game after --concede-after "
+                        "answered prompts, then wait --linger seconds for what follows")
+    parser.add_argument("--leave-on-start", type=int, default=0,
+                        help="leave the table the moment the relay announces this game, before the session's game "
+                        "has begun")
+    parser.add_argument("--linger", type=float, default=8.0, help="seconds to stay connected after leaving")
     args = parser.parse_args(argv)
     take = tuple(t for t in args.take.split(",") if t)
     avoid = tuple(t for t in args.avoid.split(",") if t)
@@ -205,6 +212,12 @@ def main(argv: list[str] | None = None) -> int:
         elif kind == "GameStarted":
             order = msg.get("player_order") or []
             slot = f"player-{order.index(args.username)}" if args.username in order else "player-0"
+            if args.leave_on_start == games + 1:
+                print(f"leaving the table as game {games + 1} is announced", flush=True)
+                send({"type": "LeaveRoom"})
+                time.sleep(args.linger)
+                ws.close()
+                return 0
         elif kind == "StateUpdate":
             envelope = msg.get("state") or {}
             if out:
@@ -240,6 +253,12 @@ def main(argv: list[str] | None = None) -> int:
                         print(f"conceding game {games + 1} after {in_game} prompts", flush=True)
                         send({"type": "BroadcastState", "target_player": None,
                               "state": {"kind": "directive", "fromPlayer": slot, "directive": {"type": "concede"}}})
+                    if args.leave_game == games + 1 and in_game >= args.concede_after:
+                        print(f"leaving the table in game {games + 1} after {in_game} prompts", flush=True)
+                        send({"type": "LeaveRoom"})
+                        time.sleep(args.linger)
+                        ws.close()
+                        return 0
                     if args.drop_game == games + 1 and in_game >= args.concede_after:
                         print(f"closing the connection in game {games + 1} after {in_game} prompts", flush=True)
                         ws.close()

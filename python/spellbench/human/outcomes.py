@@ -55,7 +55,8 @@ def main(argv: list) -> int:
         ended = ends.get(r["game_id"])
         how = f"{r['classification']}: {r.get('reason')}"
         if ended:
-            how = f"{ended['reason']} (by you; the ledger files it as {how})"
+            by = "by you" if ended["reason"] in ("conceded", "connection_lost") else "by the session"
+            how = f"{ended['reason']} ({by}; the ledger files it as {how})"
         print(f"game {r['game_index'] + 1:2d} {deck:9s} you {me} ({'first' if me == 'p0' else 'second'}) "
               f"{result:9s} {how}{extra}")
     manifest = run / "manifest.json"
