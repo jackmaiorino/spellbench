@@ -91,13 +91,23 @@ def pass_output(view: Mapping[str, Any] | None, me: str, mode: str = "plain",
 
 def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[str, ...] = (), *,
            view: Mapping[str, Any] | None = None, me: str = "player-0", pass_mode: str = "plain",
-           attack: bool = True, passive: bool = False) -> dict[str, Any] | None:
+           attack: bool = True, passive: bool = False, opening: dict[str, int] | None = None) -> dict[str, Any] | None:
     """The scripted answer. ``take``: texts of actions to prefer (any action whose label or description contains one,
     case-insensitively, is taken before anything else); ``avoid``: texts of actions never taken. ``view``: the latest
     gameView and ``me`` the person's player id, which the pass controls (``pass_mode``) read; ``attack``: whether to
-    attack with everything; ``passive``: take no action but those in ``take`` (a person who only passes)."""
+    attack with everything; ``passive``: take no action but those in ``take`` (a person who only passes). ``opening``
+    (a mutable ``{"mulligans": N}``) scripts the London opening: the first N keep-or-mulligan prompts answer
+    mulligan, the next keeps; a put-back prompt picks the first ``count`` cards of the hand in the prompt's order."""
     data = prompt.get("input") or {}
     kind = data.get("type")
+    if kind == "mulligan":
+        left = (opening or {}).get("mulligans", 0)
+        if left > 0:
+            opening["mulligans"] = left - 1
+            return {"type": "mulliganDecision", "keep": False}
+        return {"type": "mulliganDecision", "keep": True}
+    if kind == "mulliganPutBack":
+        return {"type": "mulliganPutBackDecision", "cardIds": list(data.get("handCardIds") or [])[:int(data.get("count") or 0)]}
     if kind == "chooseAction":
         actions = [a for a in data.get("actions") or []
                    if not any(t.lower() in action_text(a).lower() for t in avoid)]
@@ -153,6 +163,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--concede-game", type=int, default=0,
                         help="concede this game (1, 2, ...) after --concede-after answered prompts")
     parser.add_argument("--concede-after", type=int, default=3)
+    parser.add_argument("--mulligans", type=int, default=0,
+                        help="London opening: take this many mulligans before keeping (each game)")
     parser.add_argument("--drop-game", type=int, default=0,
                         help="close the connection in this game after --concede-after answered prompts (a closed tab)")
     parser.add_argument("--leave-game", type=int, default=0,
@@ -172,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     send = lambda m: ws.send(json.dumps(m))  # noqa: E731
     send({"type": "Authenticate", "username": args.username, "password": args.key, "service": False})
     joined, games, prompts, errors, slot = False, 0, 0, 0, "player-0"
+    opening = {"mulligans": args.mulligans}
     in_game, conceded = 0, False
     started_room = None
     deck = {"name": "Placeholder", "format": "pauper", "sideboard": [],
@@ -234,12 +247,13 @@ def main(argv: list[str] | None = None) -> int:
                     if games >= args.games:
                         break
                     in_game, conceded = 0, False
+                    opening["mulligans"] = args.mulligans
                     started_room, joined = None, False  # the table empties after a game: join it again
                     time.sleep(2)
                     send({"type": "ListRooms"})
                     continue
                 output = answer(prompt, take, avoid, view=latest_view, me=slot, pass_mode=args.pass_mode,
-                                attack=not args.no_attack, passive=args.passive)
+                                attack=not args.no_attack, passive=args.passive, opening=opening)
                 if output is not None and output.get("type") == "pass" and (output.get("until") or output.get("exhaustStack")):
                     print(f"pass with {json.dumps({k: v for k, v in output.items() if k != 'type'})}", flush=True)
                 if output is not None:

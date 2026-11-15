@@ -219,7 +219,9 @@ class Narrator:
         if isinstance(raw, str):
             self._snapshot(json.loads(raw), seat_decision, observation)
         # A step marker wherever a decision (either seat) shows a new step; it follows that span's events.
-        if step != self.step and step[2] is not None:
+        if step != self.step and step[2] == "pregame":
+            self.step = step  # the London opening has no turn: the log's opening lines come from the session
+        elif step != self.step and step[2] is not None:
             name = text.PHASES.get(step[2], step[2])
             whose_turn = "your" if step[1] == self.me else "opp's"
             self.pending_lines.append((self.offset - 0.2, Line(side="game", depth=0, text=f"{name} ({whose_turn} turn)",

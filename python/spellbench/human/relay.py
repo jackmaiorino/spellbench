@@ -29,7 +29,7 @@ VERSION = "1.0.0"
 URL_ENV = "HUMAN_SEAT_URL"
 TOKEN_ENV = "HUMAN_SEAT_TOKEN"
 # The model's input tensor is large and means nothing to a person; everything else is forwarded unchanged.
-DROPPED_EXTENSIONS = ("x_kernel_flat_v4",)
+DROPPED_EXTENSIONS = ("x_kernel_flat_v4", "x_kernel_flat_v7")
 
 
 class Relay:

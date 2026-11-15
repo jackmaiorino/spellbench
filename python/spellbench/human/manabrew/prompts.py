@@ -276,6 +276,67 @@ def boolean(pending: Mapping[str, Any]) -> tuple[dict, Answer] | None:
     return data, lambda output: ("answer", yes["id"] if output.get("value") else no["id"])
 
 
+def _hand(observation: Mapping[str, Any], seats: Seats) -> list[Mapping[str, Any]]:
+    for player in observation.get("players") or []:
+        if player.get("seat") == seats.human_seat:
+            return list(player.get("hand") or [])
+    return []
+
+
+def mulligan(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Seats) -> tuple[dict, Answer] | None:
+    """London keep or mulligan: Manabrew's ``mulligan`` prompt (Keep and Mulligan buttons, the count as a badge)."""
+    keep = mull = None
+    taken = 0
+    for c in pending.get("candidates") or []:
+        s = c.get("semantic") or {}
+        taken = s.get("mulligans_taken", taken)
+        if s.get("keep") is True:
+            keep = c
+        elif s.get("keep") is False:
+            mull = c
+    if keep is None:
+        return None
+    data = {"type": "mulligan", "handCardIds": [card.get("object_id") for card in _hand(observation, seats)],
+            "mulliganCount": int(taken)}
+
+    def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
+        if output.get("type") != "mulliganDecision" or not isinstance(output.get("keep"), bool):
+            raise Rejected("answer keep or mulligan")
+        if output["keep"]:
+            return "answer", keep["id"]
+        if mull is None:
+            raise Rejected("no further mulligan is allowed")
+        return "answer", mull["id"]
+
+    return data, answer
+
+
+def put_back(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Seats) -> tuple[dict, Answer] | None:
+    """The first substep of a ``mulligan_bottom`` group as Manabrew's ``mulliganPutBack`` prompt: the person picks
+    all ``count`` cards at once, and the picks come back in click order as the group's substeps."""
+    candidates = [c for c in pending.get("candidates") or []
+                  if (c.get("semantic") or {}).get("purpose") == "mulligan_bottom"]
+    if not candidates or len(candidates) != len(pending.get("candidates") or []):
+        return None
+    count = int((candidates[0]["semantic"] or {}).get("count") or 1)
+    hand = _hand(observation, seats)
+    ids = [((c["semantic"].get("item") or {}).get("object") or {}).get("object_id") for c in candidates]
+    if any(i is None for i in ids) or sorted(ids) != sorted(card.get("object_id") for card in hand):
+        return None  # the offered cards are not the whole visible hand: fall back to a plain selection
+    data = {"type": "mulliganPutBack", "handCardIds": [card.get("object_id") for card in hand],
+            "cards": [view.card_dto(card, seats, "hand") for card in hand], "count": count}
+
+    def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
+        picked = output.get("cardIds") if output.get("type") == "mulliganPutBackDecision" else None
+        if not isinstance(picked, list) or len(picked) != count or len(set(map(str, picked))) != count:
+            raise Rejected(f"choose exactly {count} different cards from your hand")
+        if any(p not in ids for p in picked):
+            raise Rejected("one of those cards is not in your hand", "unknownActionId")
+        return "plan", {"kind": "bottom", "cards": list(picked)}
+
+    return data, answer
+
+
 def _keywords(card: Mapping[str, Any]) -> set[str]:
     return {str(k).lower() for k in (card.get("characteristics") or {}).get("keywords") or []}
 
@@ -375,6 +436,14 @@ def build(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Sea
     context = pending.get("context") or {}
     if context.get("kind") == "priority" and kinds <= PRIORITY_KINDS:
         return choose_action(pending, seats)
+    if kinds == {"mulligan"}:
+        built = mulligan(pending, observation, seats)
+        if built is not None:
+            return built
+    if pending.get("screen") == "bottom":
+        built = put_back(pending, observation, seats)
+        if built is not None:
+            return built
     if pending.get("screen") == "attack":
         return attackers(pending, observation, seats)
     if pending.get("screen") == "block":

@@ -17,10 +17,25 @@ from .view import CARDS
 DECKS: dict[str, list[dict[str, Any]]] = json.loads(
     Path(__file__).with_name("pauper_decks.json").read_text(encoding="utf-8"))["decks"]
 ORDER = ("Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries")
+ALL_DECKS = ORDER  # every deck the board deals; ``ORDER`` is what a session offers (``exclude`` narrows it)
 SUFFIX = " (Basilisk 2 training deck)"
 COLORS = {"Wildfire": "text-green-400", "Rally": "text-red-400", "Affinity": "text-blue-400",
           "Elves": "text-green-400", "Spy": "text-green-400", "Burn": "text-red-400", "CawGates": "text-sky-400",
           "Faeries": "text-blue-400"}
+
+
+def exclude(names: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    """Leave decks out of this process's table: the client is not offered them (``preset_index``), a pick of one is
+    not a training deck (``catalog_id``), and a drawn deck never is one (``ORDER``). A name that is not a board deck
+    is an error. Called once at start-up by the session and by the client server (``--exclude-decks``)."""
+    global ORDER
+    unknown = [n for n in names if n not in ALL_DECKS]
+    if unknown:
+        raise ValueError(f"not board decks: {', '.join(unknown)}")
+    ORDER = tuple(d for d in ALL_DECKS if d not in names)
+    if not ORDER:
+        raise ValueError("every deck was excluded")
+    return ORDER
 
 
 def label(catalog_id: str) -> str:
@@ -32,7 +47,7 @@ def catalog_id(deck_name: str | None) -> str | None:
     if not deck_name:
         return None
     base = deck_name[:-len(SUFFIX)] if deck_name.endswith(SUFFIX) else deck_name
-    return base if base in DECKS else None
+    return base if base in DECKS and base in ORDER else None
 
 
 def preset_id(catalog: str) -> str:
