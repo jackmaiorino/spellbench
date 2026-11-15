@@ -82,3 +82,14 @@ def test_no_line_names_a_card_the_seat_has_not_seen(game: dict) -> None:
     # negative control: a line naming one of them is reported
     fake = [{"text": f"Opp reveals {hidden[0]}"}]
     assert replay.leak_check(game["rows"], "p0", fake) == [fake[0]["text"]]
+
+
+def test_human_recording_settings_truncate_at_the_cap_and_pass_the_arena_validator(tmp_path):
+    """A human session's record must never end the session at the per-game cap (a bot that mills itself with Balustrade
+    Spy writes 100 MiB or more in one turn): its config says on_cap truncate and the arena's validator accepts it."""
+    from spellbench.arena import engine_records
+    from spellbench.human import session
+
+    path, digest = session.recording_settings(tmp_path / "out", tmp_path / "cold")
+    data = engine_records.settings({engine_records.CONFIG_ENV: str(path), engine_records.HASH_ENV: digest})
+    assert data["on_cap"] == "truncate" and data["per_game_cap_bytes"] == 128 * 2**20
