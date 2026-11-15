@@ -59,7 +59,7 @@ adapter pytest and goldens run on main's bytes; the other audits run on the
 pinned ones (`engine_bytes` in `ENGINE-AUDITS.json`). The engine and builtin bot identities also depend on the launch environment: drive
 `bench commit` and `bench run` with the pinned `python.exe` and with
 `MTG_KERNEL_V2_BRIDGE`, `MTG_KERNEL_PUBLIC_CATALOG` and `MTG_KERNEL_V2_SOURCE`
-unset in the user and process environment, and check the printed engine
+removed from the launch process environment (including any user-level value it inherits), and check the printed engine
 identity from `bench prepare` in a clean checkout before committing.
 
 Every engine change behind a board needs fresh audits on the pinned binary
