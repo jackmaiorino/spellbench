@@ -158,7 +158,10 @@ def page_closer(hub: Hub) -> Any:
     return after_game
 
 
-PERSON_ENDED = ("conceded", "connection_lost")  # reasons the session gives a game the person (or their connection) ended
+# Reasons the session itself gives a game it ended: the person conceded or left the table, their connection did not
+# come back, the relay connection was lost, or the host failed. The arena can only file each as the human seat's
+# forfeit, so the ends file says why.
+PERSON_ENDED = ("conceded", "connection_lost", "relay_lost", "host_fault")
 
 
 def person_end(final: dict[str, Any] | None, ledger: Mapping[str, Any] | None) -> str | None:
@@ -174,6 +177,39 @@ def person_end(final: dict[str, Any] | None, ledger: Mapping[str, Any] | None) -
     final["reason"] = ledger.get("reason")
     final["result"] = "draw" if winner is None else ("win" if winner == final.get("seat") else "loss")
     return None
+
+
+class DeckPlan:
+    """The decks of the game that comes next, decided when the person picks at the table (not when the game starts),
+    so the bot's deck in the lobby is the deck it will play. The person is dealt their pick when it is a training deck,
+    else the next deck of ``rotation``; the bot plays the same deck (``mirror``), a fixed deck, or ``random``: one draw
+    per game, made the first time it is asked for and kept, so the lobby and the game agree."""
+
+    def __init__(self, rotation: list[str], opponent_deck: str, order: list[str], rng: Any) -> None:
+        self.rotation, self.opponent_deck, self.order, self.rng = rotation, opponent_deck, order, rng
+        self.drawn: list[str] = []
+
+    def human(self, pick: str | None, played: int) -> str:
+        return pick if pick is not None else self.rotation[played % len(self.rotation)]
+
+    def bot(self, human: str, played: int) -> str:
+        if self.opponent_deck == "mirror":
+            return human
+        if self.opponent_deck == "random":
+            while len(self.drawn) <= played:
+                self.drawn.append(self.rng.choice(self.order))
+            return self.drawn[played]
+        return self.opponent_deck
+
+
+def pick_note(start: Mapping[str, Any], human: str) -> str:
+    """What the log, the console and the name row say when the person is not dealt the deck they picked at the table
+    (empty when they are)."""
+    if start.get("human_pick") is not None:
+        return ""
+    picked = start.get("picked_name")
+    what = f"you picked {picked} at the table, which is not a training deck" if picked else "you picked no training deck"
+    return f"Deck note: {what}, so you are dealt {human} instead."
 
 
 class OneGame(Exception):
@@ -203,20 +239,18 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
     """The Manabrew table: each game plays the deck the person picks there (one of the training decks), against
     the bot's deck for that pick (``--opponent-deck``). Each game is its own run ``<name>-gNN``, stopped after its
     first game (so it publishes as aborted with that one game); the person alternates between seat p0 and p1.
-    A pick that is not a training deck is replaced by the next deck of ``--decks`` (or the pool), and the play log
-    and the console say so."""
+    A pick that is not a training deck is replaced by the next deck of ``--decks`` (or the pool), and the play log,
+    the player's name row and the console say so. The bot's deck is chosen when the person picks (``DeckPlan``), so
+    its lobby deck is the one it plays."""
     import random
     from .manabrew import decks as pool, host as manabrew_host
 
     rotation = [d.strip() for d in args.decks.split(",")] if args.decks else list(pool.ORDER)
-    rng = random.Random(f"{name}:opponent-deck")
+    plan = DeckPlan(rotation, args.opponent_deck, list(pool.ORDER), random.Random(f"{name}:opponent-deck"))
+    played = 0
 
-    def bot_deck_for(human: str | None) -> str | None:
-        if human is None or args.opponent_deck == "mirror":
-            return human
-        if args.opponent_deck == "random":
-            return None  # drawn when the game starts
-        return args.opponent_deck
+    def bot_deck_for(pick: str | None) -> str:
+        return plan.bot(plan.human(pick, played), played)
 
     bridge = manabrew_host.Bridge(hub, relay_url=args.relay_url, relay_key=args.relay_key, room_name=args.room_name,
                                   bot_name=shown, bot_deck=manabrew_host.pool_deck(), bot_deck_for=bot_deck_for,
@@ -224,22 +258,24 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
     bridge.start()
     print(f"  Manabrew: join table '{args.room_name}', pick a training deck, press Start game\n", flush=True)
     picks = out / "runs" / f"{name}.picks.jsonl"
-    played = 0
     try:
         while played < args.games:
-            start = bridge.next_start()
-            human = start.get("human_pick")
-            note = ""
-            if human is None:
-                human = rotation[played % len(rotation)]
-                note = f" (you picked {start.get('picked_name') or 'no deck'}, which is not a training deck)"
-            bot = bot_deck_for(human) or rng.choice(list(pool.ORDER))
+            try:
+                start = bridge.next_start()
+            except manabrew_host.RelayLost as exc:
+                print(f"\n  Session ended: {exc}. Games recorded so far stay in {out / 'runs'}.", flush=True)
+                return 2
+            human = plan.human(start.get("human_pick"), played)
+            bot = plan.bot(human, played)
+            note = pick_note(start, human)
             human_first = played % 2 == 0
-            bridge.dealt = {"human": human, "bot": bot}
-            line = (f"Game {played + 1}: you play {human}{note}, {shown} plays {bot}; "
+            bridge.dealt = {"human": human, "bot": bot, "differs": bool(note)}
+            line = (f"Game {played + 1}: you play {human}, {shown} plays {bot}; "
                     f"you are seat {'p0' if human_first else 'p1'}")
-            print(f"\n  ==== {line} ====\n", flush=True)
+            print(f"\n  ==== {line} ====\n" + (f"  {note}\n" if note else ""), flush=True)
             bridge.announce(line)
+            if note:
+                bridge.announce(note)
             run_name = f"{name}-g{played + 1:02d}"
             run_dir = out / "runs" / run_name
             doc = picked_game_config(base, human_deck=human, bot_deck=bot, human_first=human_first, run_dir=run_dir,
@@ -271,9 +307,10 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                     stream.write(json.dumps({"game": played, "run": run_name, "game_id": final["game_id"],
                                              "result": final["result"], "reason": ended}) + "\n")
             print(f"  game {played} recorded in {run_dir}"
-                  + (f" (you lost by {ended.replace('_', ' ')}; the ledger shows forfeit:agent_error for the human "
-                     f"seat, {out / 'runs' / (name + '.ends.jsonl')} says why)" if ended else ""), flush=True)
+                  + (f" (ended by {ended.replace('_', ' ')}, a loss for you; the ledger shows forfeit:agent_error for "
+                     f"the human seat, {out / 'runs' / (name + '.ends.jsonl')} says why)" if ended else ""), flush=True)
     finally:
+        bridge.close()
         stop.set()
         server.shutdown()
     return 0

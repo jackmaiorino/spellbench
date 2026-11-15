@@ -7,14 +7,17 @@ asked again, and every stack change is drawn. Display and human flow only: the e
 from __future__ import annotations
 
 import json
+import threading
+import time
 from pathlib import Path
 
 import pytest
 
 from spellbench.human.manabrew import fake_client, prompts, view
 from spellbench.human.manabrew.host import Bridge
-from spellbench.human.server import STEP_ORDER, Hub, active_combat, position_key, real_actions
+from spellbench.human.server import STEP_ORDER, Conceded, Hub, active_combat, position_key, real_actions
 
+from test_human_manabrew import directive
 from test_human_stops import (BOLT, LAND, MANA, MY_SPELL, NINJA, OPP, PASS, ME, SPELL_ON_STACK, decision, new_hub,
                               recorded, recorded_games, ref, waiting_priority)
 
@@ -423,6 +426,96 @@ def test_rapid_passes_with_different_stacks_are_all_drawn_in_order() -> None:
     sent.clear()
     bridge._push(hub.wait_state(-1, timeout=0.1, frames_from=bridge.sent_frames))
     assert not [m for m in sent if m.get("state", {}).get("kind") == "state"]
+
+
+def paced_bridge(hub: Hub, gap: float = 0.0) -> tuple[Bridge, list[dict]]:
+    bridge = Bridge(hub, relay_url="ws://127.0.0.1:1", relay_key="k", room_name="Room", bot_name="Basilisk 2",
+                    bot_deck=("Rally", []))
+    bridge.FRAME_GAP_S = gap
+    sent: list[dict] = []
+    bridge.host = type("Relay", (), {"send": staticmethod(sent.append)})()
+    bridge.human, bridge.order, bridge.game_id = "human", ["human", "Basilisk 2"], "g-1"
+    return bridge, sent
+
+
+def drawn_stacks(sent: list[dict]) -> list[list[str]]:
+    views = [m["state"]["state"]["gameView"] for m in sent if m.get("state", {}).get("kind") == "state"]
+    return [[entry["identity"]["name"] for entry in gv["stack"]] for gv in views]
+
+
+def pump_once(bridge: Bridge) -> None:
+    """What the pump does with the hub's newest state, with the bridge's own cursor."""
+    bridge._push(bridge.hub.wait_state(-1, timeout=0.1, frames_from=bridge.sent_frames, frames_game=bridge.sent_frames_game))
+
+
+def test_the_stack_changes_of_a_second_game_are_drawn_from_its_first() -> None:
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub)
+    for stack in (opponents_stack("Shock"), [], opponents_stack("Fireblast"), []):
+        hub.choose({"decision": at([PASS, MANA], active=OPP, turn=4, stack=stack)})
+    pump_once(bridge)
+    assert bridge.sent_frames == hub.frames_total == 4  # the cursor of game 1 is above anything game 2 has yet
+    hub.game_end({"game_id": "g-1", "terminal": {"winner": ME}})
+    pump_once(bridge)  # the end of game 1: the table is between games
+    assert bridge.order is None
+    sent.clear()
+    bridge.order, bridge.game_id = ["human", "Basilisk 2"], "g-2"
+    hub.game_start({"game_id": "g-2", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    for stack in (opponents_stack("Lava Dart"), opponents_stack("Lava Dart", "Counterspell"), []):
+        hub.choose({"decision": at([PASS, MANA], active=OPP, turn=2, stack=stack)})
+    assert hub.frames_total == 3
+    pump_once(bridge)  # the first state the pump sees of game 2 already has three positions
+    assert drawn_stacks(sent) == [["Lava Dart"], ["Counterspell", "Lava Dart"], []]
+    assert bridge.sent_frames == 3 and bridge.sent_frames_game == "g-2"
+
+
+def test_a_frame_cursor_above_the_hubs_total_starts_over() -> None:
+    hub = new_hub(real=True)
+    for stack in (opponents_stack("Shock"), []):
+        hub.choose({"decision": at([PASS, MANA], active=OPP, turn=4, stack=stack)})
+    assert len(hub.wait_state(-1, timeout=0.1, frames_from=7)["frames"]) == 2  # a count from another game
+    assert len(hub.wait_state(-1, timeout=0.1, frames_from=2)["frames"]) == 0
+    assert len(hub.wait_state(-1, timeout=0.1, frames_from=1, frames_game="g-1")["frames"]) == 1
+    assert len(hub.wait_state(-1, timeout=0.1, frames_from=1, frames_game="g-0")["frames"]) == 2  # another game's count
+
+
+def test_the_pacing_of_drawn_positions_holds_no_lock_so_the_persons_answer_is_handled_at_once() -> None:
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub, gap=0.4)  # four positions: 1.2 s of pacing
+    for stack in (opponents_stack("Shock"), [], opponents_stack("Fireblast"), []):
+        hub.choose({"decision": at([PASS, MANA], active=OPP, turn=4, stack=stack)})
+    def ask() -> None:
+        try:
+            hub.choose({"decision": at([PASS, BOLT], active=OPP, turn=4, stack=opponents_stack("Fireblast"))})
+        except Conceded:  # the arena's side of a concession
+            pass
+
+    thread = threading.Thread(target=ask, daemon=True)
+    thread.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    pusher = threading.Thread(target=bridge._pump_once, args=(-1,), daemon=True)  # the pump's own step
+    pusher.start()
+    deadline = time.monotonic() + 3
+    while not drawn_stacks(sent) and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert drawn_stacks(sent) and pusher.is_alive()  # pacing: the first position is out, the rest wait
+    started = time.monotonic()
+    bridge._on_host(None, {"type": "StateUpdate", "from_player": "human",
+                           "state": {"kind": "response", "promptId": 99, "action": {}}})  # a relay handler
+    handled = time.monotonic() - started
+    assert handled < 0.25 and pusher.is_alive()
+    assert any(m.get("state", {}).get("kind") == "error" for m in sent)  # it was answered, not queued behind the pacing
+    started = time.monotonic()
+    bridge._on_host(None, {"type": "StateUpdate", "from_player": "human", "state": directive("concede")})
+    assert time.monotonic() - started < 0.25 and pusher.is_alive()
+    assert hub.game_over["reason"] == "conceded"  # the person's answer took effect during the pacing
+    thread.join(5)
+    pusher.join(5)
+    assert not pusher.is_alive()
+    assert not any(m.get("state", {}).get("kind") == "prompt" and m["state"]["prompt"]["input"]["type"] == "chooseAction"
+                   for m in sent)  # the decision it was about is gone: it is not sent after the fact
 
 
 def test_the_page_state_does_not_carry_the_frames() -> None:

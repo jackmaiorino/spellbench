@@ -22,7 +22,7 @@ PRIORITY_KINDS = {"pass", "cast_spell", "play_land", "activate_ability", "activa
 # engine's observation has no name for.
 STEP_OF = {client: ours for ours, client in view.STEPS.items() if ours != "pregame"}
 STEP_OF["combatFirstStrikeDamage"] = "combat_damage"
-COLOR_LETTERS ={"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G", "colorless": "C"}
+COLOR_LETTERS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G", "colorless": "C"}
 LANDWALKS = {"plainswalk": "plains", "islandwalk": "island", "swampwalk": "swamp", "mountainwalk": "mountain",
              "forestwalk": "forest"}
 
