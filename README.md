@@ -231,7 +231,7 @@ engine and decks: seven reference rungs from uniform to oh2-r2s1-b512, each
 playing the rungs nearest it, so a new entrant gets a rating from games
 against 3 rungs near its strength. Its b512-argmax rung is within noise of
 b512 (+22 Elo, 95% CI [-21, +67], in the unrated pass that sized the
-ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on the infoset adapter. Evaluation 2.1.0 is the live board: engine pin d11d986d9 (mtg-kernel 4fccd3ebc plus mtg-kernel#614, which repairs the paid ninjutsu fault), rated run 2026-11-15, snapshot 2026-11-15. The board's pairing is mirror-only: both seats play the same deck, and every deck is played in both seats (the leaderboard notes' "mirror matchups" means a bot against itself, of which there are none, and is a different thing). The run played 2,304 games (the 15 rung blocks and Basilisk 2 against g115, oh2-r2s1-b512 and its argmax version, 18 blocks of 128), and every game ended naturally. Evaluation 2.0.0 (rated run 2026-11-08, snapshot 2026-11-09, on mtg-kernel 4fccd3ebc) and 2.1.0 ratings are not comparable, and neither are the ratings of `pauper-ladder-v1`. The 2.0.0 runs and snapshots stay published as records; the 5 games of the 2.0.0 run that halted were all the repaired fault (mtg-kernel#612).
+ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on the infoset adapter, mirrors only; `pauper-ladder-v3` below is the current rated board, and the v2 results stay published as mirror-only records. Evaluation 2.1.0 is v2's latest: engine pin d11d986d9 (mtg-kernel 4fccd3ebc plus mtg-kernel#614, which repairs the paid ninjutsu fault), rated run 2026-11-15, snapshot 2026-11-15. The board's pairing is mirror-only: both seats play the same deck, and every deck is played in both seats (the leaderboard notes' "mirror matchups" means a bot against itself, of which there are none, and is a different thing). The run played 2,304 games (the 15 rung blocks and Basilisk 2 against g115, oh2-r2s1-b512 and its argmax version, 18 blocks of 128), and every game ended naturally. Evaluation 2.0.0 (rated run 2026-11-08, snapshot 2026-11-09, on mtg-kernel 4fccd3ebc) and 2.1.0 ratings are not comparable, and neither are the ratings of `pauper-ladder-v1`. The 2.0.0 runs and snapshots stay published as records; the 5 games of the 2.0.0 run that halted were all the repaired fault (mtg-kernel#612).
 The `oh2-r2s1-b512-s4a-16k-k4` placement on 2.0.0 finished at 1473.7 Elo
 (95% CI [1411.2, 1543.8]). On 2.1.0 it is pending until its own re-rate, and
 that number is not a 2.1.0 rating. On 2.0.0, rung admission
@@ -250,7 +250,12 @@ mirror ladder and 445 and 343 on the grid, about 0.88 of the gap). The scale is 
 compare a v3 number with a v2 or grid number. The v2 numbers stay published
 as mirror-only records. A v3 run is rated only if it passes the board's
 validity unit, and v3 publishes no per-deck ratings, since one pair per deck
-pairing and matchup is too few. It has no rated run yet. Not in v3: the
+pairing and matchup is too few; the snapshot shows win rates by deck as
+description. Its first rated run is 2026-11-15 (snapshot 2026-11-15): 2,304
+games (the 15 rung blocks and Basilisk 2 against g115, oh2-r2s1-b512 and its
+argmax version, 18 blocks of 128), every game ended naturally, and the run
+passed the validity unit on every block, bot and deck pairing. The search
+entrant `oh2-r2s1-b512-s4a-16k-k4` is pending on v3. Not in v3: the
 Terror deck and mulligans (a later version). The rated game still asks a
 player to order cards that reach the graveyard together, which training
 does not ask. Evaluation 3.0.0 runs without the information-set export
@@ -259,10 +264,11 @@ owner's hand (mtg-kernel#713; 18 of 336 Faeries games against the token
 decks in an unrated sweep, none without the export), and no scheduled bot
 reads it. A bot that needs it, the search entrant, joins later through a
 per-block opt-in under a new evaluation version, once the exporter is fixed.
+[Rated snapshot, evaluation 3.0.0, engine d11d986d9](benchmarks/pauper-ladder-v3/snapshots/2026-11-15/LEADERBOARD.md)
 
 `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
 decks, not only mirrors, and adds a deck matchup matrix, deck Elo and each
 bot's score by deck; its first rated run is 2026-11-08. It runs the earlier
-engine; `pauper-ladder-v3` is meant to replace it for ratings once v3 has a
-rated run. Luna's proposed two-deck XMage benchmark has no rated result
+engine; `pauper-ladder-v3` replaces it for ratings, and its results stay
+published as records of that engine. Luna's proposed two-deck XMage benchmark has no rated result
 yet; `docs/llm-rated-entry.md` tracks its remaining live checks and publication.

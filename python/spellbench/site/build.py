@@ -564,11 +564,19 @@ def _home_view(
             "rows": [_hero_row(row, benchmarks, runs, stale) for row in table.rows],
             "benchmark_count": len(table.benchmark_ids),
             "approximate": any(row.approximate for row in table.rows),
+            "deck_pairings": {bench_id: _deck_pairing(runs[bench_id]) for bench_id in table.benchmark_ids},
         },
         "benchmarks": [{**_card(benchmark, runs.get(benchmark.id), stale.get(benchmark.id, frozenset())),
                         "other_runs": list((publications or {}).get(benchmark.id, ()))} for benchmark in benchmarks],
         "proposed": [{"title": item.title, "summary": item.summary, "needs": item.needs} for item in proposed],
     }
+
+
+def _deck_pairing(run: _Run) -> str | None:
+    """How the run's schedule pairs the decks of its pool (``mirror`` or ``all_pairs``); None for a protocol v1
+    run and for a run without a deck pool."""
+    config = run.config
+    return None if config is None or config.deck_pool is None else config.deck_pairing
 
 
 def _hero_row(
@@ -610,6 +618,7 @@ def _hero_row(
                 "margin": chip.margin,
                 "bound": chip.bound,
                 "legacy": runs[chip.benchmark_id].legacy,
+                "deck_pairing": _deck_pairing(runs[chip.benchmark_id]),
                 "reference_panel": bool(runs[chip.benchmark_id].config and runs[chip.benchmark_id].config.opponent_panel),
             }
             for chip in row.chips

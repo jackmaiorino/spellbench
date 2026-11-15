@@ -93,6 +93,10 @@ _HERO_SUBTITLE = (
     "The score compares skill above random across formats, not head-to-head results."
 )
 
+# How a benchmark pairs the decks of its pool, as a Hero chip and the Hero note say it.
+_PAIRING_LABELS = {"mirror": "mirror-only", "all_pairs": "all deck pairs"}
+_PAIRING_NOTES = {"mirror": "Mirror-only (both seats play the same deck)", "all_pairs": "Every ordered deck pairing"}
+
 _JOIN_INTRO = (
     "Spellbench is a small protocol. The arena sends your bot one decision at a time as a line of JSON "
     "listing the legal choices, and your bot answers with the one it picks. Any language works: your bot "
@@ -935,6 +939,16 @@ def _hero(hero: Mapping[str, Any]) -> str:
         note = f"{_count(hero['benchmark_count'], 'benchmark')} in the chart."
         if hero["approximate"]:
             note += " Intervals that combine several benchmarks are approximate."
+        if hero["benchmark_count"] > 1:
+            note += (
+                " Each benchmark has its own engine version, deck pairings and scale:"
+                " a bot's margins on different benchmarks are not comparable with each other."
+            )
+            pairings = hero.get("deck_pairings", {})
+            for kind, text in _PAIRING_NOTES.items():
+                names = [bench_id for bench_id, pairing in pairings.items() if pairing == kind]
+                if names:
+                    note += f" {text}: {_e(', '.join(names))}."
         if any(_hero_bound(row) for row in rows):
             note += (
                 f" A score marked {_BOUND_SIGNS['lower']} or {_BOUND_SIGNS['upper']} is only a bound: "
@@ -981,6 +995,7 @@ def _hero_row(row: Mapping[str, Any], scale: tuple[float, float], ticks: Sequenc
     chips = " ".join(
         f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}'
         f'{" " + _LEGACY_LABEL if _legacy(chip) else ""}'
+        f'{" (" + _PAIRING_LABELS[chip["deck_pairing"]] + ")" if chip.get("deck_pairing") in _PAIRING_LABELS else ""}'
         f'{" (reference panel)" if chip.get("reference_panel") else ""}</span>'
         for chip in row["chips"]
     )
