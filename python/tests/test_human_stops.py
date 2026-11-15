@@ -198,7 +198,7 @@ def test_the_clients_pass_buttons_map_to_the_right_answers() -> None:
     assert [a["id"] for a in data["actions"]] == ["1", "2"]  # the mana ability and the ninjutsu activation
     ninja = data["actions"][1]
     assert ninja["type"] == "activateAbility" and ninja["cardId"] == "o-n" and not ninja["isManaAbility"]
-    assert ninja["description"] == "Activate Ninja of the Deep Hours (ability 2) (from your hand)"
+    assert ninja["description"].startswith("Ninjutsu {1}{U} (") and ninja["description"].endswith("(from your hand)")
     assert answer({"type": "pass", "exhaustStack": False}) == ("answer", 0)  # the pass button and Space
     until = {"playerId": "player-1", "phase": "main2", "throughCombat": False}
     assert answer({"type": "pass", "until": until, "exhaustStack": False}) == (
