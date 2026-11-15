@@ -32,7 +32,7 @@ pytestmark = pytest.mark.skipif(not (BRIDGE and CATALOG and Path(BRIDGE).exists(
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parents[1]))
-sys.path.insert(0, str(HERE.parents[2] / "python"))
+sys.path.insert(0, str(HERE.parents[3] / "python"))
 
 from kernel_engine_london_human_v1 import FLAT, HISTORY, KernelEngine, NativePeer  # noqa: E402
 from spellbench import wire  # noqa: E402

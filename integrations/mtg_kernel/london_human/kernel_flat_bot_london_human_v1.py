@@ -30,7 +30,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "python"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "python"))
 
 from spellbench.bot import Decision, GameOver, GameStart, serve  # noqa: E402
 from spellbench.builtins.uniform import SplitMix64  # noqa: E402

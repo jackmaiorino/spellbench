@@ -22,7 +22,7 @@ from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "python"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "python"))
 # The pinned helper modules (history, combat, arrangement, order) are imported
 # unchanged from the parent folder; this folder holds only the London copies.
 sys.path.insert(1, str(Path(__file__).resolve().parents[1]))

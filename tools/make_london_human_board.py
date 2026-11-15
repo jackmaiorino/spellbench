@@ -71,8 +71,9 @@ def make(rated_board: Path, rated_local: Path, registry: Path, bridge: str, engi
     board["native_id_audits"] = {"x_kernel_flat_v7": "docs/pauper-london-human-v1.md#visibility-and-policy-inputs"}
     entrants = json.loads(registry.read_text(encoding="utf-8")).get("entrants", [])
     names = [entrant["name"] for entrant in entrants]
-    if len(set(names)) != len(names):
-        raise SystemExit("duplicate entrant names in the registry")
+    if len(set(names)) != len(names) or len({placeholder(name) for name in names}) != len(names):
+        raise SystemExit("duplicate entrant names in the registry (names that differ only in punctuation share "
+                         "a placeholder and so a scorer config)")
     anchors = [bot for bot in board["bots"] if bot["name"] in KEPT_BOTS]
     if [bot["name"] for bot in anchors] != list(KEPT_BOTS):
         raise SystemExit("the rated board lost its uniform and heuristic anchors")

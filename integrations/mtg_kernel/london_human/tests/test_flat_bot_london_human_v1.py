@@ -10,7 +10,7 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
-sys.path.insert(0, str(HERE.parents[2] / "python"))
+sys.path.insert(0, str(HERE.parents[3] / "python"))
 
 import kernel_flat_bot_london_human_v1 as bot_module  # noqa: E402
 from spellbench.bot import Decision, GameStart  # noqa: E402
