@@ -22,9 +22,80 @@ def action_text(action: Mapping[str, Any]) -> str:
     return str(action.get("label") or action.get("description") or "")
 
 
-def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[str, ...] = ()) -> dict[str, Any] | None:
+# The client's pass controls, ported from its source (src/stores/usePhaseStopStore.ts and src/hooks/usePromptEffects.ts,
+# read only): a plain pass (Space, the PASS button) runs to the next stop; END TURN to the first stop of the next
+# player's turn, through combat; on a stack the first sends no target and END TURN sends exhaustStack.
+STEPS = ("upkeep", "draw", "main1", "combatBegin", "combatDeclareAttackers", "combatDeclareBlockers",
+         "combatFirstStrikeDamage", "combatDamage", "combatEnd", "main2", "endOfTurn", "cleanup")
+DEFAULT_SELF_STOPS = ("main1", "combatDeclareAttackers", "main2")
+DEFAULT_OPPONENT_STOPS = ("endOfTurn",)
+
+
+def next_stop(view: Mapping[str, Any], me: str, self_stops: tuple[str, ...] = DEFAULT_SELF_STOPS,
+              opponent_stops: tuple[str, ...] = DEFAULT_OPPONENT_STOPS) -> dict[str, Any] | None:
+    """getNextStop: the first (player, step) after the current one, in turn order, that the person has a stop at."""
+    order = [p["id"] for p in view.get("players") or [] if p.get("status") == "playing"]
+    active, step = view.get("activePlayerId"), view.get("step")
+    if active not in order:
+        return None
+    start = order.index(active)
+    here = STEPS.index(step) if step in STEPS else -1
+    for slot in range(len(order) + 1):
+        player = order[(start + slot) % len(order)]
+        stops = self_stops if player == me else opponent_stops
+        first = (here + 1 if here >= 0 else len(STEPS)) if slot == 0 else 0
+        for phase in STEPS[first:]:
+            if phase in stops:
+                return {"playerId": player, "phase": phase}
+    return None
+
+
+def end_turn_stop(view: Mapping[str, Any], me: str, self_stops: tuple[str, ...] = DEFAULT_SELF_STOPS,
+                  opponent_stops: tuple[str, ...] = DEFAULT_OPPONENT_STOPS) -> dict[str, Any] | None:
+    """getEndTurnStop: the first stop from the start of the next player's turn, else that player's upkeep."""
+    order = [p["id"] for p in view.get("players") or [] if p.get("status") == "playing"]
+    active = view.get("activePlayerId")
+    if active not in order:
+        return None
+    start = order.index(active)
+    for slot in range(1, len(order) + 1):
+        player = order[(start + slot) % len(order)]
+        stops = self_stops if player == me else opponent_stops
+        for phase in STEPS:
+            if phase in stops:
+                return {"playerId": player, "phase": phase}
+    return {"playerId": order[(start + 1) % len(order)], "phase": "upkeep"}
+
+
+def pass_output(view: Mapping[str, Any] | None, me: str, mode: str = "plain",
+                self_stops: tuple[str, ...] = DEFAULT_SELF_STOPS,
+                opponent_stops: tuple[str, ...] = DEFAULT_OPPONENT_STOPS) -> dict[str, Any]:
+    """The pass output the client sends. ``plain``: no target (what this stand-in always sent); ``stops``: Space or
+    the PASS button; ``end-turn``: the END TURN button and key."""
+    out: dict[str, Any] = {"type": "pass", "exhaustStack": False}
+    if view is None or mode == "plain":
+        return out
+    if view.get("stack"):
+        out["exhaustStack"] = mode == "end-turn"
+        return out
+    if mode == "stops":
+        target = next_stop(view, me, self_stops, opponent_stops)
+        if target:
+            out["until"] = {**target, "throughCombat": False}
+    elif mode == "end-turn":
+        target = end_turn_stop(view, me, self_stops, opponent_stops)
+        if target:
+            out["until"] = {**target, "throughCombat": True}
+    return out
+
+
+def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[str, ...] = (), *,
+           view: Mapping[str, Any] | None = None, me: str = "player-0", pass_mode: str = "plain",
+           attack: bool = True) -> dict[str, Any] | None:
     """The scripted answer. ``take``: texts of actions to prefer (any action whose label or description contains one,
-    case-insensitively, is taken before anything else); ``avoid``: texts of actions never taken."""
+    case-insensitively, is taken before anything else); ``avoid``: texts of actions never taken. ``view``: the latest
+    gameView and ``me`` the person's player id, which the pass controls (``pass_mode``) read; ``attack``: whether to
+    attack with everything."""
     data = prompt.get("input") or {}
     kind = data.get("type")
     if kind == "chooseAction":
@@ -35,14 +106,14 @@ def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[s
         lands = [a for a in actions if a.get("type") == "cast" and str(a.get("label", "")).startswith("Play ")]
         spells = [a for a in actions if a.get("type") == "cast" and a not in lands]
         pick = (wanted or lands or spells or [None])[0]
-        return {"type": "act", "actionId": pick["id"]} if pick else {"type": "pass", "exhaustStack": False}
+        return {"type": "act", "actionId": pick["id"]} if pick else pass_output(view, me, pass_mode)
     if kind == "chooseBoardTargets":
         chosen = (data.get("candidates") or [])[:max(1, data.get("minTargets") or 0)]
         return {"type": "boardTargets", "chosen": chosen}
     if kind == "chooseAttackers":
         return {"type": "declareAttackers",
                 "assignments": [{"attackerId": a["attackerId"], "targetId": a["validTargetIds"][0]}
-                                for a in data.get("attackers") or [] if a.get("validTargetIds")]}
+                                for a in data.get("attackers") or [] if a.get("validTargetIds") and attack]}
     if kind == "chooseBlockers":
         return {"type": "declareBlockers", "assignments": []}
     if kind == "chooseFromSelection":
@@ -72,6 +143,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--take", default="", help="comma-separated texts of actions to take whenever offered "
                         "(for example the ninjutsu activation of a card)")
     parser.add_argument("--avoid", default="", help="comma-separated texts of actions never to take")
+    parser.add_argument("--pass-mode", choices=("plain", "stops", "end-turn"), default="plain",
+                        help="what a pass sends: plain (no target), stops (Space: run to the next stop) or end-turn "
+                        "(the END TURN button: through combat to the next player's first stop; exhaustStack on a stack)")
+    parser.add_argument("--self-stops", default=",".join(DEFAULT_SELF_STOPS),
+                        help="the client's own phase stops (StepKind names), for --pass-mode stops and end-turn")
+    parser.add_argument("--no-attack", action="store_true", help="declare no attackers")
     parser.add_argument("--concede-game", type=int, default=0,
                         help="concede this game (1, 2, ...) after --concede-after answered prompts")
     parser.add_argument("--concede-after", type=int, default=3)
@@ -80,7 +157,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     take = tuple(t for t in args.take.split(",") if t)
     avoid = tuple(t for t in args.avoid.split(",") if t)
-    out = args.out.open("w", encoding="utf-8") if args.out else None
+    self_stops = tuple(t for t in args.self_stops.split(",") if t)
+    latest_view: dict[str, Any] | None = None
+    out =args.out.open("w", encoding="utf-8") if args.out else None
     ws = WebSocket(args.relay)
     send = lambda m: ws.send(json.dumps(m))  # noqa: E731
     send({"type": "Authenticate", "username": args.username, "password": args.key, "service": False})
@@ -130,7 +209,9 @@ def main(argv: list[str] | None = None) -> int:
             if out:
                 out.write(json.dumps(envelope) + "\n")
                 out.flush()
-            if envelope.get("kind") == "prompt":
+            if envelope.get("kind") == "state":
+                latest_view = (envelope.get("state") or {}).get("gameView") or latest_view
+            elif envelope.get("kind") == "prompt":
                 prompt = envelope["prompt"]
                 if (prompt.get("input") or {}).get("type") == "gameOver":
                     games += 1
@@ -143,7 +224,10 @@ def main(argv: list[str] | None = None) -> int:
                     time.sleep(2)
                     send({"type": "ListRooms"})
                     continue
-                output = answer(prompt, take, avoid)
+                output = answer(prompt, take, avoid, view=latest_view, me=slot, pass_mode=args.pass_mode,
+                                attack=not args.no_attack)
+                if output is not None and output.get("type") == "pass" and (output.get("until") or output.get("exhaustStack")):
+                    print(f"pass with {json.dumps({k: v for k, v in output.items() if k != 'type'})}", flush=True)
                 if output is not None:
                     prompts += 1
                     in_game += 1

@@ -7,6 +7,11 @@ from the client is ready. During the game it sends the person the board (``state
 decision (``prompt`` envelopes), and turns the client's answers into the play server's answers. The bot, the engine
 and the session are the ordinary ``spellbench.human`` ones: nothing the bot observes changes.
 
+Priority windows: a window at which the person has nothing but passing and mana abilities is answered by the session
+and never sent, so the client's AUTOPASS countdown and its Full control setting have nothing to act on: Full control is
+not supported (the person is asked at every window with a real action, and at no other). The client's pass-until and
+exhaustStack reach ``Hub.pass_with``; every position at which the stack changed is drawn in order (``Hub.frames``).
+
 Wire formats: the relay messages and envelopes follow the upstream relay as read at the commit named in NOTICE.md;
 the engine-client messages follow the Manabrew protocol documentation (CC-BY-4.0).
 """
@@ -108,6 +113,7 @@ class Bridge:
         self.seats: view.Seats | None = None
         self.prompt: dict[str, Any] | None = None  # {"seq", "answer", "type"}
         self.sent_log = 0
+        self.sent_frames = 0  # the hub's stack-changing positions already drawn (Hub.frames_total)
         self.sent_view: str | None = None
         self.starting = False
         self._grace: threading.Timer | None = None
@@ -250,7 +256,7 @@ class Bridge:
     def _pump(self) -> None:
         version = -1
         while True:
-            state = self.hub.wait_state(version, timeout=5.0)
+            state = self.hub.wait_state(version, timeout=5.0, frames_from=self.sent_frames)
             version = state["version"]
             try:
                 with self.lock:
@@ -275,21 +281,18 @@ class Bridge:
                      f"player-{bot_index}": f"{self.bot_name} ({dealt.get('bot', '?')})"}
             self.seats = view.Seats(game.get("seat"), f"player-{human_index}", f"player-{bot_index}", names)
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
+            self.sent_frames = 0
         observation = state.get("observation")
         over = state.get("game_over")
+        # Every decision at which the stack changed is drawn, in order, even when the session answered it at once and
+        # the engine has moved on: an opponent's spell is on the board before it resolves.
+        frames = [] if over else (state.get("frames") or [])[-self.FRAMES_SHOWN:]
+        for frame in frames:
+            if self._send_view(frame, game, None) and frame is not frames[-1]:
+                time.sleep(self.FRAME_GAP_S)
+        self.sent_frames = state.get("frames_total", self.sent_frames)
         if observation:
-            winner = None
-            if over and over.get("winner"):
-                winner = self.seats.pid(over.get("winner"))
-            if observation.get("turn") == 1 and self.starter is None:
-                self.starter = observation.get("active_seat")
-            gv = view.game_view(observation, self.seats, self.game_id or str(game.get("game_id")),
-                                game_over=bool(over), winner=winner, starter=self.starter)
-            raw = json.dumps(gv, sort_keys=True)
-            if raw != self.sent_view:
-                self.sent_view = raw
-                self._envelope({"kind": "state", "forPlayer": self.seats.pid(game.get("seat")),
-                                "state": {"gameView": gv}})
+            self._send_view(observation, game, over)
         log = state.get("log") or []
         # sent_log counts lines ever sent (the hub keeps only its newest lines, so a list length is no cursor).
         fresh, self.sent_log = log_since(log, state.get("log_total", len(log)), self.sent_log)
@@ -309,6 +312,25 @@ class Bridge:
                                        "input": {"type": "gameOver"}}})
             self.host.send({"type": "EndGame", "game_id": self.game_id})
             self.order, self.seats = None, None
+
+    FRAME_GAP_S = 0.2  # between two drawn stack positions, so the client renders each
+    FRAMES_SHOWN = 8   # at most this many of the newest (a long run of passes does not delay the next prompt)
+
+    def _send_view(self, observation: Mapping[str, Any], game: Mapping[str, Any], over: Mapping[str, Any] | None) -> bool:
+        """Send the board for ``observation`` if it differs from the one last sent; returns whether it was sent."""
+        winner = None
+        if over and over.get("winner"):
+            winner = self.seats.pid(over.get("winner"))
+        if observation.get("turn") == 1 and self.starter is None:
+            self.starter = observation.get("active_seat")
+        gv = view.game_view(observation, self.seats, self.game_id or str(game.get("game_id")),
+                            game_over=bool(over), winner=winner, starter=self.starter)
+        raw = json.dumps(gv, sort_keys=True)
+        if raw == self.sent_view:
+            return False
+        self.sent_view = raw
+        self._envelope({"kind": "state", "forPlayer": self.seats.pid(game.get("seat")), "state": {"gameView": gv}})
+        return True
 
     def _send_prompt(self, pending: Mapping[str, Any], observation: Mapping[str, Any]) -> None:
         if self.fallback_seq == pending["seq"]:
@@ -389,8 +411,8 @@ class Bridge:
         seq = self.prompt["seq"]
         if how == "answer":
             error = self.hub.answer_with(seq, int(value))
-        elif how == "pass_turn":
-            error = self.hub.pass_turn(seq, **value)
+        elif how == "pass":  # a pass with the client's pass-until and exhaustStack (prompts.hold_target)
+            error = self.hub.pass_with(seq, value["until"], exhaust_stack=value["exhaust_stack"])
         else:
             error = self.hub.plan_with(seq, value)
         if error is not None:

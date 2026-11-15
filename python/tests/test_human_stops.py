@@ -161,7 +161,8 @@ def test_end_turn_on_a_stack_passes_until_the_stack_is_empty() -> None:
     hub.answer_with(hub.pending["seq"], 0)
     thread.join(5)
     assert hub.exhaust_stack is False
-    thread = waiting_priority(hub, decision([PASS, BOLT], phase="end_step", active=OPP, stack=[SPELL_ON_STACK]))
+    another = {**SPELL_ON_STACK, "object_id": "o-s2"}  # a new object (the same one at the same position is not asked twice)
+    thread = waiting_priority(hub, decision([PASS, BOLT], phase="end_step", active=OPP, stack=[another]))
     hub.answer_with(hub.pending["seq"], 0)
     thread.join(5)
 
@@ -200,14 +201,16 @@ def test_the_clients_pass_buttons_map_to_the_right_answers() -> None:
     assert ninja["description"] == "Activate Ninja of the Deep Hours (ability 2) (from your hand)"
     assert answer({"type": "pass", "exhaustStack": False}) == ("answer", 0)  # the pass button and Space
     until = {"playerId": "player-1", "phase": "main2", "throughCombat": False}
-    assert answer({"type": "pass", "until": until, "exhaustStack": False}) == ("answer", 0)
+    assert answer({"type": "pass", "until": until, "exhaustStack": False}) == (
+        "pass", {"until": {"seat": ME, "step": "postcombat_main", "through_combat": False}, "exhaust_stack": False})
     assert answer({"type": "pass", "until": {**until, "throughCombat": True}, "exhaustStack": False}) == (
-        "pass_turn", {"exhaust_stack": False})  # "end turn"
-    assert answer({"type": "pass", "exhaustStack": True}) == ("pass_turn", {"exhaust_stack": True})  # "end turn" on a stack
+        "pass", {"until": {"seat": ME, "step": "postcombat_main", "through_combat": True}, "exhaust_stack": False})
+    assert answer({"type": "pass", "exhaustStack": True}) == ("pass", {"until": None, "exhaust_stack": True})  # on a stack
     assert answer({"type": "act", "actionId": "2"}) == ("answer", 2)
 
 
 def test_the_hosts_end_turn_reaches_the_hub_and_a_plain_pass_does_not() -> None:
+    end_turn = {"playerId": "player-1", "phase": "endOfTurn", "throughCombat": True}
     hub = new_hub(real=True)
     bridge = Bridge(hub, relay_url="ws://127.0.0.1:1", relay_key="k", room_name="Room", bot_name="Basilisk 2",
                     bot_deck=("Rally", []))
@@ -215,9 +218,10 @@ def test_the_hosts_end_turn_reaches_the_hub_and_a_plain_pass_does_not() -> None:
     bridge.host = type("Relay", (), {"send": staticmethod(sent.append)})()
     bridge.human, bridge.order, bridge.game_id = "human", ["human", "Basilisk 2"], "g-1"
     bridge.seats = view.Seats(ME, "player-0", "player-1", {"player-0": "human", "player-1": "Basilisk 2"})
-    request = decision([PASS, NINJA], phase="declare_blockers")
-    for pass_output, expect_skip in (({"type": "pass", "exhaustStack": False}, False),
-                                     ({"type": "pass", "until": {"throughCombat": True}, "exhaustStack": False}, True)):
+    for n, (pass_output, expect_skip) in enumerate((({"type": "pass", "exhaustStack": False}, False),
+                                                    ({"type": "pass", "until": end_turn, "exhaustStack": False}, True))):
+        request = decision([PASS, NINJA], phase="declare_blockers")
+        request["observation"]["turn"] = 3 + n  # (a position the person already passed at is not asked again)
         thread = waiting_priority(hub, request)
         bridge._push(hub.state())  # the prompt reaches the client
         assert any(m.get("state", {}).get("kind") == "prompt" for m in sent)
@@ -225,8 +229,8 @@ def test_the_hosts_end_turn_reaches_the_hub_and_a_plain_pass_does_not() -> None:
         bridge._on_response("human", {"kind": "response", "fromPlayer": "player-0", "promptId": hub.pending["seq"],
                                       "action": {"type": "chooseAction", "output": pass_output}})
         thread.join(5)
-        assert thread.result == [0] and (hub.skip is not None) is expect_skip
-        hub.skip = None
+        assert thread.result == [0] and (hub.hold is not None) is expect_skip
+        hub.hold = None
         bridge.prompt = None
     assert not [m for m in sent if m.get("state", {}).get("kind") == "error"]
 
