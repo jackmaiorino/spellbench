@@ -195,7 +195,7 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
             failures = validate_tournament_dir(directory)
             if failures:
                 raise SiteError(f"{benchmark.id} snapshots/{directory.name}: " + "; ".join(failures))
-        excluded = {run for run, _ in benchmark.excluded_runs}
+        excluded = definition.excluded_run_names(benchmarks_dir / benchmark.id)
         rated = [directory for directory in snapshots
                  if store.read_json(directory / store.MANIFEST_NAME)["run"]["rated"]
                  and not _cites(directory, excluded)]
@@ -212,7 +212,7 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
             warnings.extend(board_warnings)
     for benchmark in benchmarks:
         warnings.extend(f"{benchmark.id} runs/{run}: excluded from measurement: {reason}"
-                        for run, reason in benchmark.excluded_runs)
+                        for run, reason in definition.excluded_runs(benchmarks_dir / benchmark.id, benchmark))
     table = hero.hero_table([(bench_id, run.board) for bench_id, run in runs.items()])
     warnings.extend(table.warnings)
     warnings.extend(_mixed_hero_bots(runs, table.benchmark_ids))
@@ -308,7 +308,7 @@ def _load_benchmarks(benchmarks_dir: Path) -> tuple[list[definition.Benchmark], 
         except definition.BenchmarkError as exc:
             raise SiteError(str(exc)) from exc
         benchmarks.append(benchmark)
-        excluded = {run for run, _ in benchmark.excluded_runs}
+        excluded = {run for run, _ in definition.excluded_runs(folder, benchmark)}
         published = definition.published_runs(folder)
         board = _board_of([path for path in published if path.name not in excluded])
         newer = published if board is None else published[published.index(board) + 1 :]

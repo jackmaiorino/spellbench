@@ -12,7 +12,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Sequence
 
-from . import leaderboard, registry, store
+from . import leaderboard, registry, store, validity
 from .config import BotSpec, Ladder, TournamentConfig, ladder_pairs
 from .ledger import LedgerRow, parse_ledger
 from .manifest import EngineFile
@@ -76,7 +76,8 @@ def contract(config: TournamentConfig) -> dict[str, Any]:
     keys = ("format", "engine", "deck_pool", "decks", "pairs_per_matchup", "rules", "extensions",
             "native_id_audits", "time_control", "limits", "resources", "rating_anchor",
             "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs",
-            "deck_pairing")  # written only for all_pairs, so mirror boards keep their contract
+            "deck_pairing",  # written only for all_pairs, so mirror boards keep their contract
+            "validity")  # written only for a board that names a validity unit, likewise
     conditions = {key: doc[key] for key in keys if key in doc}
     if config.ladder is not None:
         # A ladder block is one matchup under these conditions; select_blocks matches both players' inputs. The
@@ -160,6 +161,8 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
     for source in sorted(sources, key=lambda s: (s.path.name[:10], int(s.path.name[11:] or "1"))):
         if rated_only and source.manifest["run"]["rated"] is not True:
             continue
+        if validity.verdict(source.manifest.get(validity.MANIFEST_KEY)) == "fail":
+            continue  # a run that failed its board's validity unit is never measured, rated or not
         try:
             compatible = contract(source.config) == expected
         except SnapshotError:
@@ -235,6 +238,8 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
             raise SnapshotError(f"source {source.path.name} has incompatible entrant inputs")
         if rated_only and not source.manifest["run"]["rated"]:
             raise SnapshotError(f"source {source.path.name} is not rated")
+        if validity.verdict(source.manifest.get(validity.MANIFEST_KEY)) == "fail":
+            raise SnapshotError(f"source {source.path.name} failed its board's validity unit")
         source_facts = {key: source.manifest[key] for key in
                         ("protocol", "engine", "engine_profile", "information_rules", "engine_files")}
         source_facts["resolved_decks"] = sorted(

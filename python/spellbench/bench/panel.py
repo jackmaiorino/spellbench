@@ -45,7 +45,8 @@ def sources(directory: Path) -> list[snapshot.Source]:
     excluded = definition.excluded_run_names(directory)
     for run_dir in definition.published_runs(directory):
         if run_dir.name in excluded:
-            continue  # kept published, never measured (benchmark.excluded_runs)
+            continue  # kept published, never measured: listed in benchmark.excluded_runs, or its own
+            # manifest records a failed validity unit (definition.excluded_runs)
         manifest = store.read_json(run_dir / store.MANIFEST_NAME)
         if manifest.get("schema") != store.TOURNAMENT_SCHEMA:
             continue  # frozen legacy runs cannot be transported to a v2 reference panel

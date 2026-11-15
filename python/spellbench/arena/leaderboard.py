@@ -347,15 +347,27 @@ def build_leaderboard(
     bootstrap_replicates: int,
     format: str,
     schema: str,
+    withheld: str | None = None,
 ) -> tuple[dict[str, Any], str]:
     """Build the leaderboard JSON document and the markdown rendering.
 
     ``schema`` is required. ``LEADERBOARD_SCHEMA_V1`` reproduces the v1
     artifacts byte for byte; ``LEADERBOARD_SCHEMA_V2`` adds per-bot halt and
     truncation attribution (spec 11.5) and the v2 notes.
+
+    ``withheld`` is the reason a run publishes no rating (it failed its
+    board's validity unit, ``validity.py``): the document then has status
+    ``withheld`` and keeps the game counts, each bot's W/D/L and attribution
+    and the matchup records, with no rating, interval, rank, subrating, deck
+    slice or deck grid.
     """
     if schema not in (LEADERBOARD_SCHEMA_V1, LEADERBOARD_SCHEMA_V2):
         raise ValueError(f"unknown leaderboard schema: {schema!r}")
+    if withheld is not None:
+        document = _withheld_document(rows, entries, anchor_bot_id=anchor_bot_id, base_seed=base_seed,
+                                      bootstrap_replicates=bootstrap_replicates, format=format, schema=schema,
+                                      reason=withheld)
+        return document, render_markdown(document)
     document = _build_document(
         rows,
         entries,
@@ -573,6 +585,36 @@ def _build_document(
     return document
 
 
+def _withheld_document(
+    rows: Sequence[_Row],
+    entries: Sequence[registry.RegistryEntry],
+    *,
+    anchor_bot_id: str,
+    base_seed: int,
+    bootstrap_replicates: int,
+    format: str,
+    schema: str,
+    reason: str,
+) -> dict[str, Any]:
+    """The document of a run that publishes no rating: what was played, and nothing fitted from it."""
+    document = _build_document(rows, entries, anchor_bot_id=anchor_bot_id, base_seed=base_seed,
+                               bootstrap_replicates=bootstrap_replicates, format=format, schema=schema)
+    document["status"] = "withheld"
+    document["fit_error"] = None
+    document["bt"]["iterations"] = None
+    document["bt"]["rating_bootstrap"] = {"status": "not_applicable", "replicates": bootstrap_replicates,
+                                          "failed_replicates": 0, "seed": None}
+    for row in document["rows"]:
+        row.update(rank=None, rated=False, rating_log_units_e6=None, elo_milli=None, ci95_log_units_e6=None,
+                   ci95_elo_milli=None)
+    document["rows"].sort(key=lambda row: row["bot_id"])
+    document["subratings"] = []
+    document["slices"] = {"deck": []}
+    document["withheld"] = {"reason": reason}
+    document["notes"] = [*document["notes"], f"no rating is published from this run: it {reason}"]
+    return document
+
+
 _deck_label = deck_grid.deck_label
 
 
@@ -756,7 +798,9 @@ def render_markdown(document: dict[str, Any]) -> str:
         f"halted {counts['halted']})",
         f"- Anchor: {anchor['name']} {anchor['version']}, fixed at 0.000000 log units (Elo display 1000.0)",
         f"- Status: {document['status']}"
-        + (f" ({document['fit_error']})" if document["fit_error"] else ""),
+        + (f" ({document['fit_error']})" if document["fit_error"] else "")
+        + (f" (no rating is published from this run: it {document['withheld']['reason']})"
+           if "withheld" in document else ""),
         f"- Rating: anchored Bradley-Terry MM, draws count half, "
         f"{document['bt']['virtual_draws_per_matchup']} virtual draw(s) per matchup; "
         f"CI95: paired bootstrap over seat-swapped pairs "

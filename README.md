@@ -126,6 +126,15 @@ selects missing targets; normal committed, guarded runs play them; `bench compos
 refits saved results into a validated snapshot. The leaderboard labels comparisons
 through shared opponents and leaves unplayed head-to-head matchups empty.
 
+A board may name a validity unit (`validity` in `benchmark.json`,
+[design note](docs/design/2026-11-15-validity-unit.md)): the share of each
+block's scheduled games that must end naturally and sit in complete
+seat-swapped pairs, and the share per bot and per ordered deck pairing.
+`bench run` writes the verdict and its tables into the run's manifest. A run
+that fails stays published in full, is not rated, shows no rating in its own
+leaderboard, and is left out of `bench compose` and the site by its own
+record. It is never topped up or replaced.
+
 A benchmark is a folder under `benchmarks/` with a `benchmark.json`: an
 engine, a deck pool, and a roster anchored on the builtin `uniform` bot
 (Elo 1000, shown as "random"). Every matchup plays each pool deck in both
