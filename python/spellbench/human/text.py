@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Iterator, Mapping
 
 PHASES = {
@@ -82,6 +83,35 @@ def mode_label(semantic: Mapping[str, Any]) -> str:
     return f"Mode {index + 1} of {count}"
 
 
+# Keyword abilities that are activated from a card's own zone (reminder text in parentheses follows the cost).
+_HAND_ACTIVATION = re.compile(r"(?i)^((commander )?ninjutsu|[a-z]*cycling|channel|transmute|bloodrush)\b")
+_BOARD_KEYWORD_ACTIVATION = re.compile(r"(?i)^(equip|crew|outlast|level up|reconfigure|fortify|unearth)\b")
+_TRIGGER_LINE = re.compile(r"(?i)^(when|whenever|at)\b")
+
+
+def ability_rules(semantic: Mapping[str, Any]) -> str:
+    """The line of the source card's rules text that an activate_ability candidate runs, when that is certain: the
+    card's only activated ability for the zone it is activated from (a colon outside reminder text on the board, a
+    ninjutsu or cycling line in hand). Several lines give "" (the engine's ability_index does not say which)."""
+    source = semantic.get("source") if isinstance(semantic.get("source"), Mapping) else {}
+    lines = [line.strip() for line in _rules_text(source.get("card_name")).split("\n") if line.strip()]
+    if source.get("zone") in ("battlefield", "stack"):
+        picks = [line for line in lines if _board_activation(line)]
+    else:
+        picks = [line for line in lines if _HAND_ACTIVATION.match(line)]
+    return picks[0] if len(picks) == 1 else ""
+
+
+def _board_activation(line: str) -> bool:
+    bare = re.sub(r"\([^)]*\)", "", line).strip()
+    if _TRIGGER_LINE.match(bare):
+        return False
+    cost, colon, effect = bare.partition(":")
+    if colon and effect.strip().lower().startswith("add "):  # a mana ability is offered as its own candidate
+        return False
+    return bool(colon) or bool(_BOARD_KEYWORD_ACTIVATION.match(bare))
+
+
 def seat_name(seat: Any, me: str | None) -> str:
     if seat is None:
         return "?"
@@ -134,6 +164,53 @@ def refs(value: Any) -> Iterator[str]:
             yield from refs(item)
 
 
+COST_OPTIONS = {"discard": "Discard a card", "sacrifice_land": "Sacrifice a land"}
+_MANA = r"((?:\{[^}]+\})+)"
+
+
+def optional_cost_phrase(semantic: Mapping[str, Any]) -> str:
+    """What an optional_cost candidate pays, from the source card's rules text where it says so ("{B}", "the kicker
+    cost ({R})"), else the cost's kind and the card ("the optional cost of Nihil Spellbomb")."""
+    kind = str(semantic.get("cost"))
+    source = semantic.get("source") if isinstance(semantic.get("source"), Mapping) else {}
+    name = source.get("card_name")
+    rules = _rules_text(name)
+    found = None
+    if kind == "kicker":
+        found = re.search(r"Kicker " + _MANA, rules)
+        found = f"the kicker cost ({found.group(1)})" if found else None
+    elif kind == "unless_payment":
+        found = re.search(r"unless [^.]*? pays " + _MANA, rules)
+        found = found.group(1) if found else None
+    elif kind in ("copy", "other"):
+        found = re.search(r"may pay " + _MANA, rules)
+        found = found.group(1) if found else None
+        if found and kind == "copy":
+            found += " to copy the spell"
+    elif kind == "additional":
+        found = re.search(r"(?i)you may ([^.]*?)\. If you do", rules)
+        found = f"the additional cost ({found.group(1)})" if found else None
+    if found:
+        return found
+    return f"the {kind.replace('_', ' ')} cost" + (f" of {name}" if name else "")
+
+
+ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth")
+
+
+def trigger_rank(semantic: Mapping[str, Any]) -> str:
+    """When the trigger an order_pick offers resolves ("first", "second", "last"). The engine's position is the order
+    triggers are put on the stack (mtg-kernel Action::OrderTriggers: "last index resolves first"), so position 0
+    resolves last. "" when the position and count are not usable."""
+    count, position = semantic.get("count"), semantic.get("position")
+    if not (isinstance(count, int) and isinstance(position, int) and count > 1 and 0 <= position < count):
+        return ""
+    rank = count - position
+    if rank == count:
+        return "last"
+    return ORDINALS[rank - 1] if rank <= len(ORDINALS) else f"number {rank}"
+
+
 def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str] | None = None) -> str:
     """One candidate as a short imperative phrase. ``lands`` (object ids) tells tapped lands from costed mana sources."""
     kind = semantic.get("kind")
@@ -148,7 +225,9 @@ def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str]
     if kind == "activate_mana_ability":
         mana = s.get("mana_choice")
         verb = "Tap" if lands is None or (s.get("source") or {}).get("object_id") in lands else "Activate"
-        return f"{verb} {card(s.get('source'))} for mana" + (f" ({mana})" if mana else "")
+        paid = s.get("cost_target")  # the object this activation's cost uses up (Saruli Caretaker: another creature)
+        return (f"{verb} {card(s.get('source'))} for mana" + (f" ({mana})" if mana else "")
+                + (f" (cost: {target(paid, me)})" if paid else ""))
     if kind == "activate_ability":
         return f"Activate {card(s.get('source'), me, whose=True)}" + (
             f" (ability {s['ability_index'] + 1})" if s.get("ability_index") else "")
@@ -179,9 +258,9 @@ def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str]
     if kind == "finish_selection":
         return "Done selecting"
     if kind == "optional_cost":
-        return f"{'Pay' if s.get('pay') else 'Do not pay'} {str(s.get('cost', '')).replace('_', ' ')}"
+        return f"{'Pay' if s.get('pay') else 'Do not pay'} {optional_cost_phrase(s)}"
     if kind == "choose_cost_option":
-        return str(s.get("choice", "")).replace("_", " ").capitalize()
+        return COST_OPTIONS.get(str(s.get("choice")), str(s.get("choice", "")).replace("_", " ").capitalize())
     if kind == "optional_cast":
         return f"{'Cast' if s.get('cast_it') else 'Do not cast'} {card(s.get('card'))} ({s.get('method')})"
     if kind == "mulligan":
@@ -190,6 +269,8 @@ def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str]
         item = s.get("item") or {}
         name = card(item["object"]) if "object" in item else (
             (item.get("trigger") or {}).get("label") or (item.get("trigger") or {}).get("source_name") or "trigger")
+        if s.get("purpose") == "triggers" and trigger_rank(s):
+            return f"{name}: resolves {trigger_rank(s)}"
         return f"{name} at position {s.get('position', 0) + 1} of {s.get('count')}"
     if kind == "arrange_card":
         return f"{card(s.get('card'))} to {str(s.get('destination', '')).replace('_', ' ')}"
@@ -220,6 +301,17 @@ def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str]
 # source and the option number (the kernel adapter sets option_label to null), so the page derives the labels here.
 EXPLORE_SOURCES = frozenset({"Map Token"})
 
+# Effect options of the pool's cards whose program order is known (a prompt line and a label per option index):
+# mtg-kernel tests/winding_way.rs (option 0 Creature, option 1 Land) and src/trigger.rs (Ninja of the Deep Hours and
+# Moon-Circuit Hacker: option 0 does nothing, option 1 draws; a recorded Ninja game took option 1 and its hand grew).
+EFFECT_OPTION_LABELS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "Winding Way": ("choose a card type (the top four cards of your library are revealed; that type goes to your "
+                    "hand, the rest to your graveyard)", ("Creature", "Land")),
+    "Ninja of the Deep Hours": ("draw a card?", ("Do not draw", "Draw a card")),
+    "Moon-Circuit Hacker": ("draw a card? (then discard a card unless it entered this turn)",
+                            ("Do not draw", "Draw a card")),
+}
+
 
 def _known_top(observation: Mapping[str, Any], me: str | None) -> str | None:
     for entry in observation.get("known") or []:
@@ -247,6 +339,11 @@ def effect_options(decision: Mapping[str, Any], me: str | None) -> tuple[str, di
         words = {0: f"Leave {seen} on top of your library", 1: f"Put {seen} into your graveyard"}
         return (f"Explore ({name}) revealed {seen}",
                 {c["candidate_id"]: s.get("option_label") or words.get(s.get("option_index"), "?")
+                 for c, s in zip(candidates, semantics)})
+    known = EFFECT_OPTION_LABELS.get(name)
+    if known is not None and len(known[1]) == count:
+        return (f"{name}: {known[0]}",
+                {c["candidate_id"]: s.get("option_label") or known[1][min(int(s.get("option_index", 0)), count - 1)]
                  for c, s in zip(candidates, semantics)})
     note = f"; your library's top card is {top}" if top else ""
     return (f"{name}: choose one of {count} effects (the engine does not describe them{note})",
@@ -293,6 +390,10 @@ def prompt(decision: Mapping[str, Any], me: str | None) -> str:
         if observation.get("phase_step") in MAIN_STEPS and observation.get("active_seat") == me:
             return f"Your priority ({PHASES.get(observation.get('phase_step'), observation.get('phase_step'))})"
         return f"Your priority in {where(observation, me)}"
+    if kinds == {"order_pick"}:
+        first = candidates[0].get("semantic") or {}
+        if first.get("purpose") == "triggers" and trigger_rank(first):
+            return f"Order your triggers: choose the one that resolves {trigger_rank(first)}" + step
     purpose = context.get("purpose")
     for kind in kinds:
         titled = PURPOSE_TITLES.get((kind, purpose))
@@ -303,6 +404,7 @@ def prompt(decision: Mapping[str, Any], me: str | None) -> str:
         "declare_block": "Declare blockers", "mulligan": "Keep or mulligan?",
         "choose_starting_player": "Play or draw?", "arrange_card": "Arrange", "order_pick": "Order",
         "select_object": "Select", "choose_boolean": "Choose", "optional_cost": "Pay the cost?",
+        "choose_cost_option": "Choose how to pay the cost",
         "choose_spell_mode": "Choose a mode", "choose_number": "Choose a number",
         "choose_cost_target": "Pay the cost", "distribute": "Distribute", "choose_color": "Choose a color",
     }
