@@ -2,21 +2,21 @@
  "Avenging Hunter": {
   "mana_cost": "{4}{G}",
   "power": "5",
-  "text": "Trample\nWhen Avenging Hunter enters the battlefield, you take the initiative.",
+  "text": "Trample\nWhen this creature enters, you take the initiative.",
   "toughness": "4",
   "type_line": "Creature - Dragon Ranger"
  },
  "Azorius Guildgate": {
   "mana_cost": "",
   "power": null,
-  "text": "Azorius Guildgate enters the battlefield tapped.\n{T}: Add {W} or {U}.",
+  "text": "This land enters tapped.\n{T}: Add {W} or {U}.",
   "toughness": null,
   "type_line": "Land - Gate"
  },
  "Balustrade Spy": {
   "mana_cost": "{3}{B}",
   "power": "2",
-  "text": "Flying\nWhen Balustrade Spy enters the battlefield, target player reveals cards from the top of their library until they reveal a land card, then puts those cards into their graveyard.",
+  "text": "Flying\nWhen this creature enters, target player reveals cards from the top of their library until they reveal a land card, then puts those cards into their graveyard.",
   "toughness": "3",
   "type_line": "Creature - Vampire Rogue"
  },
@@ -26,6 +26,13 @@
   "text": "{T}: Add {C}.\n{2}, {T}: Target creature gets +X/+X until end of turn, where X is the number of Gates you control. Activate only as a sorcery.",
   "toughness": null,
   "type_line": "Land - Gate"
+ },
+ "Bird Illusion Token": {
+  "mana_cost": "",
+  "power": "1",
+  "text": "Flying",
+  "toughness": "1",
+  "type_line": "Token Creature - Bird Illusion"
  },
  "Bird Token": {
   "mana_cost": "",
@@ -37,21 +44,21 @@
  "Black Mage's Rod": {
   "mana_cost": "{1}{B}",
   "power": null,
-  "text": "Job select\nEquipped creature gets +1/+0, has \"Whenever you cast a noncreature spell, this creature deals 1 damage to each opponent,\" and is a Wizard in addition to its other types.\nEquip {3}",
+  "text": "Job select (When this Equipment enters, create a 1/1 colorless Hero creature token, then attach this to it.)\nEquipped creature gets +1/+0, has \"Whenever you cast a noncreature spell, this creature deals 1 damage to each opponent,\" and is a Wizard in addition to its other types.\nEquip {3}",
   "toughness": null,
   "type_line": "Artifact - Equipment"
  },
  "Blood Fountain": {
   "mana_cost": "{B}",
   "power": null,
-  "text": "When Blood Fountain enters the battlefield, create a Blood token.\n{3}{B}, {T}, Sacrifice Blood Fountain: Return up to two target creature cards from your graveyard to your hand.",
+  "text": "When this artifact enters, create a Blood token. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")\n{3}{B}, {T}, Sacrifice this artifact: Return up to two target creature cards from your graveyard to your hand.",
   "toughness": null,
   "type_line": "Artifact"
  },
  "Blood Token": {
   "mana_cost": "",
   "power": null,
-  "text": "{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card.",
+  "text": "{1}, {T}, Discard a card, Sacrifice this token: Draw a card.",
   "toughness": null,
   "type_line": "Token Artifact - Blood"
  },
@@ -63,9 +70,9 @@
   "type_line": "Instant"
  },
  "Burning-Tree Emissary": {
-  "mana_cost": "{RG}{RG}",
+  "mana_cost": "{R/G}{R/G}",
   "power": "2",
-  "text": "When Burning-Tree Emissary enters the battlefield, add {R}{G}.",
+  "text": "When this creature enters, add {R}{G}.",
   "toughness": "2",
   "type_line": "Creature - Human Shaman"
  },
@@ -79,21 +86,21 @@
  "Chain Lightning": {
   "mana_cost": "{R}",
   "power": null,
-  "text": "Chain Lightning deals 3 damage to any target. Then that player or that creature's controller may pay {R}{R}. If the player does, they may copy this spell and may choose a new target for that copy.",
+  "text": "Chain Lightning deals 3 damage to any target. Then that player or that permanent's controller may pay {R}{R}. If the player does, they may copy this spell and may choose a new target for that copy.",
   "toughness": null,
   "type_line": "Sorcery"
  },
  "Citadel Gate": {
   "mana_cost": "",
   "power": null,
-  "text": "Citadel Gate enters the battlefield tapped.\nAs Citadel Gate enters the battlefield, choose a color other than white.\n{T}: Add {W} or one mana of the chosen color.",
+  "text": "This land enters tapped.\nAs this land enters, choose a color other than white.\n{T}: Add {W} or one mana of the chosen color.",
   "toughness": null,
   "type_line": "Land - Gate"
  },
  "Cleansing Wildfire": {
   "mana_cost": "{1}{R}",
   "power": null,
-  "text": "Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle their library.\nDraw a card.",
+  "text": "Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle.\nDraw a card.",
   "toughness": null,
   "type_line": "Sorcery"
  },
@@ -107,7 +114,7 @@
  "Clue Token": {
   "mana_cost": "",
   "power": null,
-  "text": "{2}, Sacrifice this artifact: Draw a card.",
+  "text": "{2}, Sacrifice this token: Draw a card.",
   "toughness": null,
   "type_line": "Token Artifact - Clue"
  },
@@ -121,9 +128,30 @@
  "Cryogen Relic": {
   "mana_cost": "{1}{U}",
   "power": null,
-  "text": "When this artifact enters or leaves the battlefield, draw a card.\n{1}{U}, Sacrifice this artifact: Put a stun counter on up to one target tapped creature.",
+  "text": "When this artifact enters or leaves the battlefield, draw a card.\n{1}{U}, Sacrifice this artifact: Put a stun counter on up to one target tapped creature. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
   "toughness": null,
   "type_line": "Artifact"
+ },
+ "Cryptic Serpent": {
+  "mana_cost": "{5}{U}{U}",
+  "power": "6",
+  "text": "This spell costs {1} less to cast for each instant and sorcery card in your graveyard.",
+  "toughness": "5",
+  "type_line": "Creature - Serpent"
+ },
+ "Deem Inferior": {
+  "mana_cost": "{3}{U}",
+  "power": null,
+  "text": "This spell costs {1} less to cast for each card you've drawn this turn.\nThe owner of target nonland permanent puts it into their library second from the top or on the bottom.",
+  "toughness": null,
+  "type_line": "Sorcery"
+ },
+ "Deep Analysis": {
+  "mana_cost": "{3}{U}",
+  "power": null,
+  "text": "Target player draws two cards.\nFlashback-{1}{U}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "toughness": null,
+  "type_line": "Sorcery"
  },
  "Dispel": {
   "mana_cost": "{U}",
@@ -135,14 +163,14 @@
  "Dread Return": {
   "mana_cost": "{2}{B}{B}",
   "power": null,
-  "text": "Return target creature card from your graveyard to the battlefield.\nFlashback-Sacrifice three creatures. <i>(You may cast this card from your graveyard for its flashback cost. Then exile it.)</i>",
+  "text": "Return target creature card from your graveyard to the battlefield.\nFlashback-Sacrifice three creatures. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
   "toughness": null,
   "type_line": "Sorcery"
  },
  "Drossforge Bridge": {
   "mana_cost": "",
   "power": null,
-  "text": "Drossforge Bridge enters the battlefield tapped.\nIndestructible\n{T}: Add {B} or {R}.",
+  "text": "This land enters tapped.\nIndestructible\n{T}: Add {B} or {R}.",
   "toughness": null,
   "type_line": "Artifact Land"
  },
@@ -163,14 +191,14 @@
  "Elves of Deep Shadow": {
   "mana_cost": "{G}",
   "power": "1",
-  "text": "{tap}: Add {B}. Elves of Deep Shadow deals 1 damage to you.",
+  "text": "{T}: Add {B}. This creature deals 1 damage to you.",
   "toughness": "1",
   "type_line": "Creature - Elf Druid"
  },
  "Elvish Mystic": {
   "mana_cost": "{G}",
   "power": "1",
-  "text": "{tap}: Add {G}.",
+  "text": "{T}: Add {G}.",
   "toughness": "1",
   "type_line": "Creature - Elf Druid"
  },
@@ -184,63 +212,63 @@
  "Eviscerator's Insight": {
   "mana_cost": "{1}{B}",
   "power": null,
-  "text": "As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw two cards.\nFlashback {4}{B}",
+  "text": "As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw two cards.\nFlashback {4}{B} (You may cast this card from your graveyard for its flashback cost and any additional costs. Then exile it.)",
   "toughness": null,
   "type_line": "Instant"
  },
  "Experimental Synthesizer": {
   "mana_cost": "{R}",
   "power": null,
-  "text": "When Experimental Synthesizer enters or leaves the battlefield, exile the top card of your library. Until end of turn, you may play that card.\n{2}{R}, Sacrifice Experimental Synthesizer: Create a 2/2 white Samurai creature token with vigilance. Activate only as a sorcery.",
+  "text": "When this artifact enters or leaves the battlefield, exile the top card of your library. Until end of turn, you may play that card.\n{2}{R}, Sacrifice this artifact: Create a 2/2 white Samurai creature token with vigilance. Activate only as a sorcery.",
   "toughness": null,
   "type_line": "Artifact"
  },
  "Faerie Miscreant": {
   "mana_cost": "{U}",
   "power": "1",
-  "text": "Flying <i>(This creature can't be blocked except by creatures with flying or reach.)</i>\nWhen Faerie Miscreant enters the battlefield, if you control another creature named Faerie Miscreant, draw a card.",
+  "text": "Flying\nWhen this creature enters, if you control another creature named Faerie Miscreant, draw a card.",
   "toughness": "1",
   "type_line": "Creature - Faerie Rogue"
  },
  "Faerie Seer": {
   "mana_cost": "{U}",
   "power": "1",
-  "text": "Flying\nWhen Faerie Seer enters the battlefield, scry 2.",
+  "text": "Flying\nWhen this creature enters, scry 2. (Look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
   "toughness": "1",
   "type_line": "Creature - Faerie Wizard"
  },
  "Faithless Looting": {
   "mana_cost": "{R}",
   "power": null,
-  "text": "Draw two cards, then discard two cards.\nFlashback {2}{R} <i>(You may cast this card from your graveyard for its flashback cost. Then exile it.)</i>",
+  "text": "Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
   "toughness": null,
   "type_line": "Sorcery"
  },
  "Fanatical Offering": {
   "mana_cost": "{1}{B}",
   "power": null,
-  "text": "As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw two cards and create a Map token.",
+  "text": "As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw two cards and create a Map token. (It's an artifact with \"{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery.\")",
   "toughness": null,
   "type_line": "Instant"
  },
  "Fiery Temper": {
   "mana_cost": "{1}{R}{R}",
   "power": null,
-  "text": "Fiery Temper deals 3 damage to any target.\nMadness {R} <i>(If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)</i>",
+  "text": "Fiery Temper deals 3 damage to any target.\nMadness {R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
   "toughness": null,
   "type_line": "Instant"
  },
  "Fireblast": {
   "mana_cost": "{4}{R}{R}",
   "power": null,
-  "text": "You may sacrifice two Mountains rather than pay Fireblast's mana cost.\nFireblast deals 4 damage to any target.",
+  "text": "You may sacrifice two Mountains rather than pay this spell's mana cost.\nFireblast deals 4 damage to any target.",
   "toughness": null,
   "type_line": "Instant"
  },
  "Food Token": {
   "mana_cost": "",
   "power": null,
-  "text": "{2}, {T}, Sacrifice this artifact: You gain 3 life.",
+  "text": "{2}, {T}, Sacrifice this token: You gain 3 life.",
   "toughness": null,
   "type_line": "Token Artifact - Food"
  },
@@ -254,7 +282,7 @@
  "Forest": {
   "mana_cost": "",
   "power": null,
-  "text": "G",
+  "text": "({T}: Add {G}.)",
   "toughness": null,
   "type_line": "Basic Land - Forest"
  },
@@ -268,28 +296,28 @@
  "Galvanic Blast": {
   "mana_cost": "{R}",
   "power": null,
-  "text": "Galvanic Blast deals 2 damage to any target.\nMetalcraft - Galvanic Blast deals 4 damage to that creature or player instead if you control three or more artifacts.",
+  "text": "Galvanic Blast deals 2 damage to any target.\nMetalcraft - Galvanic Blast deals 4 damage instead if you control three or more artifacts.",
   "toughness": null,
   "type_line": "Instant"
  },
  "Gatecreeper Vine": {
   "mana_cost": "{1}{G}",
   "power": "0",
-  "text": "Defender\nWhen Gatecreeper Vine enters the battlefield, you may search your library for a basic land card or a Gate card, reveal it, put it into your hand, then shuffle your library.",
+  "text": "Defender\nWhen this creature enters, you may search your library for a basic land card or a Gate card, reveal it, put it into your hand, then shuffle.",
   "toughness": "2",
   "type_line": "Creature - Plant"
  },
  "Generous Ent": {
   "mana_cost": "{5}{G}",
   "power": "5",
-  "text": "Reach\nWhen Generous Ent enters the battlefield, create a Food token.\nForestcycling {1}",
+  "text": "Reach\nWhen this creature enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nForestcycling {1} ({1}, Discard this card: Search your library for a Forest card, reveal it, put it into your hand, then shuffle.)",
   "toughness": "7",
   "type_line": "Creature - Treefolk"
  },
  "Goblin Bushwhacker": {
   "mana_cost": "{R}",
   "power": "1",
-  "text": "Kicker {R} <i>(You may pay an additional {R} as you cast this spell.)</i>\nWhen Goblin Bushwhacker enters the battlefield, if it was kicked, creatures you control get +1/+0 and gain haste until end of turn.",
+  "text": "Kicker {R} (You may pay an additional {R} as you cast this spell.)\nWhen this creature enters, if it was kicked, creatures you control get +1/+0 and gain haste until end of turn.",
   "toughness": "1",
   "type_line": "Creature - Goblin Warrior"
  },
@@ -303,7 +331,7 @@
  "Goblin Tomb Raider": {
   "mana_cost": "{R}",
   "power": "1",
-  "text": "As long as you control an artifact, Goblin Tomb Raider gets +1/+0 and has haste.",
+  "text": "As long as you control an artifact, this creature gets +1/+0 and has haste.",
   "toughness": "2",
   "type_line": "Creature - Goblin Pirate"
  },
@@ -317,7 +345,7 @@
  "Great Furnace": {
   "mana_cost": "",
   "power": null,
-  "text": "{tap}: Add {R}.",
+  "text": "{T}: Add {R}.",
   "toughness": null,
   "type_line": "Artifact Land"
  },
@@ -331,30 +359,44 @@
  "Guttersnipe": {
   "mana_cost": "{2}{R}",
   "power": "2",
-  "text": "Whenever you cast an instant or sorcery spell, Guttersnipe deals 2 damage to each opponent.",
+  "text": "Whenever you cast an instant or sorcery spell, this creature deals 2 damage to each opponent.",
   "toughness": "2",
   "type_line": "Creature - Goblin Shaman"
  },
  "Harrier Strix": {
   "mana_cost": "{U}",
   "power": "1",
-  "text": "Flying\nWhen Harrier Strix enters the battlefield, tap target permanent.\n{2}{U}: Draw a card, then discard a card.",
+  "text": "Flying\nWhen this creature enters, tap target permanent.\n{2}{U}: Draw a card, then discard a card.",
   "toughness": "1",
   "type_line": "Creature - Bird"
  },
  "Heap Gate": {
   "mana_cost": "",
   "power": null,
-  "text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{1}, {T}, Tap an untapped Gate you control: Create a Treasure token.",
+  "text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{1}, {T}, Tap an untapped Gate you control: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
   "toughness": null,
   "type_line": "Land - Gate"
+ },
+ "Hero Token": {
+  "mana_cost": "",
+  "power": "1",
+  "text": "",
+  "toughness": "1",
+  "type_line": "Token Creature - Hero"
  },
  "Highway Robbery": {
   "mana_cost": "{1}{R}",
   "power": null,
-  "text": "You may discard a card or sacrifice a land. If you do, draw two cards.\nPlot {1}{R}",
+  "text": "You may discard a card or sacrifice a land. If you do, draw two cards.\nPlot {1}{R} (You may pay {1}{R} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)",
   "toughness": null,
   "type_line": "Sorcery"
+ },
+ "Human Soldier Token": {
+  "mana_cost": "",
+  "power": "1",
+  "text": "",
+  "toughness": "1",
+  "type_line": "Token Creature - Human Soldier"
  },
  "Humbling Elder": {
   "mana_cost": "{U}",
@@ -366,56 +408,56 @@
  "Hunter's Blowgun": {
   "mana_cost": "{1}",
   "power": null,
-  "text": "Equipped creature gets +1/+1.\nEquipped creature has deathtouch as long as it's your turn. Otherwise, it has reach.\nEquip {2}",
+  "text": "Equipped creature gets +1/+1.\nEquipped creature has deathtouch during your turn. Otherwise, it has reach.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
   "toughness": null,
   "type_line": "Artifact - Equipment"
  },
  "Ichor Wellspring": {
   "mana_cost": "{2}",
   "power": null,
-  "text": "When Ichor Wellspring enters the battlefield or is put into a graveyard from the battlefield, draw a card.",
+  "text": "When this artifact enters or is put into a graveyard from the battlefield, draw a card.",
   "toughness": null,
   "type_line": "Artifact"
  },
  "Idyllic Beachfront": {
   "mana_cost": "",
   "power": null,
-  "text": "({T}: Add {W} or {U}.)\nIdyllic Beachfront enters the battlefield tapped.",
+  "text": "({T}: Add {W} or {U}.)\nThis land enters tapped.",
   "toughness": null,
   "type_line": "Land - Plains Island"
  },
  "Island": {
   "mana_cost": "",
   "power": null,
-  "text": "U",
+  "text": "({T}: Add {U}.)",
   "toughness": null,
   "type_line": "Basic Land - Island"
  },
  "Journey to Nowhere": {
   "mana_cost": "{1}{W}",
   "power": null,
-  "text": "When Journey to Nowhere enters the battlefield, exile target creature.\nWhen Journey to Nowhere leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+  "text": "When this enchantment enters, exile target creature.\nWhen this enchantment leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
   "toughness": null,
   "type_line": "Enchantment"
  },
  "Krark-Clan Shaman": {
   "mana_cost": "{R}",
   "power": "1",
-  "text": "Sacrifice an artifact: Krark-Clan Shaman deals 1 damage to each creature without flying.",
+  "text": "Sacrifice an artifact: This creature deals 1 damage to each creature without flying.",
   "toughness": "1",
   "type_line": "Creature - Goblin Shaman"
  },
  "Land Grant": {
   "mana_cost": "{1}{G}",
   "power": null,
-  "text": "If you have no land cards in hand, you may reveal your hand rather than pay Land Grant's mana cost.\n\nSearch your library for a Forest card, reveal that card, and put it into your hand. Then shuffle your library.",
+  "text": "If you have no land cards in hand, you may reveal your hand rather than pay this spell's mana cost.\nSearch your library for a Forest card, reveal that card, put it into your hand, then shuffle.",
   "toughness": null,
   "type_line": "Sorcery"
  },
  "Lava Dart": {
   "mana_cost": "{R}",
   "power": null,
-  "text": "Lava Dart deals 1 damage to any target.\nFlashback-Sacrifice a Mountain. <i>(You may cast this card from your graveyard for its flashback cost. Then exile it.)</i>",
+  "text": "Lava Dart deals 1 damage to any target.\nFlashback-Sacrifice a Mountain. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
   "toughness": null,
   "type_line": "Instant"
  },
@@ -429,7 +471,7 @@
  "Lembas": {
   "mana_cost": "{2}",
   "power": null,
-  "text": "When Lembas enters the battlefield, scry 1, then draw a card.\n{2}, {T}, Sacrifice Lembas: You gain 3 life.\nWhen Lembas is put into a graveyard from the battlefield, its owner shuffles it into their library.",
+  "text": "When this artifact enters, scry 1, then draw a card.\n{2}, {T}, Sacrifice this artifact: You gain 3 life.\nWhen this artifact is put into a graveyard from the battlefield, its owner shuffles it into their library.",
   "toughness": null,
   "type_line": "Artifact - Food"
  },
@@ -450,35 +492,35 @@
  "Lorien Revealed": {
   "mana_cost": "{3}{U}{U}",
   "power": null,
-  "text": "Draw three cards.\nIslandcycling {1}",
+  "text": "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)",
   "toughness": null,
   "type_line": "Sorcery"
  },
  "Lotleth Giant": {
   "mana_cost": "{6}{B}",
   "power": "6",
-  "text": "Undergrowth - When Lotleth Giant enters the battlefield, it deals 1 damage to target opponent for each creature card in your graveyard.",
+  "text": "Undergrowth - When this creature enters, it deals 1 damage to target opponent for each creature card in your graveyard.",
   "toughness": "5",
   "type_line": "Creature - Zombie Giant"
  },
  "Lotus Petal": {
   "mana_cost": "{0}",
   "power": null,
-  "text": "{T}, Sacrifice Lotus Petal: Add one mana of any color.",
+  "text": "{T}, Sacrifice this artifact: Add one mana of any color.",
   "toughness": null,
   "type_line": "Artifact"
  },
  "Makeshift Munitions": {
   "mana_cost": "{1}{R}",
   "power": null,
-  "text": "{1}, Sacrifice an artifact or creature: Makeshift Munitions deals 1 damage to any target.",
+  "text": "{1}, Sacrifice an artifact or creature: This enchantment deals 1 damage to any target.",
   "toughness": null,
   "type_line": "Enchantment"
  },
  "Map Token": {
   "mana_cost": "",
   "power": null,
-  "text": "{1}, {T}, Sacrifice this artifact: Target creature you control explores. Activate only as a sorcery.",
+  "text": "{1}, {T}, Sacrifice this artifact: Target creature you control explores. Activate only as a sorcery. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on that creature, then put the card back or put it into your graveyard.)",
   "toughness": null,
   "type_line": "Token Artifact - Map"
  },
@@ -492,63 +534,77 @@
  "Masked Vandal": {
   "mana_cost": "{1}{G}",
   "power": "1",
-  "text": "Changeling\nWhen Masked Vandal enters the battlefield, you may exile a creature card from your graveyard. If you do, exile target artifact or enchantment an opponent controls.",
+  "text": "Changeling (This card is every creature type.)\nWhen this creature enters, you may exile a creature card from your graveyard. If you do, exile target artifact or enchantment an opponent controls.",
   "toughness": "3",
   "type_line": "Creature - Shapeshifter"
+ },
+ "Mental Note": {
+  "mana_cost": "{U}",
+  "power": null,
+  "text": "Mill two cards.\nDraw a card.",
+  "toughness": null,
+  "type_line": "Instant"
  },
  "Mesmeric Fiend": {
   "mana_cost": "{1}{B}",
   "power": "1",
-  "text": "When Mesmeric Fiend enters the battlefield, target opponent reveals their hand and you choose a nonland card from it. Exile that card.\nWhen Mesmeric Fiend leaves the battlefield, return the exiled card to its owner's hand.",
+  "text": "When this creature enters, target opponent reveals their hand and you choose a nonland card from it. Exile that card.\nWhen this creature leaves the battlefield, return the exiled card to its owner's hand.",
   "toughness": "1",
   "type_line": "Creature - Nightmare Horror"
  },
  "Mistvault Bridge": {
   "mana_cost": "",
   "power": null,
-  "text": "Mistvault Bridge enters the battlefield tapped.\nIndestructible\n{T}: Add {U} or {B}.",
+  "text": "This land enters tapped.\nIndestructible\n{T}: Add {U} or {B}.",
   "toughness": null,
   "type_line": "Artifact Land"
  },
  "Moon-Circuit Hacker": {
   "mana_cost": "{1}{U}",
   "power": "2",
-  "text": "Ninjutsu {U}\nWhenever Moon-Circuit Hacker deals combat damage to a player, you may draw a card. If you do, discard a card unless Moon-Circuit Hacker entered the battlefield this turn.",
+  "text": "Ninjutsu {U} ({U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may draw a card. If you do, discard a card unless this creature entered this turn.",
   "toughness": "1",
   "type_line": "Enchantment Creature - Human Ninja"
  },
  "Mountain": {
   "mana_cost": "",
   "power": null,
-  "text": "R",
+  "text": "({T}: Add {R}.)",
   "toughness": null,
   "type_line": "Basic Land - Mountain"
+ },
+ "Murmuring Mystic": {
+  "mana_cost": "{3}{U}",
+  "power": "1",
+  "text": "Whenever you cast an instant or sorcery spell, create a 1/1 blue Bird Illusion creature token with flying.",
+  "toughness": "5",
+  "type_line": "Creature - Human Wizard"
  },
  "Myr Enforcer": {
   "mana_cost": "{7}",
   "power": "4",
-  "text": "Affinity for artifacts <i>(This spell costs {1} less to cast for each artifact you control.)</i>",
+  "text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)",
   "toughness": "4",
-  "type_line": "Artifact Creature   Myr"
+  "type_line": "Artifact Creature - Myr"
  },
  "Nihil Spellbomb": {
   "mana_cost": "{1}",
   "power": null,
-  "text": "{T}, Sacrifice Nihil Spellbomb: Exile all cards from target player's graveyard.\nWhen Nihil Spellbomb is put into a graveyard from the battlefield, you may pay {B}. If you do, draw a card.",
+  "text": "{T}, Sacrifice this artifact: Exile target player's graveyard.\nWhen this artifact is put into a graveyard from the battlefield, you may pay {B}. If you do, draw a card.",
   "toughness": null,
   "type_line": "Artifact"
  },
  "Ninja of the Deep Hours": {
   "mana_cost": "{3}{U}",
   "power": "2",
-  "text": "Ninjutsu {1}{U} <i>({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)</i>\nWhenever Ninja of the Deep Hours deals combat damage to a player, you may draw a card.",
+  "text": "Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may draw a card.",
   "toughness": "2",
   "type_line": "Creature - Human Ninja"
  },
  "Nyxborn Hydra": {
   "mana_cost": "{X}{G}",
   "power": "0",
-  "text": "Bestow {X}{G}{G}\nReach, trample\nNyxborn Hydra enters the battlefield with X +1/+1 counters on it.\nEnchanted creature gets +1/+1 for each +1/+1 counter on Nyxborn Hydra and has reach and trample.",
+  "text": "Bestow {X}{G}{G} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nReach, trample\nThis permanent enters with X +1/+1 counters on it.\nEnchanted creature gets +1/+1 for each +1/+1 counter on this Aura and has reach and trample.",
   "toughness": "1",
   "type_line": "Enchantment Creature - Hydra"
  },
@@ -562,35 +618,42 @@
  "Outlaw Medic": {
   "mana_cost": "{1}{W}",
   "power": "1",
-  "text": "Lifelink\nWhen Outlaw Medic dies, draw a card.",
+  "text": "Lifelink\nWhen this creature dies, draw a card.",
   "toughness": "3",
   "type_line": "Creature - Human Rogue"
  },
  "Overgrown Battlement": {
   "mana_cost": "{1}{G}",
   "power": "0",
-  "text": "Defender\n{tap}: Add {G} for each creature with defender you control.",
+  "text": "Defender\n{T}: Add {G} for each creature you control with defender.",
   "toughness": "4",
   "type_line": "Creature - Wall"
+ },
+ "Ponder": {
+  "mana_cost": "{U}",
+  "power": null,
+  "text": "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.",
+  "toughness": null,
+  "type_line": "Sorcery"
  },
  "Preordain": {
   "mana_cost": "{U}",
   "power": null,
-  "text": "Scry 2, then draw a card. <i>(To scry 2, look at the top two cards of your library, then put any number of them on the bottom of your library and the rest on top in any order.)</i>",
+  "text": "Scry 2, then draw a card. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
   "toughness": null,
   "type_line": "Sorcery"
  },
  "Priest of Titania": {
   "mana_cost": "{1}{G}",
   "power": "1",
-  "text": "{tap}: Add {G} for each Elf on the battlefield.",
+  "text": "{T}: Add {G} for each Elf on the battlefield.",
   "toughness": "1",
   "type_line": "Creature - Elf Druid"
  },
  "Prismatic Strands": {
   "mana_cost": "{2}{W}",
   "power": null,
-  "text": "Prevent all damage that sources of the color of your choice would deal this turn.\nFlashback-Tap an untapped white creature you control. <i>(You may cast this card from your graveyard for its flashback cost. Then exile it.)</i>",
+  "text": "Prevent all damage that sources of the color of your choice would deal this turn.\nFlashback-Tap an untapped white creature you control. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
   "toughness": null,
   "type_line": "Instant"
  },
@@ -604,9 +667,9 @@
  "Quirion Ranger": {
   "mana_cost": "{G}",
   "power": "1",
-  "text": "Return a Forest you control to its owner's hand: Untap target creature. Activate this ability only once each turn.",
+  "text": "Return a Forest you control to its owner's hand: Untap target creature. Activate only once each turn.",
   "toughness": "1",
-  "type_line": "Creature   Elf"
+  "type_line": "Creature - Elf Ranger"
  },
  "Rally at the Hornburg": {
   "mana_cost": "{1}{R}",
@@ -632,18 +695,39 @@
  "Refurbished Familiar": {
   "mana_cost": "{3}{B}",
   "power": "2",
-  "text": "Affinity for artifacts\nFlying\nWhen Refurbished Familiar enters the battlefield, each opponent discards a card. For each opponent who can't, you draw a card.",
+  "text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nFlying\nWhen this creature enters, each opponent discards a card. For each opponent who can't, you draw a card.",
   "toughness": "1",
   "type_line": "Artifact Creature - Zombie Rat"
+ },
+ "Roost Seek": {
+  "mana_cost": "{G}",
+  "power": null,
+  "text": "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. (Also shuffle this card.)",
+  "toughness": null,
+  "type_line": "Sorcery - Omen"
  },
  "Sacred Cat": {
   "mana_cost": "{W}",
   "power": "1",
-  "text": "Lifelink\nEmbalm {W}",
+  "text": "Lifelink\nEmbalm {W} ({W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a white Zombie Cat with no mana cost. Embalm only as a sorcery.)",
   "toughness": "1",
   "type_line": "Creature - Cat"
  },
+ "Sacred Cat Embalmed Token": {
+  "mana_cost": "",
+  "power": "1",
+  "text": "Lifelink",
+  "toughness": "1",
+  "type_line": "Token Creature - Zombie Cat"
+ },
  "Sagu Wildling": {
+  "mana_cost": "{4}{G}",
+  "power": "3",
+  "text": "Flying\nWhen this creature enters, you gain 3 life.",
+  "toughness": "3",
+  "type_line": "Creature - Dragon"
+ },
+ "Sagu Wildling // Roost Seek": {
   "mana_cost": "{4}{G}",
   "power": "3",
   "text": "Flying\nWhen this creature enters, you gain 3 life.",
@@ -653,7 +737,7 @@
  "Saiba Cryptomancer": {
   "mana_cost": "{1}{U}",
   "power": "0",
-  "text": "Flash\nBackup 1\nHexproof",
+  "text": "Flash\nBackup 1 (When this creature enters, put a +1/+1 counter on target creature. If that's another creature, it gains the following ability until end of turn.)\nHexproof",
   "toughness": "1",
   "type_line": "Creature - Moonfolk Ninja"
  },
@@ -662,7 +746,7 @@
   "power": "2",
   "text": "Vigilance",
   "toughness": "2",
-  "type_line": "Token Artifact Creature - Samurai"
+  "type_line": "Token Creature - Samurai"
  },
  "Saruli Caretaker": {
   "mana_cost": "{G}",
@@ -674,30 +758,44 @@
  "Sea Gate": {
   "mana_cost": "",
   "power": null,
-  "text": "Sea Gate enters the battlefield tapped.\nAs Sea Gate enters the battlefield, choose a color other than blue.\n{T}: Add {U} or one mana of the chosen color.",
+  "text": "This land enters tapped.\nAs this land enters, choose a color other than blue.\n{T}: Add {U} or one mana of the chosen color.",
   "toughness": null,
   "type_line": "Land - Gate"
  },
  "Seat of the Synod": {
   "mana_cost": "",
   "power": null,
-  "text": "<i>(Seat of the Synod isn't a spell.)</i>\n{tap}: Add {U}.",
+  "text": "{T}: Add {U}.",
   "toughness": null,
   "type_line": "Artifact Land"
  },
  "Silverbluff Bridge": {
   "mana_cost": "",
   "power": null,
-  "text": "Silverbluff Bridge enters the battlefield tapped.\nIndestructible\n{T}: Add {U} or {R}.",
+  "text": "This land enters tapped.\nIndestructible\n{T}: Add {U} or {R}.",
   "toughness": null,
   "type_line": "Artifact Land"
+ },
+ "Skeleton Token": {
+  "mana_cost": "",
+  "power": "4",
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)",
+  "toughness": "1",
+  "type_line": "Token Creature - Skeleton"
  },
  "Slagwoods Bridge": {
   "mana_cost": "",
   "power": null,
-  "text": "Slagwoods Bridge enters the battlefield tapped.\nIndestructible\n{T}: Add {R} or {G}.",
+  "text": "This land enters tapped.\nIndestructible\n{T}: Add {R} or {G}.",
   "toughness": null,
   "type_line": "Artifact Land"
+ },
+ "Sleep of the Dead": {
+  "mana_cost": "{U}",
+  "power": null,
+  "text": "Tap target creature. It doesn't untap during its controller's next untap step.\nEscape-{2}{U}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)",
+  "toughness": null,
+  "type_line": "Sorcery"
  },
  "Snap": {
   "mana_cost": "{1}{U}",
@@ -709,14 +807,14 @@
  "Sneaky Snacker": {
   "mana_cost": "{U}{B}",
   "power": "2",
-  "text": "Flying\nWhen you draw your third card in a turn, return Sneaky Snacker from your graveyard to the battlefield tapped.",
+  "text": "Flying\nWhen you draw your third card in a turn, return this card from your graveyard to the battlefield tapped.",
   "toughness": "1",
-  "type_line": "Creature Faerie Rogue"
+  "type_line": "Creature - Faerie Rogue"
  },
  "Snow-Covered Forest": {
   "mana_cost": "",
   "power": null,
-  "text": "G",
+  "text": "({T}: Add {G}.)",
   "toughness": null,
   "type_line": "Basic Snow Land - Forest"
  },
@@ -730,9 +828,9 @@
  "Spellstutter Sprite": {
   "mana_cost": "{1}{U}",
   "power": "1",
-  "text": "Flash\nFlying\nWhen Spellstutter Sprite enters the battlefield, counter target spell with converted mana cost X or less, where X is the number of Faeries you control.",
+  "text": "Flash\nFlying\nWhen this creature enters, counter target spell with mana value X or less, where X is the number of Faeries you control.",
   "toughness": "1",
-  "type_line": "Creature   Faerie Wizard"
+  "type_line": "Creature - Faerie Wizard"
  },
  "Spirit Token": {
   "mana_cost": "",
@@ -744,14 +842,14 @@
  "Squadron Hawk": {
   "mana_cost": "{1}{W}",
   "power": "1",
-  "text": "Flying\nWhen Squadron Hawk enters the battlefield, you may search your library for up to three cards named Squadron Hawk, reveal them, put them into your hand, then shuffle your library.",
+  "text": "Flying\nWhen this creature enters, you may search your library for up to three cards named Squadron Hawk, reveal them, put them into your hand, then shuffle.",
   "toughness": "1",
-  "type_line": "Creature   Bird"
+  "type_line": "Creature - Bird"
  },
  "Swamp": {
   "mana_cost": "",
   "power": null,
-  "text": "B",
+  "text": "({T}: Add {B}.)",
   "toughness": null,
   "type_line": "Basic Land - Swamp"
  },
@@ -762,66 +860,87 @@
   "toughness": null,
   "type_line": "Enchantment - Saga"
  },
+ "The Modern Age // Vector Glider": {
+  "mana_cost": "{1}{U}",
+  "power": null,
+  "text": "(As this Saga enters and after your draw step, add a lore counter.)\nI, II - Draw a card, then discard a card.\nIII - Exile this Saga, then return it to the battlefield transformed under your control.",
+  "toughness": null,
+  "type_line": "Enchantment - Saga"
+ },
+ "Thought Scour": {
+  "mana_cost": "{U}",
+  "power": null,
+  "text": "Target player mills two cards.\nDraw a card.",
+  "toughness": null,
+  "type_line": "Instant"
+ },
  "Thoughtcast": {
   "mana_cost": "{4}{U}",
   "power": null,
-  "text": "Affinity for artifacts <i>(This spell costs {1} less to cast for each artifact you control.)</i>\nDraw two cards.",
+  "text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nDraw two cards.",
   "toughness": null,
   "type_line": "Sorcery"
  },
  "Thraben Charm": {
   "mana_cost": "{1}{W}",
   "power": null,
-  "text": "Choose one --\n* Thraben Charm deals damage equal to twice the number of creatures you control to target creature.\n* Destroy target enchantment.\n* Exile any number of target players' graveyards.",
+  "text": "Choose one -\n* Thraben Charm deals damage equal to twice the number of creatures you control to target creature.\n* Destroy target enchantment.\n* Exile any number of target players' graveyards.",
   "toughness": null,
   "type_line": "Instant"
  },
  "Timberwatch Elf": {
   "mana_cost": "{2}{G}",
   "power": "1",
-  "text": "{tap}: Target creature gets +X/+X until end of turn, where X is the number of Elves on the battlefield.",
+  "text": "{T}: Target creature gets +X/+X until end of turn, where X is the number of Elves on the battlefield.",
   "toughness": "2",
   "type_line": "Creature - Elf"
  },
  "Tinder Wall": {
   "mana_cost": "{G}",
   "power": "0",
-  "text": "Defender <i>(This creature can't attack.)</i>\nSacrifice Tinder Wall: Add {R}{R}.\n{R}, Sacrifice Tinder Wall: Tinder Wall deals 2 damage to target creature it's blocking.",
+  "text": "Defender (This creature can't attack.)\nSacrifice this creature: Add {R}{R}.\n{R}, Sacrifice this creature: It deals 2 damage to target creature it's blocking.",
   "toughness": "3",
   "type_line": "Creature - Plant Wall"
+ },
+ "Tolarian Terror": {
+  "mana_cost": "{6}{U}",
+  "power": "5",
+  "text": "This spell costs {1} less to cast for each instant and sorcery card in your graveyard.\nWard {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)",
+  "toughness": "5",
+  "type_line": "Creature - Serpent"
  },
  "Toxin Analysis": {
   "mana_cost": "{B}",
   "power": null,
-  "text": "Target creature gains deathtouch and lifelink until end of turn. Investigate.",
+  "text": "Target creature gains deathtouch and lifelink until end of turn. Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
   "toughness": null,
   "type_line": "Instant"
  },
  "Treasure Token": {
   "mana_cost": "",
   "power": null,
-  "text": "{T}, Sacrifice this artifact: Add one mana of any color.",
+  "text": "{T}, Sacrifice this token: Add one mana of any color.",
   "toughness": null,
   "type_line": "Token Artifact - Treasure"
  },
  "Troll of Khazad-dum": {
   "mana_cost": "{5}{B}",
   "power": "6",
-  "text": "Troll of Khazad-dum can't be blocked except by three or more creatures.\nSwampcycling {1}",
+  "text": "This creature can't be blocked except by three or more creatures.\nSwampcycling {1} ({1}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)",
   "toughness": "5",
   "type_line": "Creature - Troll"
  },
  "Twisted Landscape": {
   "mana_cost": "",
   "power": null,
-  "text": "{T}: Add {C}.\n{T}, Sacrifice Twisted Landscape: Search your library for a basic Swamp, Mountain, or Forest card, put it onto the battlefield tapped, then shuffle.\nCycling {B}{R}{G}",
+  "text": "{T}: Add {C}.\n{T}, Sacrifice this land: Search your library for a basic Swamp, Mountain, or Forest card, put it onto the battlefield tapped, then shuffle.\nCycling {B}{R}{G} ({B}{R}{G}, Discard this card: Draw a card.)",
   "toughness": null,
   "type_line": "Land"
  },
  "Vault of Whispers": {
   "mana_cost": "",
   "power": null,
-  "text": "<i>(Vault of Whispers isn't a spell.)</i>\n{tap}: Add {B}.",
+  "text": "{T}: Add {B}.",
   "toughness": null,
   "type_line": "Artifact Land"
  },
@@ -835,21 +954,21 @@
  "Voldaren Epicure": {
   "mana_cost": "{R}",
   "power": "1",
-  "text": "When Voldaren Epicure enters the battlefield, it deals 1 damage to each opponent. Create a Blood token.",
+  "text": "When this creature enters, it deals 1 damage to each opponent. Create a Blood token. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")",
   "toughness": "1",
   "type_line": "Creature - Vampire"
  },
  "Wall of Roots": {
   "mana_cost": "{1}{G}",
   "power": "0",
-  "text": "Defender\nPut a -0/-1 counter on Wall of Roots: Add {G}. Activate this ability only once each turn.",
+  "text": "Defender\nPut a -0/-1 counter on this creature: Add {G}. Activate only once each turn.",
   "toughness": "5",
   "type_line": "Creature - Plant Wall"
  },
  "Wellwisher": {
   "mana_cost": "{1}{G}",
   "power": "1",
-  "text": "{tap}: You gain 1 life for each Elf on the battlefield.",
+  "text": "{T}: You gain 1 life for each Elf on the battlefield.",
   "toughness": "1",
   "type_line": "Creature - Elf"
  },
@@ -863,7 +982,7 @@
  "Writhing Chrysalis": {
   "mana_cost": "{2}{R}{G}",
   "power": "2",
-  "text": "Devoid\nWhen you cast this spell, create two 0/1 colorless Eldrazi Spawn creature tokens with \"Sacrifice this creature: Add {C}.\"\nReach\nWhenever you sacrifice another Eldrazi, put a +1/+1 counter on Writhing Chrysalis.",
+  "text": "Devoid (This card has no color.)\nWhen you cast this spell, create two 0/1 colorless Eldrazi Spawn creature tokens with \"Sacrifice this token: Add {C}.\"\nReach\nWhenever you sacrifice another Eldrazi, put a +1/+1 counter on this creature.",
   "toughness": "3",
   "type_line": "Creature - Eldrazi Drone"
  }
