@@ -14,7 +14,7 @@
       "--catalog",
       "${MTG_KERNEL_PUBLIC_CATALOG}",
       "--source-revision",
-      "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
+      "d11d986d9db790425584512de1757d240a8553ff",
       "--known-cards"
     ]
   },
@@ -39,7 +39,7 @@
     "oh2-r2s1-b512",
     "oh2-r2s1-b512-argmax"
   ],
-  "evaluation_version": "pauper-ladder-v2.0.0",
+  "evaluation_version": "pauper-ladder-v2.1.0",
   "ladder": {
     "band": 3,
     "entrants": {
