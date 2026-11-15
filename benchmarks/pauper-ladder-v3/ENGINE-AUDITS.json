@@ -15,8 +15,8 @@
   "build": "cargo build --release --locked -p mtg-kernel --bin agent_bridge_v1 --bin spellbench_qualify_v1 with CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64, CARGO_PROFILE_RELEASE_INCREMENTAL=false, rust-lld (Windows x86_64 MSVC, rust 1.94.1), one invocation from the d11d986d9 checkout, pinned by sha256 in the build host's pinned-binaries store",
   "qualify_build": "spellbench_qualify_v1.exe built in the same invocation as agent_bridge_v1.exe",
   "host": "Windows build host (Windows 11, 24 logical CPUs), under a 4-core slot claim",
-  "date": "2026-11-15",
-  "binaries": "the binaries of pauper-ladder-v2 evaluation 2.1.0, not rebuilt: see benchmarks/pauper-ladder-v2/ENGINE-AUDITS.json for the build"
+  "date": "2026-11-14",
+  "binaries": "the binaries of pauper-ladder-v2 evaluation 2.1.0, not rebuilt. The build, qualify_build, host and date fields here are carried from benchmarks/pauper-ladder-v2/ENGINE-AUDITS.json and describe that build"
  },
  "pinned_files": {
   "agent_bridge_v1.exe": {
@@ -39,7 +39,8 @@
   }
  },
  "engine_bytes": {
-  "rule": "The board pins the engine inputs by sha256 (evaluation_engine_inputs and the files named by the engine command). The placeholders resolve to an export of spellbench bb20077 for the adapter files, the pinned python.exe, the pinned catalog and the pinned bridge. Before `bench commit`, run `spellbench bench prepare benchmarks/pauper-ladder-v3 --check` from a clean checkout of the default branch, with the pinned python.exe and with every placeholder resolved from benchmarks/local.json: it must print OK. The check prepares the definition again and compares the bytes, so the engine identity, the nine bot identities and the 18 matchups are the committed ones; it refuses a placeholder that is also set in the process environment (MTG_KERNEL_V2_BRIDGE, MTG_KERNEL_PUBLIC_CATALOG; remove MTG_KERNEL_V2_SOURCE too), and the builtin bot identities hash the interpreter. Drive `bench commit` and `bench run` the same way. A commitment cannot be redone.",
+  "rule": "The board pins the engine inputs by sha256 (evaluation_engine_inputs and the files named by the engine command). The placeholders resolve to an export of spellbench bb20077 for the adapter files, the pinned python.exe, the pinned catalog and the pinned bridge. Before `bench commit`, run `spellbench bench prepare benchmarks/pauper-ladder-v3 --check` from a clean checkout of the default branch, with the pinned python.exe and with every placeholder resolved from benchmarks/local.json: it must print OK. The check prepares the definition again and compares the bytes, so the engine identity, the nine bot identities and the 18 matchups are the committed ones; it refuses any placeholder of the definition that is also set in the process environment (usually MTG_KERNEL_V2_BRIDGE and MTG_KERNEL_PUBLIC_CATALOG; remove MTG_KERNEL_V2_SOURCE too), and the builtin bot identities hash the interpreter and the checkout's builtin bot sources. Drive `bench commit` and `bench run` the same way. A commitment cannot be redone.",
+  "prepare_check": "`bench prepare --check` on this definition, 2026-11-15, in a scratch copy with the pinned python.exe and the bridge, catalog and source variables removed from the process: OK (the committed bytes are the prepared bytes). With the bridge and catalog variables set it refused; under another interpreter it reported the two builtin bot identities as different. Rerun it from a clean checkout of the default branch before `bench commit`.",
   "evaluation_engine_identity": "c6c703936ed653d0953a03a2eedd5f0adfa3e210585c47e1a6e128813ea77e10",
   "inputs_sha256": {
    "agent_bridge_v1.exe": "f8bae9fd2e03214cd98d5d9259d32af569864f5885f8ed58d2c6bb982033bc28",
@@ -139,10 +140,11 @@
    "carried": "not rerun: the audit runs inside the engine at commit d11d986d9 and does not use the adapter; the binary is the one this result was recorded for"
   },
   "adapter_tests": {
-   "tool": "pytest integrations/mtg_kernel (adapter contract tests, the infoset adapter's included) and python/tools/generate_goldens_v2.py --check, in CI on this definition's pull request",
+   "tool": "pytest integrations/mtg_kernel (adapter contract tests, the infoset adapter's included) and python/tools/generate_goldens_v2.py --check, in CI on the default branch after this definition merges",
    "bytes_run": "the board's adapter bytes (main's)",
-   "result": "pass"
+   "result": "pending: recorded here before any commitment"
   },
+  "gorge_ar8_smoke": "pending: the unrated board pass plays gorge-ar8's six rung blocks on this engine command; recorded here before any commitment",
   "paid_ninjutsu_repair": {
    "carried": "see benchmarks/pauper-ladder-v2/ENGINE-AUDITS.json: the bridge is the same binary"
   },

@@ -243,9 +243,9 @@ pairing of the eight decks, where v2 plays mirrors only: each matchup plays
 one seat-swapped pair per ordered pairing (64 pairs, 128 games). A v3 rating
 is Elo against the reference bots over that fixed set of deck pairings, the
 kind of matchup the current models train on. Unequal decks pull scores
-toward even, so gaps read smaller than on a mirror board (on the earlier
+toward even, so off-mirror pairings compress the Elo scale (on the earlier
 engine the same two models sat 508 and 387 Elo above the anchor on the
-mirror ladder and 445 and 343 on the grid). The scale is v3's own: never
+mirror ladder and 445 and 343 on the grid, about 0.88 of the gap). The scale is v3's own: never
 compare a v3 number with a v2 or grid number. The v2 numbers stay published
 as mirror-only records. A v3 run is rated only if it passes the board's
 validity unit, and v3 publishes no per-deck ratings, since one pair per deck
@@ -257,5 +257,6 @@ does not ask.
 `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
 decks, not only mirrors, and adds a deck matchup matrix, deck Elo and each
 bot's score by deck; its first rated run is 2026-11-08. It runs the earlier
-engine and is superseded by `pauper-ladder-v3` for ratings. Luna's proposed two-deck XMage benchmark has no rated result
+engine; `pauper-ladder-v3` is meant to replace it for ratings once v3 has a
+rated run. Luna's proposed two-deck XMage benchmark has no rated result
 yet; `docs/llm-rated-entry.md` tracks its remaining live checks and publication.

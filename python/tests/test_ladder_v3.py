@@ -4,6 +4,9 @@ definition that ``bench prepare`` reproduces."""
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -40,6 +43,10 @@ def test_the_board_plays_every_ordered_pairing_in_every_block() -> None:
     # Fifteen rung blocks (seven rungs, band 3) and Basilisk 2's three: 18 blocks of 64 pairs, 2,304 games.
     assert (len(config.matchups), config.pairs_per_matchup, len(games)) == (18, 64, 2304)
     assert SEARCH_ENTRANT not in {bot.name for bot in config.bots}
+    played = {frozenset(pair) for pair in config.matchups}
+    rungs = {frozenset((a, RUNGS[j])) for i, a in enumerate(RUNGS) for j in range(i + 1, min(len(RUNGS), i + 4))}
+    assert len(rungs) == 15 and rungs <= played  # each rung against the three rungs above it
+    assert played - rungs == {frozenset(("chains-a-c4-u1048576", rung)) for rung in RUNGS[-3:]}
     for matchup in range(len(config.matchups)):
         block = [game for game in games if game.matchup_index == matchup]
         pairings = Counter((game.decks[0].catalog_id, game.decks[1].catalog_id) for game in block)
@@ -73,8 +80,14 @@ def test_the_search_entrant_is_listed_and_not_scheduled() -> None:
 def test_the_board_text_follows_the_wording_rules() -> None:
     raw = json.loads((BOARD / "benchmark.json").read_bytes())
     receipt = (BOARD / "ENGINE-AUDITS.json").read_text(encoding="utf-8")
-    text = json.dumps(raw, ensure_ascii=False) + receipt
-    assert "—" not in text and "cancels exactly" not in text and "cancel exactly" not in text
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    about_v3 = readme[readme.index("`pauper-ladder-v3` plays"):readme.index("`pauper-grid-v1` plays")]
+    assert "never\ncompare a v3 number with a v2 or grid number" in about_v3 and "mirror-only records" in about_v3
+    assert "no per-deck ratings" in about_v3 and "narrower" not in about_v3
+    assert "mulligan_mode" not in json.dumps(raw) and "Terror" not in raw["deck_pool"]
+    assert json.loads(receipt)["engine_bytes"]["evaluation_engine_identity"] == raw["evaluation_engine_identity"]
+    text = json.dumps(raw, ensure_ascii=False) + receipt + about_v3
+    assert chr(0x2014) not in text and "cancels exactly" not in text and "cancel exactly" not in text
     assert "not comparable with pauper-ladder-v2" in raw["summary"]
     assert "per-deck ratings are not published" in raw["summary"]
 
@@ -105,10 +118,49 @@ def test_a_board_can_publish_no_per_deck_ratings(tmp_path: Path, monkeypatch: An
         TournamentConfig.from_json({**quiet, "deck_slices": "no"})
 
 
-def test_the_page_says_why_a_grid_board_has_no_deck_tables() -> None:
-    page = render.render_benchmark({**BENCH, "deck_tables": [], "deck_pairing": "all_pairs"})
+def test_the_page_says_why_a_board_has_no_deck_tables() -> None:
+    page = render.render_benchmark({**BENCH, "deck_tables": [], "deck_pairing": "all_pairs", "deck_slices": False})
     assert "This board publishes no per-deck ratings" in page
-    assert "This benchmark uses one deck pairing" in render.render_benchmark({**BENCH, "deck_tables": []})
+    for view in ({**BENCH, "deck_tables": []}, {**BENCH, "deck_tables": [], "deck_pairing": "all_pairs"}):
+        assert "This benchmark uses one deck pairing" in render.render_benchmark(view)
+
+
+def test_a_snapshot_of_such_a_board_publishes_no_per_deck_ratings_either(tmp_path: Path) -> None:
+    directory = tmp_path / "fixture"
+    raw = ladder_value(directory)
+    raw["bots"] = [bot for bot in raw["bots"] if bot["name"] != "cached-llm"]
+    raw.update(deck_pool=["Burn", "Elves"], pairs_per_deck=2, ladder={"band": 1, "entrants": {}})
+    for slices in (True, False):
+        folder = tmp_path / str(slices) / "fixture"
+        write_definition(folder, {**raw, "id": "fixture", **({} if slices else {"deck_slices": False})})
+        panel.prepare_benchmark(folder)
+        play(folder, "2026-10-01")
+        board = store.read_json(panel.compose_benchmark(folder, date="2026-10-01") / "leaderboard.json")
+        assert len(board["slices"]["deck"]) == (2 if slices else 0)
+        assert (NO_DECK_SLICES_NOTE in board["notes"]) is not slices
+
+
+@pytest.mark.skipif(not (os.environ.get("SPELLBENCH_PINNED_LOCAL") and os.environ.get("SPELLBENCH_PINNED_PYTHON")),
+                    reason="needs the board's pinned binaries: set SPELLBENCH_PINNED_LOCAL to the local values file "
+                           "and SPELLBENCH_PINNED_PYTHON to the pinned interpreter")
+def test_the_committed_board_reproduces_under_the_pinned_assets(tmp_path: Path) -> None:
+    """The board's rule (integrations/mtg_kernel/README.md): prepared again from a clean copy, by the pinned
+    interpreter and with every placeholder from the local values, the committed definition comes out byte for
+    byte. The check runs in the pinned interpreter as a child process, as an operator runs it."""
+    folder = tmp_path / "benchmarks" / BOARD.name
+    folder.mkdir(parents=True)
+    shutil.copyfile(BOARD / "benchmark.json", folder / "benchmark.json")
+    shutil.copyfile(os.environ["SPELLBENCH_PINNED_LOCAL"], folder.parent / "local.json")
+    names = definition.placeholder_names(definition.load_benchmark(folder))
+    environ = {key: value for key, value in os.environ.items()
+               if key not in names and key != "MTG_KERNEL_V2_SOURCE"}
+    environ.update(PYTHONPATH=str(REPO / "python"), PYTHONUTF8="1")
+    command = [os.environ["SPELLBENCH_PINNED_PYTHON"], "-B", "-c",
+               "import sys; from spellbench.arena.cli import main; sys.exit(main())",
+               "bench", "prepare", str(folder), "--check"]
+    done = subprocess.run(command, env=environ, capture_output=True, text=True, cwd=tmp_path)
+    assert done.returncode == 0 and "prepare check: OK" in done.stdout, done.stdout + done.stderr
+    assert (folder / "benchmark.json").read_bytes() == (BOARD / "benchmark.json").read_bytes()
 
 
 # ---------------- deferred entrants ----------------

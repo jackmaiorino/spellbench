@@ -72,12 +72,19 @@ checkout of the default branch with the pinned `python.exe` and with every
 placeholder resolved from `benchmarks/local.json`, must print OK before
 `bench commit`. The check prepares the definition again and compares the
 bytes, so the engine identity, every bot identity and the schedule are the
-committed ones. It refuses a placeholder that is also set in the process
-environment (`MTG_KERNEL_V2_BRIDGE`, `MTG_KERNEL_PUBLIC_CATALOG`; also remove
-`MTG_KERNEL_V2_SOURCE`), because a set variable wins over the local values,
-and it reports the builtin bot identities as different under any other
-interpreter. The search entrant is listed in `deferred_entrants`, so the
-prepared file needs no hand edit.
+committed ones. It refuses any placeholder of the definition that is also
+set in the process environment (`MTG_KERNEL_V2_BRIDGE` and
+`MTG_KERNEL_PUBLIC_CATALOG` are the usual ones; also remove
+`MTG_KERNEL_V2_SOURCE`, which earlier definitions read), because a set
+variable wins over the local values. The builtin bot identities hash the
+interpreter and the checkout's own builtin bot sources, so the check
+reports them as different under another interpreter or a changed checkout.
+The search entrant is listed in `deferred_entrants`, so the prepared file
+needs no hand edit. CI has no pinned binaries: with them, set
+`SPELLBENCH_PINNED_LOCAL` to the local values file and
+`SPELLBENCH_PINNED_PYTHON` to the pinned interpreter, and
+`pytest python/tests/test_ladder_v3.py -k pinned` makes the same check as
+a test.
 
 Every engine change behind a board needs fresh audits on the pinned binary
 before that board rates games: the history two-world audit, the
