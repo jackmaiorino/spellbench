@@ -51,6 +51,13 @@ engine identity. Build at the pinned commit with the W1 soak profile (for d11d98
 The catalog stays the 89fb69a95 one (sha256 `af8e1b91...`, byte-identical to
 `pauper-v2-omen-92ec2393.json`).
 
+The board runs the python engine inputs by sha256 from a spellbench
+checkout at 0c486ed. Main's `kernel_history_v2.py` and
+`kernel_observation_v2.py` differ from those bytes (spellbench d4dcb42), so
+resolve the engine placeholders to a 0c486ed checkout, not to main. The
+adapter pytest and goldens run on main's bytes; the other audits run on the
+pinned ones (`engine_bytes` in `ENGINE-AUDITS.json`).
+
 Every engine change behind a board needs fresh audits on the pinned binary
 before that board rates games: the history two-world audit, the
 `check_engine_v2` and `check_private_preview_v2` checks here, the gorge-ar8

@@ -220,9 +220,10 @@ engine and decks: seven reference rungs from uniform to oh2-r2s1-b512, each
 playing the rungs nearest it, so a new entrant gets a rating from games
 against 3 rungs near its strength. Its b512-argmax rung is within noise of
 b512 (+22 Elo, 95% CI [-21, +67], in the unrated pass that sized the
-ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on mtg-kernel 4fccd3ebc with the infoset adapter, with every rung re-rated (rated run 2026-11-08, snapshot 2026-11-09); its ratings are not comparable with v1's. 5 of its 1,920 rated-run games halted on an infoset adapter fault in Faeries mirrors, within the ladder's 97% natural-ending rule. That fault (mtg-kernel#612) is repaired in the engine pin d11d986d9, so every rung is re-rated on that engine before a new rating is published.
-The `oh2-r2s1-b512-s4a-16k-k4` placement finished at 1473.7 Elo
-(95% CI [1411.2, 1543.8]). It remains a rated entrant. Rung admission
+ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on the infoset adapter, with every rung re-rated: rated run 2026-11-08 (snapshot 2026-11-09) on mtg-kernel 4fccd3ebc, evaluation 2.0.0. Its ratings are not comparable with v1's. 5 of its 1,920 games halted on an infoset adapter fault in Faeries mirrors (a paid ninjutsu activation, mtg-kernel#612), within the 97% natural-ending rule. The fault is repaired in the engine pin d11d986d9 (4fccd3ebc plus mtg-kernel#614) and the board is at evaluation 2.1.0: every rung and Basilisk 2 are re-rated on the repaired engine before the next snapshot publishes, and 2.0.0 and 2.1.0 ratings are not comparable. The 2.0.0 runs and snapshots stay published as records.
+The `oh2-r2s1-b512-s4a-16k-k4` placement on 2.0.0 finished at 1473.7 Elo
+(95% CI [1411.2, 1543.8]). On 2.1.0 it is pending until its own re-rate, and
+that number is not a 2.1.0 rating. Rung admission
 required 1594.3 Elo because no adjacent rung gap exceeded 200 Elo.
 [Rated snapshot](benchmarks/pauper-ladder-v2/snapshots/2026-11-09-2/LEADERBOARD.md)
 
