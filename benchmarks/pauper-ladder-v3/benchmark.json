@@ -367,7 +367,7 @@
     }
   ],
   "job_storage_budget": {
-    "projected_bytes": 4294967296,
+    "projected_bytes": 1073741824,
     "cap_bytes": 25769803776
   },
   "evaluation_engine_identity": "afbc4836322ef52011594819a5de0b87a2a8a39350b8a9cd1762020c5ab424ad",
