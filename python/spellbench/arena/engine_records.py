@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import time
 import uuid
 import re
@@ -33,7 +34,8 @@ def settings(environ=None):
             or not Path(data["root"]).is_absolute()
             or type(data["per_game_cap_bytes"]) is not int or not 0 < data["per_game_cap_bytes"] <= 128*2**20
             or type(data["collection_timeout_seconds"]) is not int or not 0 < data["collection_timeout_seconds"] <= 3600
-            or not Path(data["cold_source"]).is_absolute() or not Path(data["recovery"]).is_absolute()):
+            or not Path(data["cold_source"]).is_absolute() or not Path(data["recovery"]).is_absolute()
+            or data.get("on_cap") not in (None, "truncate")):
         raise ValueError("invalid bounded operator engine recording config")
     transport = data.get("transport", {})
     if (not re.fullmatch(r"[A-Za-z0-9_.@-]+", transport.get("ssh_target", ""))
@@ -107,11 +109,21 @@ class EngineRecord:
         self.path = self.directory / "engine.jsonl"
         self.stream = self.path.open("xb")
         self.bytes = 0
+        self.truncated_at = None  # set once, only under on_cap "truncate" (a human session): the record stops here
 
     def write(self, direction, payload):
+        if self.truncated_at is not None:
+            return
         line = wire.canonical_json_dumps({"dir": direction, "message": wire.strict_json_loads(payload)}) + b"\n"
         if self.bytes + len(line) > self.data["per_game_cap_bytes"]:
-            raise ValueError("operator engine transcript exceeded its declared per-game byte cap")
+            if self.data.get("on_cap") != "truncate":
+                raise ValueError("operator engine transcript exceeded its declared per-game byte cap")
+            # A human session: the record is evidence and the play-log feed, never worth a game in progress. Keep the
+            # complete lines written so far, say so once, and let the game go on unrecorded from here.
+            self.truncated_at = self.bytes
+            print(f"engine record {self.directory.name} reached its {self.data['per_game_cap_bytes']}-byte cap after "
+                  f"{self.bytes} bytes; the record stops here and the game continues", file=sys.stderr, flush=True)
+            return
         self.stream.write(line)
         self.stream.flush()
         self.bytes += len(line)
@@ -144,6 +156,8 @@ class EngineRecord:
                    "transcript_sha256": sha(self.path), "transcript_bytes": self.path.stat().st_size,
                    "cold_source": self.data["cold_source"], "recovery": self.data["recovery"],
                    "config": identity(self.data), "operator_only": True}
+        if self.truncated_at is not None:
+            receipt["truncated_at_bytes"] = self.truncated_at
         row_bytes = wire.canonical_json_dumps(row.to_json())
         with (self.directory / "ROW.json").open("xb") as stream:
             stream.write(row_bytes)

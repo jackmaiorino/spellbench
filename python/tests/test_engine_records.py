@@ -395,3 +395,52 @@ def test_conflicting_compressed_custody_copy_never_acknowledges_or_releases(reco
     assert (directory / "engine.jsonl").exists()
     assert not (directory / "COLLECTED.json").exists()
     assert not (directory / "HOT-RELEASE.json").exists()
+
+
+def test_truncate_policy_keeps_complete_lines_and_the_game_going_at_the_cap(recording, capsys):
+    record, terminal, config = recording
+    request = b'{"op":"step","selection":{"candidate_id":17}}'
+    line = wire.canonical_json_dumps({"dir": "host_to_engine", "message": wire.strict_json_loads(request)}) + b"\n"
+    config["per_game_cap_bytes"] = 2 * len(line)
+    config["on_cap"] = "truncate"
+    for _ in range(5):
+        record.write("host_to_engine", request)  # the third and later writes do not raise
+    assert record.bytes == 2 * len(line) and record.truncated_at == 2 * len(line)
+    assert capsys.readouterr().err.count("the record stops here and the game continues") == 1
+    record.write("engine_to_host", b'{"op":"terminal","winner":"A"}')
+    directory = Path(record.seal(terminal))
+    assert (directory / "engine.jsonl").read_bytes() == line * 2
+    ready = json.loads((directory / "READY.json").read_bytes())
+    assert ready["truncated_at_bytes"] == 2 * len(line) and ready["transcript_bytes"] == 2 * len(line)
+
+
+def test_without_the_truncate_policy_a_receipt_has_no_truncation_field_and_the_cap_still_raises(recording):
+    record, terminal, config = recording
+    request = b'{"op":"step"}'
+    config["per_game_cap_bytes"] = len(wire.canonical_json_dumps({"dir": "host_to_engine", "message": {"op": "step"}})) + 1
+    record.write("host_to_engine", request)
+    with pytest.raises(ValueError, match="byte cap"):
+        record.write("host_to_engine", request)
+    assert record.truncated_at is None
+    record.close()
+
+
+def test_on_cap_accepts_only_truncate(tmp_path, monkeypatch):
+    base = {"schema": "spellbench-engine-recording/v1", "root": str(tmp_path / "hot"),
+            "per_game_cap_bytes": 4096, "collection_timeout_seconds": 1, "cold_source": str(tmp_path / "cold"),
+            "recovery": str(tmp_path / "recovery"), "reserve_bytes": 60 * 2**30, "cold_cap_bytes": 1, "recovery_cap_bytes": 1,
+            "transport": {"ssh_target": "local", "poll_seconds": 1, "command_timeout_seconds": 1,
+                          "copy_timeout_seconds": 1, "compression": "gzip"}}
+    results = {}
+    for name, extra in (("none", {}), ("truncate", {"on_cap": "truncate"}), ("other", {"on_cap": "ignore"})):
+        data = {**base, **extra, "remote_config_path": str(tmp_path / f"{name}.json")}
+        data["source_sha256"] = engine_records.identity(data)["source_sha256"]
+        path = tmp_path / f"{name}.json"
+        raw = json.dumps(data).encode()
+        path.write_bytes(raw)
+        try:
+            results[name] = engine_records.settings({engine_records.CONFIG_ENV: str(path),
+                                                     engine_records.HASH_ENV: digest(raw)}).get("on_cap")
+        except ValueError as exc:
+            results[name] = str(exc)
+    assert results == {"none": None, "truncate": "truncate", "other": "invalid bounded operator engine recording config"}
