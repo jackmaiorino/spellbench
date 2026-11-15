@@ -587,6 +587,10 @@ def main():
     parser.add_argument("--known-cards", action="store_true",
                         help="declare known_cards and track Section 6.7 knowledge (needs a history-exporting bridge)")
     args = parser.parse_args()
+    if args.known_cards:
+        # The Section 6.7 knowledge tracker has not been taught the pregame's draws and bottoms; the London human
+        # board does not declare known_cards.
+        parser.error("--known-cards is not supported by the London human engine")
     peer = NativePeer(args.bridge)
     try:
         engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision,
