@@ -113,6 +113,11 @@ NOTES_V2 = [
     "halt and truncation rates count the games halted or truncated right after the bot's own selection, over every game it played",
 ]
 
+# Replaces the deck-slices note on a board that publishes none (``deck_slices`` false).
+NO_DECK_SLICES_NOTE = (
+    "no per-deck ratings are published on this board: each matchup plays too few pairs of one deck pairing to "
+    "rate a deck's games on their own; scores by deck are in the deck grid"
+)
 
 _MAX_JSON_INT = (1 << 53) - 1  # artifact integers stay inside the protocol range
 
@@ -348,6 +353,7 @@ def build_leaderboard(
     format: str,
     schema: str,
     withheld: str | None = None,
+    deck_slices: bool = True,
 ) -> tuple[dict[str, Any], str]:
     """Build the leaderboard JSON document and the markdown rendering.
 
@@ -361,6 +367,11 @@ def build_leaderboard(
     and the matchup records (their observed scores and score intervals,
     which are not ratings), with no rating, rating interval, rank,
     subrating, deck slice or deck grid.
+
+    ``deck_slices`` false publishes no per-deck ratings (``slices.deck`` is
+    empty, and the notes say so): a board that plays one pair per deck
+    pairing and matchup has too few games per deck to rate them alone. The
+    deck grid, which reports scores by deck, is unchanged.
     """
     if schema not in (LEADERBOARD_SCHEMA_V1, LEADERBOARD_SCHEMA_V2):
         raise ValueError(f"unknown leaderboard schema: {schema!r}")
@@ -382,6 +393,11 @@ def build_leaderboard(
         rows, document["rows"], base_seed=base_seed, bootstrap_replicates=bootstrap_replicates)
     if grid is not None:  # absent for mirror-only ledgers, so their artifacts keep their bytes
         document["deck_grid"] = grid
+    if not deck_slices:
+        document["slices"] = {"deck": []}
+        document["notes"] = [NO_DECK_SLICES_NOTE if note.startswith("deck slices ") else note
+                             for note in document["notes"]]
+        return document, render_markdown(document)
     document["slices"] = {
         "deck": _deck_slices(
             rows,

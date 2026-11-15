@@ -1302,6 +1302,10 @@ def _leaderboards(view: Mapping[str, Any]) -> str:
         else:
             by_deck.append(_note(f"Each deck is rated on its own games ({pairs} per matchup), still anchored on the random bot."))
         by_deck += [_deck_section(table) for table in view["deck_tables"]]
+    elif view.get("deck_pairing") == "all_pairs":
+        by_deck.append(_note("This board publishes no per-deck ratings: each matchup plays one pair per deck "
+                             "pairing, too few to rate a deck's games on their own. Scores by deck are under "
+                             "Deck matchups."))
     else:
         by_deck.append(_note("This benchmark uses one deck pairing; see Overall."))
     by_style = ['<h2 class="panel-title">By training style</h2>']

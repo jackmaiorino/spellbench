@@ -746,6 +746,7 @@ def _publish(
         rows, entries, anchor_bot_id=anchor_bot_id, base_seed=config.stats_seed,
         bootstrap_replicates=config.bootstrap_replicates, format=config.format,
         schema=leaderboard.LEADERBOARD_SCHEMA_V2, withheld=validity.withheld_reason(record),
+        deck_slices=config.deck_slices,
     )
     store.write_json_atomic(directory / store.LEADERBOARD_JSON_NAME, document)
     store.write_bytes_atomic(directory / store.LEADERBOARD_MD_NAME, markdown.encode("utf-8"))

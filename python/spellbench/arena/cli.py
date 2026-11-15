@@ -84,7 +84,7 @@ _USAGE = (
 )
 _BENCH_USAGE = (
     "usage:\n"
-    "  spellbench bench prepare BENCHMARK_DIR [--unrated]\n"
+    "  spellbench bench prepare BENCHMARK_DIR [--unrated] [--check]\n"
     "  spellbench bench compose BENCHMARK_DIR [--unrated] [--date YYYY-MM-DD]\n"
     "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
     "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
@@ -324,10 +324,17 @@ def _bench_rerun(directory: Path, args: Sequence[str]) -> int | None:
 
 
 def _bench_prepare(directory: Path, args: Sequence[str]) -> int | None:
-    from ..bench.panel import prepare_benchmark
-    options = _bench_options(args, flags=("--unrated",))
+    from ..bench.panel import check_prepared, prepare_benchmark
+    options = _bench_options(args, flags=("--unrated", "--check"))
     if options is None:
         return None
+    if "--check" in options:
+        problems = check_prepared(directory, unrated="--unrated" in options)
+        for problem in problems:
+            print(f"FAIL {problem}", file=sys.stderr)
+        if not problems:
+            print("prepare check: OK, benchmark.json is the file bench prepare writes here")
+        return 1 if problems else 0
     targets = prepare_benchmark(directory, unrated="--unrated" in options)
     print(f"evaluation targets: {', '.join(targets) if targets else 'none; no games needed'}")
     print("review and commit benchmark.json before bench commit" if targets else

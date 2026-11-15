@@ -373,7 +373,8 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
         raise SnapshotError("the composed results fail the board's validity unit: " + "; ".join(record["failures"]))
     document, _ = leaderboard.build_leaderboard(rows, entries,
         anchor_bot_id=entries_by_name[config.rating_anchor].bot_id, base_seed=config.stats_seed,
-        bootstrap_replicates=config.bootstrap_replicates, format=config.format, schema=store.LEADERBOARD_SCHEMA)
+        bootstrap_replicates=config.bootstrap_replicates, format=config.format, schema=store.LEADERBOARD_SCHEMA,
+        deck_slices=config.deck_slices)
     if document["status"] != "ok" or any(not row["rated"] for row in document["rows"]):
         raise SnapshotError("panel results do not connect every entrant to the rating anchor")
     document["evaluation"] = {"mode": "reference_panel" if config.ladder is None else "ladder",

@@ -62,6 +62,23 @@ pinned ones (`engine_bytes` in `ENGINE-AUDITS.json`). The engine and builtin bot
 removed from the launch process environment (including any user-level value it inherits), and check the printed engine
 identity from `bench prepare` in a clean checkout before committing.
 
+`pauper-ladder-v3` keeps that bridge, scorer, catalog and interpreter and
+runs the adapter bytes of main at bb20077 (`kernel_history_v2.py` b41e376a
+and `kernel_observation_v2.py` 3bfc00de from spellbench d4dcb42; the other
+files are unchanged since 0c486ed), so resolve its engine placeholders to an
+export of that commit. Its rule for a committed definition: `spellbench
+bench prepare benchmarks/pauper-ladder-v3 --check`, run from a clean
+checkout of the default branch with the pinned `python.exe` and with every
+placeholder resolved from `benchmarks/local.json`, must print OK before
+`bench commit`. The check prepares the definition again and compares the
+bytes, so the engine identity, every bot identity and the schedule are the
+committed ones. It refuses a placeholder that is also set in the process
+environment (`MTG_KERNEL_V2_BRIDGE`, `MTG_KERNEL_PUBLIC_CATALOG`; also remove
+`MTG_KERNEL_V2_SOURCE`), because a set variable wins over the local values,
+and it reports the builtin bot identities as different under any other
+interpreter. The search entrant is listed in `deferred_entrants`, so the
+prepared file needs no hand edit.
+
 Every engine change behind a board needs fresh audits on the pinned binary
 before that board rates games: the history two-world audit, the
 `check_engine_v2` and `check_private_preview_v2` checks here, the gorge-ar8

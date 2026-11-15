@@ -238,7 +238,24 @@ that number is not a 2.1.0 rating. On 2.0.0, rung admission
 required 1594.3 Elo because no adjacent rung gap exceeded 200 Elo.
 [Rated snapshot, evaluation 2.0.0, engine 4fccd3ebc](benchmarks/pauper-ladder-v2/snapshots/2026-11-09-2/LEADERBOARD.md)
 
+`pauper-ladder-v3` plays the v2 rungs, decks and engine pin on every ordered
+pairing of the eight decks, where v2 plays mirrors only: each matchup plays
+one seat-swapped pair per ordered pairing (64 pairs, 128 games). A v3 rating
+is Elo against the reference bots over that fixed set of deck pairings, the
+kind of matchup the current models train on. Unequal decks pull scores
+toward even, so gaps read smaller than on a mirror board (on the earlier
+engine the same two models sat 508 and 387 Elo above the anchor on the
+mirror ladder and 445 and 343 on the grid). The scale is v3's own: never
+compare a v3 number with a v2 or grid number. The v2 numbers stay published
+as mirror-only records. A v3 run is rated only if it passes the board's
+validity unit, and v3 publishes no per-deck ratings, since one pair per deck
+pairing and matchup is too few. It has no rated run yet. Not in v3: the
+Terror deck and mulligans (a later version). The rated game still asks a
+player to order cards that reach the graveyard together, which training
+does not ask.
+
 `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
 decks, not only mirrors, and adds a deck matchup matrix, deck Elo and each
-bot's score by deck; its first rated run is 2026-11-08. Luna's proposed two-deck XMage benchmark has no rated result
+bot's score by deck; its first rated run is 2026-11-08. It runs the earlier
+engine and is superseded by `pauper-ladder-v3` for ratings. Luna's proposed two-deck XMage benchmark has no rated result
 yet; `docs/llm-rated-entry.md` tracks its remaining live checks and publication.
