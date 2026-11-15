@@ -11,6 +11,8 @@ Priority windows: a window at which the person has nothing but passing and mana 
 and never sent, so the client's AUTOPASS countdown and its Full control setting have nothing to act on: Full control is
 not supported (the person is asked at every window with a real action, and at no other). The client's pass-until and
 exhaustStack reach ``Hub.pass_with``; every position at which the stack changed is drawn in order (``Hub.frames``).
+The engine gives priority in only some steps (main phases, attackers, blockers), so a pass-until aimed at any other step
+(the opponent's end step is the client's default stop) is taken at the nearest window instead, and the log says so.
 
 The person's seat: a person who leaves the table mid-game concedes at once; one whose connection drops has the table's
 reconnect timeout (the same on the relay and here) to come back, and one who goes between the relay's GameStarted and

@@ -119,7 +119,8 @@ def test_the_hosts_pass_with_a_target_reaches_the_hub_as_a_hold() -> None:
                                            "exhaustStack": False}}})
     thread.join(5)
     assert thread.result == [0]
-    assert hub.hold["seat"] == OPP and hub.hold["step"] == "end_step" and hub.hold["through_combat"] is True
+    # the engine has no window in the end step: the hold is aimed at the nearest one (the second main phase)
+    assert hub.hold["seat"] == OPP and hub.hold["step"] == "postcombat_main" and hub.hold["through_combat"] is True
     assert not [m for m in sent if m.get("state", {}).get("kind") == "error"]
 
 
@@ -222,6 +223,63 @@ def test_a_target_in_a_turn_that_had_no_window_is_lost() -> None:
     pass_priority(hub, at([PASS, BOLT], phase="postcombat_main", active=ME, turn=3), until(OPP, "precombat_main"))
     assert how(hub, at([PASS, BOLT], phase="precombat_main", active=ME, turn=5)) == "human"  # no window of turn 4 came
     assert hub.hold is None
+
+
+@pytest.mark.parametrize("through", [False, True])
+def test_a_stop_at_the_opponents_end_step_is_taken_in_their_second_main_phase(through: bool) -> None:
+    """The owner's report: Space (or END TURN) aims at the opponent's end step, where he wanted to cast Brainstorm. The
+    engine has no priority there, so the session used to pass him through every window up to it and he never held
+    priority again until his own turn. Now the stop is the last window the turn has."""
+    hub = new_hub(real=True)
+    pass_priority(hub, at([PASS, BOLT], phase="precombat_main"), until(OPP, "end_step", through=through))
+    assert hub.hold["step"] == "postcombat_main"
+    assert how(hub, at([PASS, BOLT], phase="postcombat_main")) == "auto_pass"                   # my own main 2
+    assert how(hub, at([PASS, BOLT], phase="precombat_main", active=OPP, turn=4)) == "auto_pass"  # still ahead
+    assert how(hub, at([PASS, BOLT], phase="postcombat_main", active=OPP, turn=4)) == "human"     # the stop
+    assert hub.hold is None
+    assert how(hub, at([PASS, BOLT], phase="precombat_main", active=ME, turn=5)) == "human"
+
+
+def test_the_moved_stop_still_passes_a_window_with_nothing_to_do() -> None:
+    hub = new_hub(real=True)
+    pass_priority(hub, at([PASS, BOLT], phase="precombat_main"), until(OPP, "end_step", through=True))
+    assert how(hub, at([PASS, MANA], phase="postcombat_main", active=OPP, turn=4)) == "auto_pass"
+
+
+def test_a_stop_before_the_first_window_or_between_windows_is_taken_at_the_next_one() -> None:
+    from spellbench.human.server import reachable_step
+
+    assert [reachable_step(s) for s in STEP_ORDER] == [
+        "precombat_main", "precombat_main", "precombat_main", "precombat_main", "declare_attackers", "declare_attackers",
+        "declare_blockers", "postcombat_main", "postcombat_main", "postcombat_main", "postcombat_main", "postcombat_main"]
+    hub = new_hub(real=True)
+    pass_priority(hub, at([PASS, BOLT], phase="postcombat_main"), until(OPP, "upkeep"))
+    assert hub.hold["step"] == "precombat_main"
+    assert how(hub, at([PASS, BOLT], phase="precombat_main", active=OPP, turn=4)) == "human"  # their first window
+    pass_priority(hub, at([PASS, BOLT], phase="precombat_main", active=OPP, turn=4), until(OPP, "end_of_combat"))
+    assert how(hub, at([PASS, BOLT], phase="declare_attackers", active=OPP, turn=4)) == "auto_pass"
+    assert how(hub, at([PASS, BOLT], phase="postcombat_main", active=OPP, turn=4)) == "human"
+
+
+def test_a_stop_that_cannot_be_taken_this_turn_is_not_carried_into_the_next_and_the_log_says_why() -> None:
+    hub = new_hub(real=True)
+    pass_priority(hub, at([PASS, BOLT], phase="postcombat_main", active=OPP, turn=4), until(OPP, "end_step"))
+    assert any("no later priority this turn" in line["text"] and "opponent's end step" in line["text"] for line in hub.log)
+    assert how(hub, at([PASS, BOLT], phase="precombat_main", active=ME, turn=5)) == "human"
+    assert hub.hold is None
+
+
+def test_the_log_says_once_per_turn_where_the_stop_is_taken() -> None:
+    hub = new_hub(real=True)
+    for _ in range(2):
+        pass_priority(hub, at([PASS, BOLT], phase="precombat_main"), until(OPP, "end_step"))
+        hub.hold = None
+        hub.passed_at = None  # (the same position is not asked twice; this is the person passing again)
+    lines = [line["text"] for line in hub.log if "gives no priority" in line["text"]]
+    assert lines == ["The engine gives no priority in the opponent's end step, so your stop there is taken in the "
+                     "opponent's second main phase, the nearest priority there is."]
+    pass_priority(hub, at([PASS, BOLT], phase="precombat_main", turn=5), until(OPP, "end_step"))
+    assert len([line for line in hub.log if "gives no priority" in line["text"]]) == 2  # a new turn says it again
 
 
 def test_the_play_page_never_holds() -> None:
@@ -567,7 +625,7 @@ def test_the_stand_ins_buttons_drive_the_session_the_way_the_client_does() -> No
     bridge.host = type("Relay", (), {"send": staticmethod(lambda m: None)})()
     bridge.human, bridge.order, bridge.game_id = "human", ["human", "Basilisk 2"], "g-1"
     bridge.seats = SEATS
-    for n, (mode, expected) in enumerate((("stops", ("declare_attackers", False)), ("end-turn", ("end_step", True)))):
+    for n, (mode, expected) in enumerate((("stops", ("declare_attackers", False)), ("end-turn", ("postcombat_main", True)))):
         hub.hold = None
         thread = waiting_priority(hub, at([PASS, BOLT], phase="precombat_main", turn=3 + n))
         bridge._push(hub.state())
