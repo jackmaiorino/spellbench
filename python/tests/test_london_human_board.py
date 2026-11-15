@@ -118,5 +118,9 @@ def test_the_generator_names_nobody_it_copies_the_rated_boards_own_fields(tmp_pa
     board_path, local_path, registry = write(tmp_path, [entrant("chains-a-c4-london-test")])
     board, _ = make.make(board_path, local_path, registry, "b", "r")
     assert (board["bots"][2]["owner"], board["bots"][2]["display"]["author"]) == ("owner-x", "author-x")
-    source = (REPO / "tools" / "make_london_human_board.py").read_text(encoding="utf-8")
-    assert "mipo" not in source and "jackmaiorino" not in source
+    # With no mtg-kernel entry on the rated board there is nothing to copy: the fields stay empty, never invented.
+    bare = rated_board()
+    bare["bots"] = bare["bots"][:2]
+    board_path.write_text(json.dumps(bare), encoding="utf-8")
+    board, _ = make.make(board_path, local_path, registry, "b", "r")
+    assert (board["bots"][2]["owner"], board["bots"][2]["display"]["author"]) == (None, None)

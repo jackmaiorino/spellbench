@@ -26,7 +26,8 @@ def test_a_chain_state_label_names_the_state_and_whether_the_lean_was_active() -
     assert add.chain_label("arm M m1", 4096, 32768) == (
         "arm M m1 at 4,096 updates (keep lean still active in training)", True)
     assert add.chain_label("arm M m1", 32767, 32768)[1] is True
-    assert add.chain_label("arm M m1", 32768, 32768)[1] is False
+    assert add.chain_label("arm M m1", 32768, 32768)[1] is True  # its last update still had a nonzero offset
+    assert add.chain_label("arm M m1", 32769, 32768)[1] is False
     assert add.chain_label("arm M m1", 36864, 32768) == (
         "arm M m1 at 36,864 updates (keep lean already zero in training)", False)
 

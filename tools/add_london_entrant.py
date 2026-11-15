@@ -53,8 +53,11 @@ def scorer_config(base: dict, checkpoint: Path, checkpoint_sha256: str) -> dict:
 
 def chain_label(chain: str, fork_updates: int, lean_end: int) -> tuple[str, bool]:
     """The table name of a chain state and whether the training-only keep lean was still active when the state was
-    saved (any state before ``lean_end`` fork updates trained with a nonzero lean; the lean is never applied at play)."""
-    active = fork_updates < lean_end
+    saved (any state up to ``lean_end`` fork updates trained with a nonzero lean; the lean is never applied at play)."""
+    # The offset of fork update u (counting from 0) is b0 * (1 - u / lean_end) for u < lean_end and exactly zero from
+    # lean_end on. A state saved after N updates has trained on update N - 1 last, so the lean was active in its
+    # training exactly when N <= lean_end (N = lean_end: the last update had a tiny nonzero offset).
+    active = fork_updates <= lean_end
     return (f"{chain} at {fork_updates:,} updates (keep lean "
             f"{'still active in training' if active else 'already zero in training'})"), active
 
