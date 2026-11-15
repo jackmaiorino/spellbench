@@ -77,3 +77,29 @@ def test_the_identity_check_rejects_a_file_it_cannot_hash(tmp_path, capsys) -> N
     # With the file present the snapshot is written (the repository's own pins are real files).
     (tmp_path / "missing.exe").write_bytes(b"x")
     assert identity.main(["snapshot", *args, "--out", str(out)]) == 0
+
+
+def test_the_keep6_name_rule_and_the_rule_flag_go_together_and_never_with_keep7(tmp_path) -> None:
+    args = base_args(tmp_path, "--keep-after-mulligan-rule")      # the flag under a learned name
+    with pytest.raises(SystemExit):
+        add.main(args)
+    args = base_args(tmp_path)
+    args[1] = "learned-keep6-bot"                                  # the name part without the flag
+    with pytest.raises(SystemExit):
+        add.main(args)
+    args = base_args(tmp_path, "--keep-after-mulligan-rule", "--keep-seven-test")
+    args[1] = "x-keep6-keep7"
+    with pytest.raises(SystemExit):
+        add.main(args)
+
+
+def test_a_keep_after_mulligan_chain_entrant_is_registered_with_the_rule_in_its_label(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(add, "probe", lambda scorer, config: {"model_state_sha256": "e" * 64, "model": {"adam_step": 1}})
+    args = base_args(tmp_path, "--chain", "arm P p1", "--fork-updates", "20480", "--keep-after-mulligan-rule")
+    args[1] = "arm-p-p1-u0020480-keep6"
+    assert add.main(args) == 0
+    [entry] = json.loads((tmp_path / "in" / "london-entrants.json").read_text(encoding="utf-8"))["entrants"]
+    assert entry["keep_after_mulligan_rule"] is True and entry["keep_seven_test"] is False
+    assert entry["label"] == ("arm P p1 at 20,480 updates: mulligan decision at seven from the network "
+                              "(partly trained, level still unstable); keeps any six by rule")
+    assert entry["chain"]["lean_active_when_saved"] is True and "STOPGAP" in entry["description"]

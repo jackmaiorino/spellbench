@@ -33,6 +33,11 @@ LADDER_FIELDS = ("ladder", "opponent_panel", "evaluation_version", "evaluation_t
 KEPT_BOTS = ("uniform", "heuristic")
 KEEP_SEVEN_NAME_PART = "keep7"
 KEEP_SEVEN_SUFFIX = " (keeps seven, test)"
+KEEP_RULE_NAME_PART = "keep6"
+# The table name of a keep-after-mulligan entrant always ends in this note, derived here and never taken from the registry.
+KEEP_RULE_NOTE = ("mulligan decision at seven from the network (partly trained, level still unstable); "
+                  "keeps any six by rule")
+KEEP_RULE_SUFFIX = ": " + KEEP_RULE_NOTE
 
 
 def placeholder(name: str) -> str:
@@ -47,6 +52,17 @@ def check_keep_seven(entrant: dict) -> None:
                          f"entrant's does (keep_seven_test is {bool(entrant.get('keep_seven_test'))})")
 
 
+def check_keep_rule(entrant: dict) -> None:
+    """The keep-after-mulligan rule and the name part ``keep6`` go together, in either direction, and never with the
+    keep-seven test mode."""
+    name = entrant["name"]
+    if bool(entrant.get("keep_after_mulligan_rule")) != (KEEP_RULE_NAME_PART in name):
+        raise SystemExit(f"{name}: a keep-after-mulligan entrant's name carries {KEEP_RULE_NAME_PART!r} and no other "
+                         f"entrant's does (keep_after_mulligan_rule is {bool(entrant.get('keep_after_mulligan_rule'))})")
+    if entrant.get("keep_after_mulligan_rule") and entrant.get("keep_seven_test"):
+        raise SystemExit(f"{name}: the keep-after-mulligan rule and the keep-seven test mode are different bots")
+
+
 def shown_label(entrant: dict) -> str:
     """The table name. A keep-seven test entrant always ends in ``(keeps seven, test)``, derived here and never
     taken from the registry; any other entrant that carries those words is refused."""
@@ -54,6 +70,12 @@ def shown_label(entrant: dict) -> str:
     plain = label[:-len(KEEP_SEVEN_SUFFIX)] if entrant.get("keep_seven_test") and label.endswith(KEEP_SEVEN_SUFFIX) else label
     if "keeps seven" in plain.lower():
         raise SystemExit(f"{entrant['name']}: the label {label!r} claims a keep-seven bot; only the test mode may")
+    if entrant.get("keep_after_mulligan_rule") and plain.endswith(KEEP_RULE_SUFFIX):
+        plain = plain[:-len(KEEP_RULE_SUFFIX)]
+    if "keeps any six" in plain.lower():
+        raise SystemExit(f"{entrant['name']}: the label {label!r} claims the keep-after-mulligan rule; only that entrant may")
+    if entrant.get("keep_after_mulligan_rule"):
+        return plain + KEEP_RULE_SUFFIX
     return plain + KEEP_SEVEN_SUFFIX if entrant.get("keep_seven_test") else plain
 
 
@@ -67,6 +89,7 @@ def rated_identity(board: dict) -> tuple[str | None, str | None]:
 
 def bot_entry(entrant: dict, owner: str | None = None, author: str | None = None, allow_numeric_fill: bool = False) -> dict:
     check_keep_seven(entrant)
+    check_keep_rule(entrant)
     name = entrant["name"]
     key = placeholder(name)
     command = ["${PYTHON}", "${MTG_KERNEL_LONDON_HUMAN_BOT}", "--scorer", "${MTG_KERNEL_SCORER}",
@@ -75,6 +98,8 @@ def bot_entry(entrant: dict, owner: str | None = None, author: str | None = None
         command += ["--expect-model-state", entrant["model_state_sha256"]]
     if entrant.get("keep_seven_test"):
         command += ["--test-keep-seven"]
+    if entrant.get("keep_after_mulligan_rule"):
+        command += ["--keep-after-mulligan"]
     if allow_numeric_fill:
         command += ["--allow-numeric-v4-fill"]
     return {"name": name, "version": "pauper-london-human-v1", "type": "subprocess", "owner": owner,
@@ -104,6 +129,7 @@ def make(rated_board: Path, rated_local: Path, registry: Path, bridge: str, engi
     entrants = json.loads(registry.read_text(encoding="utf-8")).get("entrants", [])
     for entrant in entrants:
         check_keep_seven(entrant)
+        check_keep_rule(entrant)
     names = [entrant["name"] for entrant in entrants]
     if len(set(names)) != len(names) or len({placeholder(name) for name in names}) != len(names):
         raise SystemExit("duplicate entrant names in the registry (names that differ only in punctuation share "
