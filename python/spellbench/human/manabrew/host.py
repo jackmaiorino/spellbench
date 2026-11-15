@@ -12,6 +12,12 @@ and never sent, so the client's AUTOPASS countdown and its Full control setting 
 not supported (the person is asked at every window with a real action, and at no other). The client's pass-until and
 exhaustStack reach ``Hub.pass_with``; every position at which the stack changed is drawn in order (``Hub.frames``).
 
+The person's seat: a person who leaves the table mid-game concedes at once; one whose connection drops has the table's
+reconnect timeout (the same on the relay and here) to come back, and one who goes between the relay's GameStarted and
+the arena's first view of the game loses that game when it appears. A lost relay connection ends the session loudly.
+An unhandled failure sends the client a fatal envelope and ends the game. The log is held back until the client can
+show it, the decision bank is shown beside the person's name, and the deck dealt is said when it is not the pick.
+
 Wire formats: the relay messages and envelopes follow the upstream relay as read at the commit named in NOTICE.md;
 the engine-client messages follow the Manabrew protocol documentation (CC-BY-4.0).
 """
@@ -36,6 +42,26 @@ from .ws import Closed, WebSocket
 HOST_NAME = "spellbench-host"
 PROTOCOL_VERSION = 6  # the client lists a table as joinable only when this matches its own protocol version
 LOG_TYPES = {"game": "info", "you": "action", "opp": "action"}
+RELAY_RECONNECT_MIN_S, RELAY_RECONNECT_MAX_S = 10, 90  # the relay clamps a table's reconnect timeout to this range
+# The client's log panel mounts a few seconds after the board (4.5 s measured on a software-rendered browser), so a
+# line sent in the first seconds of a game, or just after a reload, can arrive before it exists and be lost.
+LOG_MOUNT_WINDOW_S = 8.0
+BANK_WARNINGS_S = (600, 300, 120, 60)  # remaining decision bank, in seconds, at which the log says so
+
+
+class RelayLost(RuntimeError):
+    """The connection to the relay was lost: the session cannot go on and ends (see ``Bridge._relay_closed``)."""
+
+
+def bank_label(left_ms: float | None) -> str:
+    """The person's remaining decision bank as it is shown beside their name: whole minutes (rounded up) while there
+    are two or more, then minutes and seconds in steps of ten seconds."""
+    if left_ms is None:
+        return ""
+    left = max(0, int(left_ms // 1000))
+    if left >= 120:
+        return f"{-(-left // 60)} min left"
+    return f"{left // 60}:{left % 60 // 10 * 10:02d} left"
 
 
 def _deck(name: str, decklist: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -60,9 +86,10 @@ class Session:
     """One authenticated relay connection with a reader thread."""
 
     def __init__(self, url: str, key: str, username: str, *, service: bool, on_message,
-                 allow_remote: bool = False) -> None:
+                 allow_remote: bool = False, on_close=None) -> None:
         self.ws = WebSocket(url, allow_remote=allow_remote)
         self.username = username
+        self.on_close = on_close
         self.send({"type": "Authenticate", "username": username, "password": key, "service": service})
         reply = json.loads(self.ws.recv())
         if reply.get("type") != "AuthResult" or not reply.get("success"):
@@ -77,14 +104,27 @@ class Session:
         self.ws.send(json.dumps(message, separators=(",", ":")))
 
     def _read(self) -> None:
+        reason = "the relay closed the connection"
         try:
             while True:
-                self.on_message(self, json.loads(self.ws.recv()))
+                try:
+                    message = json.loads(self.ws.recv())
+                except ValueError:  # one unreadable message does not end the connection
+                    print(f"relay session {self.username}: a message that is not JSON was ignored", flush=True)
+                    continue
+                self.on_message(self, message)
         except (Closed, OSError) as exc:
-            print(f"relay session {self.username} closed: {exc}", flush=True)
-        except Exception:  # noqa: BLE001 - keep the session's reason on the console
+            reason = str(exc) or type(exc).__name__
+            print(f"relay session {self.username} closed: {reason}", flush=True)
+        except Exception as exc:  # noqa: BLE001 - keep the session's reason on the console
             traceback.print_exc()
+            reason = f"{type(exc).__name__}: {exc}"
         self.alive = False
+        if self.on_close is not None:
+            try:
+                self.on_close(self, reason)
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
 
     def _ping(self) -> None:
         while self.alive:
@@ -115,7 +155,9 @@ class Bridge:
         self.seats: view.Seats | None = None
         self.prompt: dict[str, Any] | None = None  # {"seq", "answer", "type"}
         self.sent_log = 0
-        self.sent_frames = 0  # the hub's stack-changing positions already drawn (Hub.frames_total)
+        self.sent_frames = 0  # the hub's stack-changing positions already drawn (Hub.frames_total) ...
+        self.sent_frames_game: Any = None  # ... of this game of the hub's (its frame count restarts with each game)
+        self.rejoins = 0  # times the person's client came back in this game (see _view_game_id)
         self.sent_view: str | None = None
         self.starting = False
         self._grace: threading.Timer | None = None
@@ -127,8 +169,20 @@ class Bridge:
         self.bot_deck_for = bot_deck_for or (lambda deck: deck)
         self.human_pick: str | None = None
         self.bot_lobby: str | None = None
-        self.starts: "queue.Queue[dict[str, Any]]" = queue.Queue()
-        self.dealt: dict[str, Any] | None = None  # {"human": deck, "bot": deck} of the game being played  # a combat plan did not fit: ask substep by substep
+        self.starts: "queue.Queue[dict[str, Any] | None]" = queue.Queue()
+        # {"human": deck, "bot": deck, "differs": the person's pick was not dealt} of the game being played
+        self.dealt: dict[str, Any] | None = None
+        # Lifecycle. ``_gone``: why the person's game ended before the arena's game existed (they left or dropped
+        # between the relay's GameStarted and the game's first view); it ends that game when it appears.
+        self._gone: str | None = None
+        self._closing = False
+        self.relay_lost: str | None = None
+        self.resume_token: str | None = None  # the relay's token for ResumeRoom (kept, not used: see _relay_closed)
+        # Log delivery (see _send_log): until when log lines are held back (a new game's start, a reload).
+        self._log_hold_until = 0.0
+        # The decision bank (see _bank): the names without the clock, and the warnings already given this game.
+        self._name_base: dict[str, str] = {}
+        self._bank_warned: set[int] = set()
 
     # -- relay ---------------------------------------------------------------------------------------------------
 
@@ -142,7 +196,7 @@ class Bridge:
         while True:
             try:
                 self.host = Session(self.url, self.key, HOST_NAME, service=True, on_message=self._on_host,
-                                    allow_remote=self.allow_remote_relay)
+                                    allow_remote=self.allow_remote_relay, on_close=self._relay_closed)
                 break
             except RuntimeError as exc:
                 if "taken" not in str(exc) or time.time() > deadline:
@@ -153,9 +207,16 @@ class Bridge:
         self._create_room()
         threading.Thread(target=self._pump, daemon=True, name="manabrew-pump").start()
 
+    def reconnect_timeout_s(self) -> int:
+        """The table's reconnect timeout: how long the relay keeps a dropped person's seat (it forfeits it five seconds
+        later and tells the room ``PlayerLeft``). It is our own grace period, so the relay and this host agree about
+        when a game without its person is over; the relay accepts 10 to 90 s (its default is 60)."""
+        return int(min(max(self.DISCONNECT_GRACE_S, RELAY_RECONNECT_MIN_S), RELAY_RECONNECT_MAX_S))
+
     def _create_room(self) -> None:
         self.host.send({"type": "CreateRoom", "room_name": self.room_name, "max_players": 2, "format": "Pauper",
-                        "protocol_version": PROTOCOL_VERSION, "hosted": True, "engine": "Manabrew"})
+                        "protocol_version": PROTOCOL_VERSION, "hosted": True, "engine": "Manabrew",
+                        "reconnect_timeout_s": self.reconnect_timeout_s()})
 
     def _retry_create(self) -> None:
         with self.lock:
@@ -163,13 +224,21 @@ class Bridge:
                 self._create_room()
 
     def _on_host(self, session: Session, msg: Mapping[str, Any]) -> None:
+        try:
+            self._handle_host(session, msg)
+        except Exception as exc:  # noqa: BLE001 - a handler's failure ends the game loudly, not the connection quietly
+            self._fault(exc)
+
+    def _handle_host(self, session: Session, msg: Mapping[str, Any]) -> None:
         kind = msg.get("type")
         with self.lock:
             if kind == "RoomCreated":
                 self.room_id, self.room = msg["room_id"], msg.get("room")
+                self.resume_token = msg.get("resume_token")
                 print(f"  Manabrew room '{self.room_name}' is open on {self.url}", flush=True)
-                self.bot = Session(self.url, self.key, self.bot_name, service=False, on_message=self._on_bot,
-                                   allow_remote=self.allow_remote_relay)
+                # A service session is not listed among the online players and gets no chat (the table still seats it).
+                self.bot = Session(self.url, self.key, self.bot_name, service=True, on_message=self._on_bot,
+                                   allow_remote=self.allow_remote_relay, on_close=self._relay_closed)
                 self.bot.send({"type": "JoinRoom", "room_id": self.room_id, "as_bot": True})
             elif kind == "RoomUpdate":
                 self.room = msg.get("room")
@@ -186,11 +255,12 @@ class Bridge:
                 self.starts.put({"human_pick": picked if picked is not None else self.human_pick,
                                  "picked_name": next((d.get("deck_name") for d in msg.get("player_decks") or []
                                                       if d.get("username") == self.human), None)})
+                self._gone = None
                 self.hub.control("start", {})
             elif kind == "StateUpdate":
                 self._on_response(msg.get("from_player"), msg.get("state") or {})
             elif kind in ("PlayerDisconnected", "PlayerLeft") and msg.get("username") == (self.human or self.last_human):
-                self._human_gone()
+                self._human_gone(left=kind == "PlayerLeft")
             elif kind == "PlayerConnected" and msg.get("username") == (self.human or self.last_human):
                 self._human_back()
             elif kind == "Error":
@@ -211,6 +281,12 @@ class Bridge:
             self.bot.send({"type": "JoinRoom", "room_id": self.room_id, "as_bot": True})
 
     def _on_bot(self, session: Session, msg: Mapping[str, Any]) -> None:
+        try:
+            self._handle_bot(session, msg)
+        except Exception as exc:  # noqa: BLE001
+            self._fault(exc)
+
+    def _handle_bot(self, session: Session, msg: Mapping[str, Any]) -> None:
         if msg.get("type") == "RoomUpdate" and not getattr(self, "_bot_seated", False):
             players = (msg.get("room") or {}).get("players") or []
             if any(p.get("username") == self.bot_name for p in players):
@@ -236,8 +312,10 @@ class Bridge:
             self.last_human = self.human
         if humans:
             self.human_pick = decks.catalog_id(humans[0].get("selected_deck_name"))
-            # The bot selects the deck it will really play against this pick, so both lobby decks are true.
-            want = self.bot_deck_for(self.human_pick) if self.human_pick else None
+            # The bot selects, as soon as the person is at the table, the deck it will really play: the session
+            # decides it from the pick (a pick that is not a training deck, or none, gets the rotation's deck), so
+            # its lobby deck is the real one (never the placeholder).
+            want = self.bot_deck_for(self.human_pick)
             if want and want != self.bot_lobby and getattr(self, "bot", None) is not None:
                 self.bot_lobby = want
                 self.bot.send({"type": "SetDeckSelection", "deck_name": decks.label(want),
@@ -247,8 +325,17 @@ class Bridge:
     # -- game ----------------------------------------------------------------------------------------------------
 
     def next_start(self) -> dict[str, Any]:
-        """Block until the person starts a game at the table; returns their pick (a board deck or None)."""
-        return self.starts.get()
+        """Block until the person starts a game at the table; returns their pick (a board deck or None). Raises
+        ``RelayLost`` once the relay connection has been lost: the session cannot go on."""
+        while True:
+            if self.relay_lost:
+                raise RelayLost(self.relay_lost)
+            try:
+                start = self.starts.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            if start is not None:
+                return start
 
     def announce(self, text: str) -> None:
         """A line at the top of the play log (the client's log panel and the session's log)."""
@@ -259,54 +346,100 @@ class Bridge:
 
     def _pump(self) -> None:
         version = -1
-        while True:
-            state = self.hub.wait_state(version, timeout=5.0, frames_from=self.sent_frames)
+        while not self._closing:
+            version = self._pump_once(version)
+
+    def _pump_once(self, version: int) -> int:
+        """Wait for the play server's next state and send the client what changed. The wait is inside the guarded
+        block: whatever fails here ends the game loudly (``_fault``), and the pump goes on with the next one."""
+        try:
+            wait = 1.0 if time.time() < self._log_hold_until else 5.0  # held log lines go out as soon as the hold ends
+            state = self.hub.wait_state(version, timeout=wait, frames_from=self.sent_frames,
+                                        frames_game=self.sent_frames_game)
             version = state["version"]
-            try:
+            self._push(state)  # takes the lock in steps: the pacing of drawn stack positions holds nothing
+            if state.get("hello_waiting"):
                 with self.lock:
-                    self._push(state)
-                    if state.get("hello_waiting") and self.room is not None:
+                    if self.room is not None:
                         self._maybe_start()
-            except Exception:  # noqa: BLE001
-                traceback.print_exc()
+        except Exception as exc:  # noqa: BLE001
+            self._fault(exc)
+            time.sleep(1.0)
+        return version
 
     def _push(self, state: Mapping[str, Any]) -> None:
+        """Send the client what the state changed: the board (every stack position of the decisions since, in order,
+        then the current one), the new log lines, the open decision, the end of the game. The pacing between two
+        drawn positions is done without the lock, so a relay message or the person's answer is handled meanwhile."""
+        with self.lock:
+            begun = self._push_begin(state)
+        if begun is None:
+            return
+        game, seats, frames, over = begun
+        paced = False
+        for index, frame in enumerate(frames):
+            with self.lock:
+                if self.seats is not seats:
+                    return  # the game ended meanwhile (a concession, a fault): nothing of this state is current
+                sent = self._send_view(frame, game, None)
+            if sent and index < len(frames) - 1:
+                paced = True
+                time.sleep(self.FRAME_GAP_S)  # so the client renders each position
+        with self.lock:
+            if self.seats is not seats:
+                return
+            self._push_end(state, game, over, paced)
+
+    def _push_begin(self, state: Mapping[str, Any]) -> tuple[Any, Any, list[Mapping[str, Any]], Any] | None:
+        """The first part of ``_push`` (under the lock): the seats of a new game, the decision bank, the stack positions
+        to draw. None when there is nothing to send."""
         game = state.get("game")
         if not game or (self.human or self.last_human) is None or self.order is None:
-            return
+            return None
         if game.get("game_id") == getattr(self, "stale_game", None):
-            return
+            return None
         if self.seats is None or self.seats.human_seat != game.get("seat"):
             person = self.human or self.last_human
             human_index = self.order.index(person) if person in self.order else 0
             bot_index = 1 - human_index
             dealt = self.dealt or {}
-            names = {f"player-{human_index}": f"{person} ({dealt.get('human', '?')})",
+            # The name rows say which deck each side was dealt, and when that is not the person's table pick.
+            mark = ", not your pick" if dealt.get("differs") else ""
+            names = {f"player-{human_index}": f"{person} ({dealt.get('human', '?')}{mark})",
                      f"player-{bot_index}": f"{self.bot_name} ({dealt.get('bot', '?')})"}
             self.seats = view.Seats(game.get("seat"), f"player-{human_index}", f"player-{bot_index}", names)
+            self._name_base = dict(names)
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
-            self.sent_frames = 0
+            self.sent_frames, self.sent_frames_game, self.rejoins = 0, None, 0
             self.resent_seq = None
-        observation = state.get("observation")
+            self._bank_warned = set()
+            self._log_hold_until = time.time() + LOG_MOUNT_WINDOW_S  # see _send_log
+            if self._gone is not None:  # the person left between the relay's GameStarted and this game's first view
+                reason, self._gone = self._gone, None
+                if self.hub.concede(reason):
+                    print(f"\n  {person} had left before the game began: it is recorded as a loss ({reason}). Join "
+                          f"the table and press Start for the next game.", flush=True)
+                return None  # the game is over now: the next pump sends the client its end
         over = state.get("game_over")
+        self._bank(state, over)
         # Every decision at which the stack changed is drawn, in order, even when the session answered it at once and
         # the engine has moved on: an opponent's spell is on the board before it resolves.
         frames = [] if over else (state.get("frames") or [])[-self.FRAMES_SHOWN:]
-        for frame in frames:
-            if self._send_view(frame, game, None) and frame is not frames[-1]:
-                time.sleep(self.FRAME_GAP_S)
+        return game, self.seats, frames, over
+
+    def _push_end(self, state: Mapping[str, Any], game: Mapping[str, Any], over: Any, paced: bool) -> None:
+        """The rest of ``_push`` (under the lock): the current board, the log, the open decision, the end of the game.
+        ``paced``: the lock was let go while the positions were drawn, so a decision the person has answered or the
+        game's end since is looked for before a prompt is sent."""
         self.sent_frames = state.get("frames_total", self.sent_frames)
+        self.sent_frames_game = state.get("frames_game", self.sent_frames_game)
+        observation = state.get("observation")
         if observation:
             self._send_view(observation, game, over)
-        log = state.get("log") or []
-        # sent_log counts lines ever sent (the hub keeps only its newest lines, so a list length is no cursor).
-        fresh, self.sent_log = log_since(log, state.get("log_total", len(log)), self.sent_log)
-        for line in fresh:
-            self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
-                "entryType": LOG_TYPES.get(line.get("side"), "info"),
-                "message": ("  " if line.get("depth") else "") + str(line.get("text")),
-                "timestampMs": int(time.time() * 1000)}})
+        self._send_log(state, bool(over))
         pending = state.get("pending")
+        if paced and pending and (self.hub.pending or {}).get("seq") != pending["seq"]:
+            pending = None  # answered (or the game ended) while the positions were drawn: the next state says so
         if pending and (self.prompt is None or self.prompt["seq"] != pending["seq"]):
             self._send_prompt(pending, observation or {})
         if over and self.game_id and getattr(self, "_ended", None) != game.get("game_id"):
@@ -318,8 +451,56 @@ class Bridge:
             self.host.send({"type": "EndGame", "game_id": self.game_id})
             self.order, self.seats = None, None
 
+    def _send_log(self, state: Mapping[str, Any], over: bool) -> None:
+        """Send the log lines the client has not been given. The client's log panel does not exist until a few
+        seconds after the board (and again after a reload), and a line that arrives before it is lost, so the lines of
+        a game are held for ``LOG_MOUNT_WINDOW_S`` after its first view, or after the client reconnects, or until the
+        person's first answer proves the client is up (``_on_response``), or the game ends; then every line since the
+        start (the hub's newest 600) goes out once, in order."""
+        if not over and time.time() < self._log_hold_until:
+            return
+        log = state.get("log") or []
+        # sent_log counts lines ever sent (the hub keeps only its newest lines, so a list length is no cursor).
+        fresh, self.sent_log = log_since(log, state.get("log_total", len(log)), self.sent_log)
+        for line in fresh:
+            self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
+                "entryType": LOG_TYPES.get(line.get("side"), "info"),
+                "message": ("  " if line.get("depth") else "") + str(line.get("text")),
+                "timestampMs": int(time.time() * 1000)}})
+
+    def _bank(self, state: Mapping[str, Any], over: Any) -> None:
+        """Show the person's decision bank: the time left beside their name, and a log line when it falls below
+        10, 5, 2 and 1 minutes (a spent bank loses the game on time; the protocol has no clock of its own)."""
+        clock = state.get("clock") or {}
+        remaining = clock.get("remaining_ms")
+        if over or remaining is None or self.seats is None:
+            return
+        left = remaining
+        if state.get("pending"):  # the clock of the decision in front of the person is running
+            left -= max(0, (state.get("now") or clock.get("at") or 0) - (clock.get("at") or 0))
+        pid = self.seats.pid(self.seats.human_seat)
+        base = self._name_base.get(pid)
+        if base is not None:
+            self.seats.names[pid] = f"{base}, {bank_label(left)}"
+        due = [t for t in BANK_WARNINGS_S if left <= t * 1000 and t not in self._bank_warned]
+        if due:
+            self._bank_warned.update(due)
+            minutes = min(due) // 60
+            self.hub.say(f"Your clock: {minutes} minute{'s' if minutes != 1 else ''} left in your decision bank. "
+                         f"When it is spent the game is lost on time.")
+
     FRAME_GAP_S = 0.2  # between two drawn stack positions, so the client renders each
     FRAMES_SHOWN = 8   # at most this many of the newest (a long run of passes does not delay the next prompt)
+
+    def _view_game_id(self, game: Mapping[str, Any]) -> str:
+        """The game id the client's board carries. After the person's client has come back it carries a new one (the
+        relay's game id and ``.1``, ``.2`` ...): the client's log panel is mounted under the board's game id and starts
+        empty whenever that changes, so the whole log sent again after a return fills it once, whether the page was
+        reloaded (its panel is new anyway) or only its socket reconnected (its panel kept the lines). Nothing else of
+        the client reads the id of its board except to skip one move animation, and the relay's own game id (the
+        table's) is not touched."""
+        base = self.game_id or str(game.get("game_id"))
+        return f"{base}.{self.rejoins}" if self.rejoins else base
 
     def _send_view(self, observation: Mapping[str, Any], game: Mapping[str, Any], over: Mapping[str, Any] | None) -> bool:
         """Send the board for ``observation`` if it differs from the one last sent; returns whether it was sent."""
@@ -328,7 +509,7 @@ class Bridge:
             winner = self.seats.pid(over.get("winner"))
         # the seat that took the first turn is the game's own setting, not the first turn this seat saw
         self.starter = (game.get("rules") or {}).get("starting_seat") or "p0"
-        gv = view.game_view(observation, self.seats, self.game_id or str(game.get("game_id")),
+        gv = view.game_view(observation, self.seats, self._view_game_id(game),
                             game_over=bool(over), winner=winner, starter=self.starter, terminal=over)
         raw = json.dumps(gv, sort_keys=True)
         if raw == self.sent_view:
@@ -387,30 +568,147 @@ class Bridge:
     # The person's connection: a short drop may come back (the client reconnects), a long one ends the game.
     DISCONNECT_GRACE_S = float(os.environ.get("MANABREW_DISCONNECT_GRACE_S", "90"))
 
-    def _human_gone(self) -> None:
-        """The person's socket closed or they left the table while a game was in progress."""
-        game = self.hub.game
-        if self._grace is not None or self.order is None or game is None or self.hub.game_over is not None:
+    def _person(self) -> str:
+        return self.human or self.last_human or "the person"
+
+    def _live_game(self) -> bool:
+        """The arena's game for the current table start exists and is not over."""
+        return self.hub.game is not None and self.hub.game_over is None
+
+    def _human_gone(self, left: bool = False) -> None:
+        """The person's socket closed (``left`` False: the relay keeps their seat for the grace period, which this
+        host counts too), or they left the table or the relay gave their seat up (``left`` True: the seat is gone
+        and nothing can bring the game back, so it ends now). Both count from the relay's GameStarted: a game that
+        has not appeared yet (the arena is still starting it) is ended the moment it does."""
+        if self.order is None:  # no game has been started at this table (or it has ended)
             return
-        print(f"\n  {self.human} disconnected during the game. Waiting {int(self.DISCONNECT_GRACE_S)} s for the "
-              f"browser to come back (reload the page and join the table again); then the game is recorded as lost "
-              f"(connection_lost) and the next game can start.", flush=True)
-        self._grace = threading.Timer(self.DISCONNECT_GRACE_S, self._grace_over, args=(game.get("game_id"),))
+        if left:
+            timed_out = self._grace is not None  # the relay forfeited a seat this host was already waiting for
+            self._cancel_grace()
+            self._end_person("connection_lost" if timed_out else "conceded")
+            return
+        if self._grace is not None:
+            return
+        live = self.hub.game.get("game_id") if self._live_game() else None
+        print(f"\n  {self._person()} disconnected {'during the game' if live else 'as the game was starting'}. "
+              f"Waiting {int(self.DISCONNECT_GRACE_S)} s for the browser to come back (reload the page); then the "
+              f"game is recorded as lost (connection_lost) and the next game can start.", flush=True)
+        self._grace = threading.Timer(self.DISCONNECT_GRACE_S, self._grace_over, args=(live,))
         self._grace.daemon = True
         self._grace.start()
+
+    def _cancel_grace(self) -> None:
+        if self._grace is not None:
+            self._grace.cancel()
+            self._grace = None
+
+    def _end_person(self, reason: str) -> None:
+        """End the game of a person who is gone, as their loss (``conceded``: they left the table; ``connection_lost``:
+        they did not come back). A game the arena has not started yet is ended when its first view appears."""
+        if self._live_game():
+            if self.hub.concede(reason):
+                if reason == "conceded":
+                    print(f"\n  {self._person()} left the table during the game: it is recorded as a loss "
+                          f"(conceded). Join the table and press Start for the next game.", flush=True)
+                else:
+                    print("\n  The person did not return: the game is recorded as a loss (connection_lost). Join the "
+                          "table and press Start for the next game.", flush=True)
+        elif self.order is not None:
+            self._gone = reason
+            print(f"\n  {self._person()} is gone before the game began: it will be recorded as a loss ({reason}) "
+                  f"as soon as it starts.", flush=True)
 
     def _grace_over(self, game_id: Any) -> None:
         with self.lock:
             self._grace = None
-            if (self.hub.game or {}).get("game_id") == game_id and self.hub.concede("connection_lost"):
-                print("\n  The person did not return: the game is recorded as a loss (connection_lost). Join the "
-                      "table and press Start for the next game.", flush=True)
+            if game_id is not None and (self.hub.game or {}).get("game_id") != game_id:
+                return  # another game now: the one this wait was for is over
+            if self.order is not None:
+                self._end_person("connection_lost")
 
     def _human_back(self) -> None:
+        """The person's client reconnected (the relay's PlayerConnected). Lines sent while it was away are lost, and a
+        reloaded client has an empty log panel too (the relay replays the last board and the open decision, not the
+        log), so the log goes out again in full. Nothing the relay tells this host says whether the page was reloaded
+        or only its socket came back (both are the same session reclaim: ``AuthResult`` with ``reconnected`` to the
+        client, ``PlayerConnected`` to the room; the client's ``RequestResync`` is answered by the relay alone), so the
+        board's game id changes with the return and the client empties its panel either way (``_view_game_id``)."""
         if self._grace is not None:
-            self._grace.cancel()
-            self._grace = None
-            print(f"\n  {self.human} is back; the game continues.", flush=True)
+            self._cancel_grace()
+            print(f"\n  {self._person()} is back; the game continues.", flush=True)
+        if self.seats is not None and self.order is not None:
+            self.sent_log = 0
+            self.rejoins += 1
+            self._log_hold_until = time.time() + LOG_MOUNT_WINDOW_S
+
+    # -- failures ------------------------------------------------------------------------------------------------
+
+    def _fault(self, exc: BaseException) -> None:
+        """An unhandled exception in the host: say so on the console, tell the client (a ``fatal`` envelope, which
+        its game screen shows with a way back to the lobby), end the room's game and the session's game as a loss
+        (``host_fault``; the ledger can only file it as the human seat's forfeit), so the table is usable again."""
+        if self._closing or self.relay_lost:
+            return  # the session is ending on purpose, or a lost relay (reported loudly) is the cause
+        if isinstance(exc, (Closed, ConnectionError)) and hasattr(getattr(self, "host", None), "username"):
+            # a send or read on a dead relay connection: the relay (any other OSError, such as a full disk or a
+            # refused file, is not about the relay and is a host fault below, with its own message)
+            dead = next((c for c in (self.host, getattr(self, "bot", None)) if getattr(c, "alive", True) is False),
+                        self.host)
+            self._relay_closed(dead, f"{type(exc).__name__}: {exc}")
+            return
+        traceback.print_exception(type(exc), exc, exc.__traceback__)
+        with self.lock:
+            if self.order is None:
+                return  # no game is running: the table is untouched
+            message = (f"The Spellbench host hit an internal error ({type(exc).__name__}: {exc}) and ended this "
+                       f"game. Leave the game, join the table and press Start to play the next one.")
+            print(f"\n  {message}", flush=True)
+            live = self._live_game()
+            if live:
+                self.hub.concede("host_fault")
+            try:
+                self._envelope({"kind": "fatal", "message": message})
+                if live and self.game_id:
+                    self.host.send({"type": "EndGame", "game_id": self.game_id})
+            except Exception:  # noqa: BLE001 - a dead socket is reported by its own close
+                traceback.print_exc()
+            if live:
+                self.order, self.seats = None, None
+            else:
+                self._gone = "host_fault"  # the game the arena is starting is ended when it appears
+
+    def _relay_closed(self, session: Session, reason: str) -> None:
+        """A relay connection of this session closed: the table, the room and the client's game are gone with it, so
+        the session ends loudly instead of waiting for a person nobody can reach (the client freezes and, a minute
+        later, blames a player who did not reconnect). The game in progress is ended as a loss (``relay_lost``) so
+        the arena finishes it at once, and ``next_start`` raises ``RelayLost``.
+
+        What a full recovery would take (not done): keep ``resume_token`` from ``RoomCreated``; reconnect and
+        authenticate under the same host name (the relay holds the seat for ``reconnect_timeout_s`` and a session
+        reclaim keeps the room), or after a relay restart send ``ResumeRoom`` with the room's id and token, name,
+        player order, deck infos, ``bot_players`` and ``game_id``; seat the bot again; then resend the last board and
+        the open prompt (``sent_view = prompt = None``) and the log. That needs a reconnecting WebSocket in ``ws.py``
+        and a relay to test against that is killed and restarted mid-game."""
+        if self._closing or self.relay_lost:
+            return
+        self.relay_lost = f"the relay connection of {session.username} was lost ({reason})"
+        bar = "=" * 78
+        print(f"\n{bar}\n  RELAY LOST: {self.relay_lost}.\n  The table and the client's game are gone. This session "
+              f"is ending; start it again.\n{bar}", flush=True)
+        with self.lock:
+            self._cancel_grace()
+            if self._live_game() and self.hub.concede("relay_lost"):
+                print("  The game in progress is recorded as a loss (relay_lost).", flush=True)
+        self.starts.put(None)
+
+    def close(self) -> None:
+        """Stop the pump and close the relay connections (the session is ending on purpose)."""
+        self._closing = True
+        self._cancel_grace()
+        for name in ("host", "bot"):
+            session = getattr(self, name, None)
+            if session is not None and hasattr(session, "ws"):
+                session.ws.close()
 
     def _on_response(self, sender: str | None, envelope: Mapping[str, Any]) -> None:
         if sender != (self.human or self.last_human):  # a table update without the person clears self.human; their
@@ -420,6 +718,7 @@ class Bridge:
             return
         if envelope.get("kind") != "response":
             return
+        self._log_hold_until = 0.0  # the client answered, so its log panel exists: held log lines go out (_send_log)
         me = self.seats.pid(self.seats.human_seat) if self.seats else None
         if self.prompt is None:
             # The client keeps its pass button disabled ("waiting") until a new prompt or an error arrives, so a

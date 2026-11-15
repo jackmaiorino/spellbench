@@ -97,7 +97,10 @@ class Conceded(RuntimeError):
 
 
 class Hub:
-    """All session state, guarded by one condition variable."""
+    """All session state, guarded by one condition variable. A decision is answered ``human`` (the person chose),
+    ``plan`` (a step of a combat plan the person made), ``single`` (one candidate) or ``auto_pass`` (the session
+    declined for the person: a priority pass at which only passing or mana was possible or no stop applies, or the
+    no-attackers answer to a declaration that a hold they set runs past)."""
 
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
                  opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False) -> None:
@@ -140,6 +143,7 @@ class Hub:
         self.frames_total = 0
         self.game_over: dict[str, Any] | None = None
         self.conceded: str | None = None  # the game id the person gave up (or lost the connection to), if any
+        self._announcements: list[str] = []  # lines for the log of the game that starts next (``announce``)
         self._log_file = None
         self._combat_logged: set[tuple[Any, str]] = set()
         # The causal log (narrate.py): fed from this session's own engine record when recording is on, else from
@@ -175,9 +179,16 @@ class Hub:
             self._log_file.flush()
 
     def announce(self, text: str) -> None:
-        """A game-level line for the log, kept until the next game starts (it is shown first in that game)."""
+        """A game-level line for the log, kept until the next game starts (it is shown first in that game; several
+        are shown in the order given)."""
         with self.cond:
-            self._announcement = text
+            self._announcements.append(text)
+            self._bump()
+
+    def say(self, text: str) -> None:
+        """A game-level line for the log now (a notice of the session's, such as the person's clock running down)."""
+        with self.cond:
+            self._note("game", text)
             self._bump()
 
     # -- relay side ---------------------------------------------------------------------------------------------
@@ -213,9 +224,9 @@ class Hub:
             self._tail, self._step = None, None
             self._note("game", f"Game {self.game['number']}: you ({own.get('name')}, {seat}) vs {self.opponent} "
                                f"({opp.get('name')})")
-            if getattr(self, "_announcement", None):
-                self._note("game", self._announcement)
-                self._announcement = None
+            for line in self._announcements:
+                self._note("game", line)
+            self._announcements = []
             if self.log_dir is not None:
                 self.log_dir.mkdir(parents=True, exist_ok=True)
                 path = self.log_dir / f"{request.get('game_id')}.{seat}.jsonl"
@@ -257,7 +268,8 @@ class Hub:
 
     def concede(self, reason: str = "conceded") -> bool:
         """The person ends the current game as a loss (``conceded``), or the session does when the person is gone
-        (``connection_lost``). The page and the Manabrew client see the game over at once; a decision the engine
+        (``connection_lost``) or the table cannot go on (``relay_lost``, ``host_fault``). The page and the Manabrew
+        client see the game over at once; a decision the engine
         is waiting on, and every later one, is refused (``Conceded``), which the arena records as the human seat's
         forfeit. Returns False when there is no game in progress."""
         with self.cond:
@@ -772,10 +784,13 @@ class Hub:
             self._bump()
             return None
 
-    def wait_state(self, since: int, timeout: float = 25.0, frames_from: int | None = None) -> dict[str, Any]:
+    def wait_state(self, since: int, timeout: float = 25.0, frames_from: int | None = None,
+                   frames_game: Any = None) -> dict[str, Any]:
         """The state once its version is above ``since`` (or after ``timeout``). With ``frames_from`` (a count of
         frames already taken) the state also holds ``frames``, the observations of the decisions since at which the
-        stack changed, oldest first, and ``frames_total``, taken at the same moment as the state itself."""
+        stack changed, oldest first, ``frames_total`` and ``frames_game`` (the game they belong to), taken at the same
+        moment as the state itself. The count belongs to one game: a new game restarts it, so a count taken in
+        another game (``frames_game`` names it) or above the new total is not a position in this game's frames."""
         with self.cond:
             deadline = time.monotonic() + timeout
             while self.version <= since:
@@ -785,9 +800,13 @@ class Hub:
                 self.cond.wait(remaining)
             state = self.state()
             if frames_from is not None:
+                current = (self.game or {}).get("game_id")
+                if (frames_game is not None and frames_game != current) or frames_from > self.frames_total:
+                    frames_from = 0  # the cursor is from an earlier game: this game's frames all count
                 first = self.frames_total - len(self.frames)  # position of frames[0]
                 state["frames"] = list(self.frames[max(frames_from - first, 0):])
                 state["frames_total"] = self.frames_total
+                state["frames_game"] = current
             return state
 
 
