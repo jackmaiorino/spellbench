@@ -220,7 +220,7 @@ engine and decks: seven reference rungs from uniform to oh2-r2s1-b512, each
 playing the rungs nearest it, so a new entrant gets a rating from games
 against 3 rungs near its strength. Its b512-argmax rung is within noise of
 b512 (+22 Elo, 95% CI [-21, +67], in the unrated pass that sized the
-ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on mtg-kernel 4fccd3ebc with the infoset adapter, with every rung re-rated (rated run 2026-11-08, snapshot 2026-11-09); its ratings are not comparable with v1's. 5 of its 1,920 rated-run games halted on an infoset adapter fault in Faeries mirrors, within the ladder's 97% natural-ending rule.
+ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on mtg-kernel 4fccd3ebc with the infoset adapter, with every rung re-rated (rated run 2026-11-08, snapshot 2026-11-09); its ratings are not comparable with v1's. 5 of its 1,920 rated-run games halted on an infoset adapter fault in Faeries mirrors, within the ladder's 97% natural-ending rule. That fault (mtg-kernel#612) is repaired in the engine pin d11d986d9, so every rung is re-rated on that engine before a new rating is published.
 The `oh2-r2s1-b512-s4a-16k-k4` placement finished at 1473.7 Elo
 (95% CI [1411.2, 1543.8]). It remains a rated entrant. Rung admission
 required 1594.3 Elo because no adjacent rung gap exceeded 200 Elo.

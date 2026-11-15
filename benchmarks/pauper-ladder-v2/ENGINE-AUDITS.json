@@ -3,20 +3,28 @@
   "benchmark": "pauper-ladder-v2",
   "engine": {
     "name": "mtg-kernel",
-    "source_revision": "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
-    "pull_requests": ["mtg-kernel#462", "mtg-kernel#476"],
-    "later_pull_requests": "4fccd3ebc is the frozen W1 engine. The board now enables x_kernel_infoset_v1 (mtg-kernel#466, #488, #489, #496, #497, #505 and the W1 export repairs through #541) through integrations/mtg_kernel/kernel_engine_infoset_v2.py; mtg-kernel#540 changes the order of equipment effects in the observation (public battlefield order, not arena ids)",
+    "source_revision": "d11d986d9db790425584512de1757d240a8553ff",
+    "pull_requests": ["mtg-kernel#462", "mtg-kernel#476", "mtg-kernel#614 (its three commits, as mtg-kernel#705 into release/ladder-v2-4fccd3ebc)"],
+    "later_pull_requests": "4fccd3ebc is the frozen W1 engine; d11d986d9 is 4fccd3ebc plus mtg-kernel#614 (a paid ninjutsu source no longer takes the turn-use stamp while it waits in hand, so the opponent infoset export does not halt on it; mtg-kernel#612) and nothing else. The board now enables x_kernel_infoset_v1 (mtg-kernel#466, #488, #489, #496, #497, #505 and the W1 export repairs through #541) through integrations/mtg_kernel/kernel_engine_infoset_v2.py; mtg-kernel#540 changes the order of equipment effects in the observation (public battlefield order, not arena ids)",
     "adapter": "integrations/mtg_kernel/kernel_engine_infoset_v2.py (placeholder MTG_KERNEL_V2_INFOSET_ENGINE), which imports kernel_engine_v2.py and kernel_g6_digest.py; both are evaluation_engine_inputs",
-    "build": "cargo build --release --locked -p mtg-kernel with CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64, CARGO_PROFILE_RELEASE_INCREMENTAL=false, rust-lld (Windows x86_64 MSVC, rust 1.94.1): the W1 soak binaries, pinned in E:/pinned-binaries/w1-soak-20261106",
-    "qualify_build": "spellbench_qualify_v1.exe built later from the same checkout, target directory and profile; agent_bridge_v1.exe rebuilt in the same invocation differs from the pinned one only in 14 bytes (the PE link timestamp and debug-directory id), same size",
-    "host": "second build host (Windows, Zen 2), under slot claims of 3 to 10 cores",
-    "date": "2026-11-08"
+    "build": "cargo build --release --locked -p mtg-kernel --bin agent_bridge_v1 --bin spellbench_qualify_v1 with CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64, CARGO_PROFILE_RELEASE_INCREMENTAL=false, rust-lld (Windows x86_64 MSVC, rust 1.94.1), one invocation from the d11d986d9 checkout, pinned in E:/pinned-binaries/ladderfix-20261114",
+    "qualify_build": "spellbench_qualify_v1.exe built in the same invocation as agent_bridge_v1.exe",
+    "host": "Windows build host (Windows 11, 24 logical CPUs), under a 4-core slot claim",
+    "date": "2026-11-14"
   },
   "pinned_files": {
-    "agent_bridge_v1.exe": {"sha256": "3338b4d809a3eada3f6abffd21a8085491ba42500ea0d6caeccad98871cfae03", "bytes": 79480320},
-    "spellbench_scorer_v1.exe": {"sha256": "b7deed4df80431f446176d20f469449f1dbf133caa7d6de3c14c7db9840ebb76", "bytes": 6599680},
-    "spellbench_qualify_v1.exe": {"sha256": "09ad25110b9bc4da008ddfccf7466380ce2a5e04c0df5a081dcda48eb1d89426", "bytes": 84010496},
-    "pauper-v2-catalog.json": {"sha256": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e", "bytes": 56975, "note": "byte-identical to pauper-v2-omen-92ec2393.json, unchanged since 89fb69a95"}
+    "agent_bridge_v1.exe": {"sha256": "f8bae9fd2e03214cd98d5d9259d32af569864f5885f8ed58d2c6bb982033bc28", "bytes": 79480832},
+    "spellbench_scorer_v1.exe": {
+      "sha256": "b7deed4df80431f446176d20f469449f1dbf133caa7d6de3c14c7db9840ebb76",
+      "bytes": 6599680,
+      "note": "unchanged from the 4fccd3ebc pin (inference only; the repair does not touch it)"
+    },
+    "spellbench_qualify_v1.exe": {"sha256": "7cafdb577c19d95612f31c612386b2de3681b869f8b037e2daaad91787b29110", "bytes": 84011008},
+    "pauper-v2-catalog.json": {
+      "sha256": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e",
+      "bytes": 56975,
+      "note": "byte-identical to pauper-v2-omen-92ec2393.json, unchanged since 89fb69a95"
+    }
   },
   "audits": {
     "history_two_world": {
@@ -25,8 +33,7 @@
       "result": "pass",
       "games": 48,
       "natural_endings": 48,
-      "differences": 0,
-      "identical_to_63a019dc9_record": true
+      "differences": 0
     },
     "check_engine_v2": {
       "tool": "integrations/mtg_kernel/check_engine_v2.py, without extensions and again with --extension x_kernel_flat_v4 --extension x_public_history_v1",
@@ -34,7 +41,7 @@
       "result": "pass",
       "decks": 8,
       "buffer_cap_reset_equals_fresh": true,
-      "traces_identical_to_89fb69a95": "true for the run without extensions (every record, trace_sha256 included)"
+      "traces_identical_to_4fccd3ebc_pin": "true for both runs (without extensions and with x_kernel_flat_v4 and x_public_history_v1): every record, trace_sha256 included, equal to the 3338b4d8 bridge's; the repair changes no non-ninjutsu play"
     },
     "check_private_preview_v2": {
       "tool": "integrations/mtg_kernel/check_private_preview_v2.py",
@@ -46,20 +53,20 @@
       }
     },
     "gorge_ar8_smoke": {
-      "matchup": "c12 vs gorge-ar8, 8 pairs (16 games), unrated, on this board's engine command (the infoset adapter) with all three extensions enabled",
+      "matchup": "c12 vs gorge-ar8, 16 games (one seat-swapped pair per deck), unrated, on this board's engine command (the infoset adapter) with all three extensions enabled; the run also played each of them against uniform (48 games in all)",
       "binary": "agent_bridge_v1.exe and spellbench_scorer_v1.exe above",
       "result": "pass",
       "games": 16,
       "halted": 0,
       "truncated": 0,
       "forfeit": 0,
-      "validator": "pass, 5162 decisions checked, 0 violations",
-      "replay_at_this_pin": "the 16 games replayed from the run's revealed secret (bench rerun): every ledger field equal, game_digest included",
-      "replay_of_63a019dc9_run": "the 16 games of the 63a019dc9 run (kernel_engine_v2.py, two extensions) replayed on the binaries above: 15 equal in every ledger field except c12's bot_id (and winner_bot_id where c12 won), which hashes c12's scorer binary; game 5, an Affinity mirror, has the same steps (74), decisions (73) and winner but a different game_digest, which chains the engine traffic. The 89fb69a95 replay matched all 16, so the change lies in 89fb69a95..4fccd3ebc, consistent with mtg-kernel#540's equipment-effect observation order (Affinity plays equipment)"
+      "validator": "pass, 12382 decisions checked over the 48 games, 0 violations",
+      "all_games_in_run": "48 natural of 48",
+      "replay_at_this_pin": "the 48 games replayed from the run's revealed secret (bench rerun): every ledger field equal, game_digest included"
     },
     "v4_visibility": {
       "tool": "cargo test --release -p mtg-kernel --lib -- --ignored spellbench_v4_visibility_audit --nocapture",
-      "commit": "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
+      "commit": "d11d986d9db790425584512de1757d240a8553ff",
       "result": "pass",
       "what_it_tests": "At every decision of neutral private-support games on the eight board decks, the acting seat's V4 boundary and x_kernel_flat_v4 encoding are unchanged when the search sampler redeterminizes every hidden card the engine's knowledge tables mark as unknown to that seat; and every place one player learned hidden cards of the other (library look or reveal, hand reveal, library reorder revealed to the opponent) is a reviewed site marked in the source. It is a consistency check against the engine's own knowledge tables plus a pinned enumeration of reveal sites, not a proof against a fact the tables wrongly mark as known.",
       "games": 16,
@@ -85,14 +92,23 @@
         "library mtg-kernel/src/effect.rs:19907",
         "library mtg-kernel/src/event.rs:7414"
       ],
-      "same_sites_as_89fb69a95": "the same 14 calls; engine.rs and event.rs lines moved with mtg-kernel#465 and #467",
+      "same_sites_as_89fb69a95": "the same 14 calls at the same lines as the 4fccd3ebc receipt (the repair is in push_paid_activation, after the last reveal site); same 16 games, 4,731 decisions, 14,193 sampled worlds",
       "coverage": "The audit exercised 6 of the 25 marked library-reveal calls and 8 of the 36 marked hand-reveal calls. The 21 and 35 present at 89fb69a95 rest on the static enumeration reviewed in mtg-kernel #462 and #476; the 4 library and 1 hand marked calls added since are premodern card code from mtg-kernel #465 and #467, outside this board's pool. No library reorder call is marked as revealing to the opponent."
     },
     "adapter_tests": {
       "tool": "pytest integrations/mtg_kernel (adapter contract tests, the infoset adapter's included) and python/tools/generate_goldens_v2.py --check, at this change's spellbench commit",
       "result": "pass",
-      "tests": "229 passed, 1 skipped",
+      "tests": "283 passed, 1 skipped",
       "goldens": "all OK"
+    },
+    "paid_ninjutsu_repair": {
+      "tool": "cargo test --release -p mtg-kernel --lib paid_ninjutsu_keeps_the_waiting_hand_source_pristine_for_opponent_infoset, and integrations/mtg_kernel bridge transcript equality",
+      "result": "pass",
+      "regression_test": "fails on the test-only commit aaab89a8a (\"Ninja of the Deep Hours in seat PlayerId(0): I1 hidden object 0 is not pristine\") and passes on d11d986d9",
+      "transcript_equality": "old (3338b4d8) and new bridge answer byte for byte on 24 games (8 decks x 3 seeds) in plain and in --x-kernel-flat-v4 --private-v2-support mode",
+      "halted_games_replayed": "the 11 published halted games replay natural on the new bridge (diagnostic; bench rerun refuses a changed bridge, so the recorded config and secret were replayed directly)",
+      "scripted_ninjutsu": "72 scripted human-seat Faeries games against chains-a-c4-u1048576 playing Burn: 72 natural, 0 halted, 21 ninjutsu activations in 19 games (the same script had 13 of 17 ninjutsu games halt on 4fccd3ebc)",
+      "halt_sweep": "unrated Faeries mirrors on this bridge: 560 games between uniform, g115, oh2-r2s1-b512, oh2-r2s1-b512-argmax and chains-a-c4-u1048576 (336 of them among the four non-anchor bots, every pairing in both seats), 560 natural, 0 halted, 0 truncated, 0 forfeit; 1,416 ninjutsu activations in 451 of those games"
     }
   },
   "rule": "Rerun every audit above on the pinned binaries, and replace this receipt, whenever the engine behind this board changes. The board rates no games on an engine without a passing receipt."
