@@ -18,14 +18,23 @@ from typing import Any, Mapping
 from .ws import Closed, WebSocket
 
 
-def answer(prompt: Mapping[str, Any]) -> dict[str, Any] | None:
+def action_text(action: Mapping[str, Any]) -> str:
+    return str(action.get("label") or action.get("description") or "")
+
+
+def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[str, ...] = ()) -> dict[str, Any] | None:
+    """The scripted answer. ``take``: texts of actions to prefer (any action whose label or description contains one,
+    case-insensitively, is taken before anything else); ``avoid``: texts of actions never taken."""
     data = prompt.get("input") or {}
     kind = data.get("type")
     if kind == "chooseAction":
-        actions = data.get("actions") or []
+        actions = [a for a in data.get("actions") or []
+                   if not any(t.lower() in action_text(a).lower() for t in avoid)]
+        wanted = [a for a in actions if a.get("type") != "undoMana" and not a.get("isManaAbility")
+                  and any(t.lower() in action_text(a).lower() for t in take)]
         lands = [a for a in actions if a.get("type") == "cast" and str(a.get("label", "")).startswith("Play ")]
         spells = [a for a in actions if a.get("type") == "cast" and a not in lands]
-        pick = (lands or spells or [None])[0]
+        pick = (wanted or lands or spells or [None])[0]
         return {"type": "act", "actionId": pick["id"]} if pick else {"type": "pass", "exhaustStack": False}
     if kind == "chooseBoardTargets":
         chosen = (data.get("candidates") or [])[:max(1, data.get("minTargets") or 0)]
@@ -60,12 +69,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--games", type=int, default=1)
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--deck", default="Rally", help="the training deck to pick at the table")
+    parser.add_argument("--take", default="", help="comma-separated texts of actions to take whenever offered "
+                        "(for example the ninjutsu activation of a card)")
+    parser.add_argument("--avoid", default="", help="comma-separated texts of actions never to take")
     parser.add_argument("--concede-game", type=int, default=0,
                         help="concede this game (1, 2, ...) after --concede-after answered prompts")
     parser.add_argument("--concede-after", type=int, default=3)
     parser.add_argument("--drop-game", type=int, default=0,
                         help="close the connection in this game after --concede-after answered prompts (a closed tab)")
     args = parser.parse_args(argv)
+    take = tuple(t for t in args.take.split(",") if t)
+    avoid = tuple(t for t in args.avoid.split(",") if t)
     out = args.out.open("w", encoding="utf-8") if args.out else None
     ws = WebSocket(args.relay)
     send = lambda m: ws.send(json.dumps(m))  # noqa: E731
@@ -129,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
                     time.sleep(2)
                     send({"type": "ListRooms"})
                     continue
-                output = answer(prompt)
+                output = answer(prompt, take, avoid)
                 if output is not None:
                     prompts += 1
                     in_game += 1
