@@ -109,11 +109,16 @@ def resolve_local(doc: dict[str, Any], local: dict[str, str]) -> dict[str, Any]:
 
 
 def recording_settings(out: Path, cold: Path) -> tuple[Path, str]:
-    """Write the bounded recording config the runner reads from the environment; returns its path and hash."""
+    """Write the bounded recording config the runner reads from the environment; returns its path and hash.
+
+    ``on_cap: truncate``: a game whose transcript reaches the per-game cap keeps the complete lines written so far and
+    plays on unrecorded (one line on stderr, ``truncated_at_bytes`` in its receipt). Without it the arena aborts the
+    run, which would end a person's session and lose the game in progress: a bot that mills itself with Balustrade Spy
+    writes 100 MiB or more of ordering decisions in one turn."""
     path = out / "engine-records" / "recording.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     data = {"schema": "spellbench-engine-recording/v1", "root": str(out / "engine-records" / "hot"),
-            "per_game_cap_bytes": 128 * 2**20, "collection_timeout_seconds": 600,
+            "per_game_cap_bytes": 128 * 2**20, "on_cap": "truncate", "collection_timeout_seconds": 600,
             "cold_source": str(cold), "recovery": str(out / "engine-records" / "recovery"),
             "transport": {"ssh_target": "local", "poll_seconds": 1, "command_timeout_seconds": 60,
                           "copy_timeout_seconds": 120, "compression": "gzip"},
