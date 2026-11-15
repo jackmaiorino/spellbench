@@ -950,12 +950,7 @@ def _hero(hero: Mapping[str, Any]) -> str:
         parts.extend(_hero_row(row, scale, ticks) for row in rows)
         parts.append("</ol>")
         if headline is not None:
-            note = (
-                f"This table shows {_e(headline['id'])} only. The other benchmarks are on their own pages,"
-                " listed below, each with its own scale."
-            )
-            if headline["pending"]:
-                note += f" Pending on this board, no results yet: {_e(', '.join(headline['pending']))}."
+            note = _headline_note(headline)
         else:
             note = f"{_count(hero['benchmark_count'], 'benchmark')} in the chart."
         if hero["approximate"]:
@@ -973,15 +968,33 @@ def _hero(hero: Mapping[str, Any]) -> str:
         if any(_hero_bound(row) for row in rows):
             note += (
                 f" A score marked {_BOUND_SIGNS['lower']} or {_BOUND_SIGNS['upper']} is only a bound: "
-                "the bot won every game, or lost every game, in a benchmark it entered."
+                "the bot won every game, or lost every game, "
+                + ("on this board." if headline is not None else "in a benchmark it entered.")
             )
         parts.append(_note(note))
     elif headline is not None:
-        parts.append(f'<p class="empty">{_e(headline["id"])} has no rated snapshot yet.</p>')
+        if headline["href"] is None:
+            empty = f"{_e(headline['id'])} has no rated run yet."
+        else:  # a board run the Hero table leaves out: another anchor, or a leaderboard status other than ok
+            empty = (f"The rated results of {_e(headline['id'])} cannot be charted here; they are on "
+                     f'<a href="{_e(headline["href"])}">its page</a>.')
+        parts.append(f'<p class="empty">{empty}</p>')
+        parts.append(_note(_headline_note(headline)))
     else:
         parts.append('<p class="empty">No rated benchmark yet.</p>')
     parts.append("</section>")
     return "\n".join(parts)
+
+
+def _headline_note(headline: Mapping[str, Any]) -> str:
+    """The note under a table of one benchmark: which one, where the others are, and its pending bots."""
+    note = (
+        f"This table shows {_e(headline['id'])} only. Other benchmarks are listed below;"
+        " each published one has its own page and its own scale."
+    )
+    if headline["pending"]:
+        note += f" Pending on this board, no results yet: {_e(', '.join(headline['pending']))}."
+    return note
 
 
 def _hero_bound(row: Mapping[str, Any]) -> str | None:

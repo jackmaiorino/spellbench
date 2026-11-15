@@ -6,7 +6,8 @@ latest published run that is a rated protocol v2 run or a protocol v1 run
 (Decisions 1 and 3). It re-validates the board run, every run published
 after it, and every run revealed without a manifest with the checks of
 ``spellbench validate``, and refuses to build if any fails. It then computes
-the Hero table, builds the view-model dicts that ``render`` turns into pages
+the Hero table (over every benchmark, or over the one that ``headline.json``
+names), builds the view-model dicts that ``render`` turns into pages
 (the contract in ``render``'s docstring), and writes ``index.html``,
 ``models.html``, ``join.html``, ``method.html``, ``b/<id>/index.html``, and
 byte copies of the board run's published files under ``b/<id>/run/`` for
@@ -219,8 +220,7 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
         warnings.extend(f"{benchmark.id} runs/{run}: excluded from measurement: {reason}"
                         for run, reason in definition.excluded_runs(benchmarks_dir / benchmark.id, benchmark))
     headline = _load_headline(benchmarks_dir, benchmarks)
-    table = hero.hero_table([(bench_id, run.board) for bench_id, run in runs.items()
-                             if headline is None or bench_id == headline])
+    table = _top_table(runs, headline)
     warnings.extend(table.warnings)
     warnings.extend(_mixed_hero_bots(runs, table.benchmark_ids))
 
@@ -385,8 +385,8 @@ def _load_headline(benchmarks_dir: Path, benchmarks: Sequence[definition.Benchma
         return None
     try:
         data = charts.strict_json_loads(path.read_bytes())
-    except MalformedJsonError as exc:
-        raise SiteError(f"{path}: not a JSON object") from exc
+    except (MalformedJsonError, OSError) as exc:
+        raise SiteError(f"{path}: {exc}") from exc
     if (not isinstance(data, dict) or set(data) != {"schema", "benchmark"} or data["schema"] != HEADLINE_SCHEMA
             or not isinstance(data["benchmark"], str)):
         raise SiteError(f"{path}: must be {{schema: {HEADLINE_SCHEMA}, benchmark: <id>}}")
@@ -395,15 +395,31 @@ def _load_headline(benchmarks_dir: Path, benchmarks: Sequence[definition.Benchma
     return data["benchmark"]
 
 
-def _headline_view(headline: str, benchmarks: Sequence[definition.Benchmark], runs: Mapping[str, _Run]) -> dict[str, Any]:
-    """What the top table says about its one benchmark: its title, its page when it has a board run, and the bots
-    its snapshot lists as pending (no results yet)."""
+def _top_table(runs: Mapping[str, _Run], headline: str | None) -> hero.HeroTable:
+    """The Hero table: over every board run or, with a headline, over that benchmark's board run alone.
+
+    A headline table keeps the leaderboard's own order: the Hero sort compares displayed Elo and then names, so
+    two bots level at that precision could swap against the board's ranks."""
+    table = hero.hero_table([(bench_id, run.board) for bench_id, run in runs.items()
+                             if headline is None or bench_id == headline])
+    if headline is None or not table.rows:
+        return table
+    rank = {row["name"]: index for index, row in enumerate(runs[headline].board["rows"])}
+    return replace(table, rows=tuple(sorted(table.rows, key=lambda row: rank[row.name])))
+
+
+def _headline_view(headline: str, benchmarks: Sequence[definition.Benchmark], runs: Mapping[str, _Run],
+                   charted: bool) -> dict[str, Any]:
+    """What the top table says about its one benchmark: its title, its page when it has a board run, whether
+    that run is in the table (``charted``: the Hero table leaves out a leaderboard with another anchor or a
+    status other than ok), and the bots its snapshot lists as pending (no results yet)."""
     run = runs.get(headline)
     manifest = (run.manifest or {}) if run is not None else {}
     return {
         "id": headline,
         "title": next(benchmark.title for benchmark in benchmarks if benchmark.id == headline),
         "href": None if run is None else f"b/{headline}/index.html",
+        "charted": charted,
         "pending": list(manifest.get("pending", ())),
     }
 
@@ -598,15 +614,19 @@ def _home_view(
     proposed: Sequence[definition.ProposedBenchmark],
     *, publications: Mapping[str, Sequence[dict[str, Any]]] | None = None, headline: str | None = None,
 ) -> dict[str, Any]:
-    """The view of ``index.html``: the Hero chart, a card per benchmark, the proposed cards."""
+    """The view of ``index.html``: the Hero chart, a card per benchmark, the proposed cards.
+
+    With a ``headline`` a row's label, author and description come from that benchmark's definition first."""
+    labelled = sorted(benchmarks, key=lambda benchmark: benchmark.id != headline)  # stable: id order otherwise
     return {
         "site": _SITE,
         "hero": {
-            "rows": [_hero_row(row, benchmarks, runs, stale) for row in table.rows],
+            "rows": [_hero_row(row, labelled, runs, stale) for row in table.rows],
             "benchmark_count": len(table.benchmark_ids),
             "approximate": any(row.approximate for row in table.rows),
             "deck_pairings": {bench_id: _deck_pairing(runs[bench_id]) for bench_id in table.benchmark_ids},
-            "headline": None if headline is None else _headline_view(headline, benchmarks, runs),
+            "headline": None if headline is None else _headline_view(
+                headline, benchmarks, runs, headline in table.benchmark_ids),
         },
         "benchmarks": [{**_card(benchmark, runs.get(benchmark.id), stale.get(benchmark.id, frozenset())),
                         "other_runs": list((publications or {}).get(benchmark.id, ()))} for benchmark in benchmarks],
@@ -627,7 +647,7 @@ def _hero_row(
     runs: Mapping[str, _Run],
     stale: Mapping[str, frozenset[str]],
 ) -> dict[str, Any]:
-    """A Hero row, labelled by the first benchmark (id order) whose definition lists the bot.
+    """A Hero row, labelled by the first benchmark (the caller's order) whose definition lists the bot.
 
     As on that benchmark's page, a bot whose arena entry changed since its run
     (in ``stale``) shows its registry name and owner instead. Each chip says
