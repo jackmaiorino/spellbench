@@ -41,6 +41,20 @@ FRAME_LIMIT = 40  # stack-changing positions kept for the Manabrew host to draw 
 # The steps of a turn in order, as the observation names them (the engine itself offers priority in only some of them).
 STEP_ORDER = ("untap", "upkeep", "draw", "precombat_main", "beginning_of_combat", "declare_attackers",
               "declare_blockers", "combat_damage", "end_of_combat", "postcombat_main", "end_step", "cleanup")
+# The steps in which the engine ever offers priority to a player (its decision surface passes silently in every other
+# step: upkeep, draw, beginning of combat, combat damage, end of combat and the end step). A stop the person sets
+# anywhere else can never come up as a window.
+ENGINE_PRIORITY_STEPS = ("precombat_main", "declare_attackers", "declare_blockers", "postcombat_main")
+
+
+def reachable_step(step: str) -> str:
+    """The step at which a stop aimed at ``step`` can actually be taken: the first step at or after it in which the
+    engine offers priority, else the last step of the turn in which it does (the second main phase, the last priority
+    a turn ever has). The opponent's end step becomes their second main phase."""
+    index = STEP_ORDER.index(step)
+    return next((s for s in ENGINE_PRIORITY_STEPS if STEP_ORDER.index(s) >= index), ENGINE_PRIORITY_STEPS[-1])
+
+
 # Steps in which declared attackers make a priority window part of an active combat (a plain pass does not skip it).
 COMBAT_STEPS = frozenset({"declare_attackers", "declare_blockers", "combat_damage", "end_of_combat"})
 # What the observation holds that changes with nothing the person could act on: not part of a position.
@@ -142,6 +156,7 @@ class Hub:
         # The client's pass-until (Manabrew path): {"seat", "step", "through_combat", "origin", "origin_index",
         # "turn"}; see ``pass_with``. It stays until it is reached, lost or an action of the person's clears it.
         self.hold: dict[str, Any] | None = None
+        self._stop_moved_noted: tuple[Any, ...] | None = None  # the stop ``_note_stop_moved`` last explained
         self.auto_attack_group: Any = None  # the attack declaration answered with no attackers because of a hold
         self.forced_attack_group: Any = None  # an attack declaration in which a creature must attack
         self.passed_at: tuple[Any, Any] | None = None  # (turn, step) the positions in ``passed_keys`` belong to
@@ -729,6 +744,23 @@ class Hub:
             self._bump()
             return None
 
+    def _note_stop_moved(self, seat: str, asked: str, moved: str, origin: tuple[Any, Any], index: int) -> None:
+        """Say once per turn why a stop the person set cannot be taken where they put it (display only). ``index``:
+        the step they are in, in ``STEP_ORDER``."""
+        key = (origin[0], seat, asked)
+        if self._stop_moved_noted == key:
+            return
+        self._stop_moved_noted = key
+        me = (self.game or {}).get("seat")
+        owner = "your" if seat == me else "the opponent's"
+        names = text.STEP_NAMES
+        line = f"The engine gives no priority in {owner} {names.get(asked, asked)}"
+        if origin[1] == seat and index >= STEP_ORDER.index(moved):
+            line += ", and there is no later priority this turn."
+        else:
+            line += f", so your stop there is taken in {owner} {names.get(moved, moved)}, the nearest priority there is."
+        self._note("game", line)
+
     def _clear_holds(self) -> None:
         self.hold = None
         self.exhaust_stack, self.exhaust_ids = False, frozenset()
@@ -800,10 +832,15 @@ class Hub:
                 phase = observation.get("phase_step")
                 origin = (observation.get("turn"), observation.get("active_seat"))
                 index = STEP_ORDER.index(phase) if phase in STEP_ORDER else -1
-                self.hold = {"seat": until["seat"], "step": until["step"],
+                # A step the engine never gives priority in (the end step above all) is aimed at the nearest window
+                # that exists, so the person is stopped where they can act instead of being passed past the turn.
+                step = reachable_step(until["step"])
+                if step != until["step"]:
+                    self._note_stop_moved(until["seat"], until["step"], step, origin, index)
+                self.hold = {"seat": until["seat"], "step": step,
                              "through_combat": bool(until.get("through_combat")), "origin": origin,
                              "origin_index": index,
-                             # the turn the target is in: this one if it is the seat's and the step is ahead
+                             # the turn the target is in: this one if it is the seat's and the step asked for is ahead
                              "turn": origin if origin[1] == until["seat"] and index < STEP_ORDER.index(until["step"]) else None}
             pending["how"] = "human"
             self.answer = passing
