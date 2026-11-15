@@ -2,7 +2,7 @@
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-ladder-v2",
   "title": "Pauper · mtg-kernel ladder v2",
-  "summary": "The pauper-ladder-v1 references, decks, choices and clock on the current mtg-kernel engine (main at the pinned source revision instead of the 92ec2393 line). The engine commit changed, so v2 ratings are not comparable with v1's; every rung is re-qualified and re-rated on this engine before v2 publishes ratings.",
+  "summary": "The pauper-ladder-v1 references, decks, choices and clock on the current mtg-kernel engine (main at the pinned source revision instead of the 92ec2393 line). The engine commit changed, so v2 ratings are not comparable with v1's; every rung was re-rated on this engine in rated run 2026-11-15.",
   "format": "pauper-bo1",
   "engine": {
     "name": "mtg-kernel",
