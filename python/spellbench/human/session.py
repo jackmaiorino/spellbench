@@ -345,7 +345,8 @@ def main(argv: list[str] | None = None) -> int:
                  None) or args.opponent  # the page names the opponent by its board label
     hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=shown,
               label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank",
-              record_root=None if args.no_record else out / "engine-records" / "hot")
+              record_root=None if args.no_record else out / "engine-records" / "hot",
+              real_action_stops=args.client == "manabrew")
     server = make_server(hub, port=args.port)
     host, port = server.server_address[:2]
     os.environ[relay.URL_ENV] = f"http://{host}:{port}"

@@ -10,9 +10,45 @@ PHASES = {
     "declare_blockers": "Blockers", "combat_damage": "Damage", "end_of_combat": "End combat",
     "postcombat_main": "Main 2", "end_step": "End step", "cleanup": "Cleanup",
 }
+# The step in a sentence ("your declare attackers step").
+STEP_NAMES = {
+    "pregame": "pregame", "untap": "untap step", "upkeep": "upkeep", "draw": "draw step", "precombat_main": "first main phase",
+    "beginning_of_combat": "beginning of combat", "declare_attackers": "declare attackers step",
+    "declare_blockers": "declare blockers step", "combat_damage": "combat damage step", "end_of_combat": "end of combat",
+    "postcombat_main": "second main phase", "end_step": "end step", "cleanup": "cleanup step",
+}
+MAIN_STEPS = ("precombat_main", "postcombat_main")
+
+
+def where(observation: Mapping[str, Any], me: str | None) -> str:
+    """Where the game is, for "why do I have priority": whose turn and which step ("the opponent's declare blockers
+    step")."""
+    step = observation.get("phase_step")
+    owner = "your" if observation.get("active_seat") == me else "the opponent's"
+    return f"{owner} {STEP_NAMES.get(step, str(step).replace('_', ' '))}"
 
 
 ABILITY_KINDS = ("activated_ability", "triggered_ability")
+
+# The engine's observation lists the stack TOP FIRST: index 0 resolves next and a new object appears at index 0
+# (the kernel adapter reverses its native bottom-first order, integrations/mtg_kernel/kernel_observation_v2.py,
+# "native bottom-first; protocol top-first"; recorded games: every pop and push seen between two decisions was at
+# index 0). The spec text (Section 6.2) says the opposite and the xmage engine follows it, so this is the one place
+# that knows the order: every reader of the stack end goes through ``stack_top`` or ``stack_bottom_first``.
+STACK_TOP_FIRST = True
+
+
+def stack_top(stack: Any) -> Mapping[str, Any] | None:
+    """The stack object that resolves next, or ``None`` when the stack is empty."""
+    if not stack:
+        return None
+    return stack[0] if STACK_TOP_FIRST else stack[-1]
+
+
+def stack_bottom_first(stack: Any) -> list[Any]:
+    """The stack from the bottom up (the last entry is the top), the order the Manabrew client draws."""
+    entries = list(stack or [])
+    return entries[::-1] if STACK_TOP_FIRST else entries
 
 
 _CARD_TEXT: dict[str, str] | None = None
@@ -254,10 +290,12 @@ def prompt(decision: Mapping[str, Any], me: str | None) -> str:
     if context.get("kind") == "priority":
         stack = observation.get("stack") or []
         if stack:
-            top = stack[-1]
+            top = stack_top(stack)
             who = seat_name(top.get("controller_seat"), me)
             return f"{who}: {card(top)} on the stack. Respond?"
-        return f"Your priority ({PHASES.get(observation.get('phase_step'), observation.get('phase_step'))})"
+        if observation.get("phase_step") in MAIN_STEPS and observation.get("active_seat") == me:
+            return f"Your priority ({PHASES.get(observation.get('phase_step'), observation.get('phase_step'))})"
+        return f"Your priority in {where(observation, me)}"
     purpose = context.get("purpose")
     for kind in kinds:
         titled = PURPOSE_TITLES.get((kind, purpose))

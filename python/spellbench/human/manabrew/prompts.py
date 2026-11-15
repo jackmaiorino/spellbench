@@ -16,7 +16,11 @@ from .view import CARDS, Seats
 
 Answer = Callable[[Mapping[str, Any]], tuple[str, Any]]
 PRIORITY_KINDS = {"pass", "cast_spell", "play_land", "activate_ability", "activate_mana_ability", "special_action"}
-COLOR_LETTERS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G", "colorless": "C"}
+# The client's step names (StepKind) as the observation's: the inverse of view.STEPS, plus the first strike step the
+# engine's observation has no name for.
+STEP_OF = {client: ours for ours, client in view.STEPS.items() if ours != "pregame"}
+STEP_OF["combatFirstStrikeDamage"] = "combat_damage"
+COLOR_LETTERS ={"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G", "colorless": "C"}
 
 
 def presentation(pending: Mapping[str, Any], *, text: str | None = None, targets: list | None = None) -> dict:
@@ -26,6 +30,18 @@ def presentation(pending: Mapping[str, Any], *, text: str | None = None, targets
     if text:
         out["text"] = text
     return out
+
+
+def hold_target(until: Any, seats: Seats) -> dict[str, Any] | None:
+    """The client's ``PassUntil`` ({playerId, phase, throughCombat}) as the session's hold ({seat, step,
+    through_combat}), or ``None`` for a missing or unusable one (then the pass is a plain pass: the session asks at
+    more windows, never at fewer)."""
+    if not isinstance(until, Mapping):
+        return None
+    seat, step = seats.seat(str(until.get("playerId"))), STEP_OF.get(until.get("phase"))
+    if seat is None or step is None:
+        return None
+    return {"seat": seat, "step": step, "through_combat": bool(until.get("throughCombat"))}
 
 
 def _cid(c: Mapping[str, Any]) -> str:
@@ -58,9 +74,12 @@ def choose_action(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answe
                             "label": c.get("text") or kind})
         elif kind in ("activate_ability", "activate_mana_ability"):
             name = (s.get("source") or {}).get("card_name") or ""
+            described = c.get("text") or CARDS.get(name, {}).get("text", "")
+            if (s.get("source") or {}).get("zone") == "hand" and kind == "activate_ability":
+                described += " (from your hand)"  # ninjutsu, cycling and the like: say where it is activated from
             actions.append({"id": _cid(c), "type": "activateAbility", "cardId": source,
                             "abilityIndex": s.get("ability_index") or 0,
-                            "description": c.get("text") or CARDS.get(name, {}).get("text", ""),
+                            "description": described,
                             "isManaAbility": kind == "activate_mana_ability",
                             **({"producedMana": _produced(s)} if kind == "activate_mana_ability" else {})})
 
@@ -68,7 +87,13 @@ def choose_action(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answe
         if output.get("type") == "pass":
             if passing is None:
                 raise ValueError("passing is not a choice here")
-            return "answer", passing
+            # Every pass button sends where the pass should run to (the pass-until: a player's step, with
+            # ``throughCombat`` for END TURN and NEXT TURN) and, on a stack, ``exhaustStack``. The session holds
+            # the target (``Hub.pass_with``); a pass that names neither is a single pass.
+            until = hold_target(output.get("until"), seats)
+            if until is None and not output.get("exhaustStack"):
+                return "answer", passing
+            return "pass", {"until": until, "exhaust_stack": bool(output.get("exhaustStack"))}
         if output.get("type") == "act":
             action = str(output.get("actionId"))
             if action in _by_id(pending):
