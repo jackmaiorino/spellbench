@@ -2,15 +2,17 @@
 
 ``build(pending, observation, seats)`` returns ``(input, answer)``: the prompt input (``AgentPrompt.input``) and a
 function that maps the client's ``PromptOutput`` to ``("answer", candidate_id)`` or ``("plan", plan)`` for the
-play server (``Hub.answer_with`` / ``Hub.plan_with``), or raises ``ValueError`` for an answer that names no
-candidate. Every decision kind is answerable: kinds without a dedicated prompt become ``chooseFromSelection`` with
-our own candidate labels.
+play server (``Hub.answer_with`` / ``Hub.plan_with``), or raises ``Rejected`` (a ``ValueError`` that carries the
+protocol error code) for an answer that names no candidate. Every decision kind is answerable: kinds without a
+dedicated prompt become ``chooseFromSelection`` with our own candidate labels.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable, Mapping
 
+from .. import text as words
 from . import view
 from .view import CARDS, Seats
 
@@ -21,12 +23,31 @@ PRIORITY_KINDS = {"pass", "cast_spell", "play_land", "activate_ability", "activa
 STEP_OF = {client: ours for ours, client in view.STEPS.items() if ours != "pregame"}
 STEP_OF["combatFirstStrikeDamage"] = "combat_damage"
 COLOR_LETTERS ={"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G", "colorless": "C"}
+LANDWALKS = {"plainswalk": "plains", "islandwalk": "island", "swampwalk": "swamp", "mountainwalk": "mountain",
+             "forestwalk": "forest"}
+
+
+class Rejected(ValueError):
+    """An answer the session cannot take. ``code`` is the protocol's error code the client is told: ``unknownActionId``
+    (an id or card the prompt did not offer), ``cancelNotAllowed`` or ``invalidShape`` (anything else malformed)."""
+
+    def __init__(self, message: str, code: str = "invalidShape") -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def source_rules(pending: Mapping[str, Any]) -> str | None:
+    """The rules text of the card a decision comes from (the adapter's card data), for the prompt's text box."""
+    source = (pending.get("context") or {}).get("source")
+    name = source.get("card_name") if isinstance(source, Mapping) else None
+    return (CARDS.get(name or "") or {}).get("text") or None
 
 
 def presentation(pending: Mapping[str, Any], *, text: str | None = None, targets: list | None = None) -> dict:
     out = {"title": str(pending.get("prompt") or "Choose"), "targets": targets or []}
     if pending.get("hint"):
         out["description"] = pending["hint"]
+    text = text or source_rules(pending)
     if text:
         out["text"] = text
     return out
@@ -74,7 +95,9 @@ def choose_action(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answe
                             "label": c.get("text") or kind})
         elif kind in ("activate_ability", "activate_mana_ability"):
             name = (s.get("source") or {}).get("card_name") or ""
-            described = c.get("text") or CARDS.get(name, {}).get("text", "")
+            # the ability's own line of the card's rules text when that is certain, else the candidate's label
+            described = (words.ability_rules(s) if kind == "activate_ability" else "") or c.get("text") \
+                or CARDS.get(name, {}).get("text", "")
             if (s.get("source") or {}).get("zone") == "hand" and kind == "activate_ability":
                 described += " (from your hand)"  # ninjutsu, cycling and the like: say where it is activated from
             actions.append({"id": _cid(c), "type": "activateAbility", "cardId": source,
@@ -86,7 +109,7 @@ def choose_action(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answe
     def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
         if output.get("type") == "pass":
             if passing is None:
-                raise ValueError("passing is not a choice here")
+                raise Rejected("passing is not a choice here", "unknownActionId")
             # Every pass button sends where the pass should run to (the pass-until: a player's step, with
             # ``throughCombat`` for END TURN and NEXT TURN) and, on a stack, ``exhaustStack``. The session holds
             # the target (``Hub.pass_with``); a pass that names neither is a single pass.
@@ -98,13 +121,49 @@ def choose_action(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answe
             action = str(output.get("actionId"))
             if action in _by_id(pending):
                 return "answer", int(action)
-        raise ValueError("unknown action")
+            raise Rejected(f"action id {action!r} was not advertised by the prompt", "unknownActionId")
+        raise Rejected("unknown action")
 
     return {"type": "chooseAction", "actions": actions}, answer
 
 
+def _controlled_by_opponent(target: Any, me: str) -> bool | None:
+    """Whether a target reference is the opponent's (a player, or an object they control); ``None`` when unknown."""
+    if not isinstance(target, Mapping):
+        return None
+    if "player" in target:
+        return target["player"] != me
+    obj = target.get("object") if isinstance(target.get("object"), Mapping) else target
+    seat = obj.get("controller_seat") or obj.get("owner_seat")
+    return None if seat is None else seat != me
+
+
+# What an effect does to its target, by the rules text of its source: a hostile one is drawn with the client's hostile
+# (red) outline, a friendly one with the friendly (green) one.
+HOSTILE_TEXT = re.compile(r"(?i)\bdamage\b|\bdestroy\b|\bexile target\b|\bcounter target\b|\bgets? -\d|\btap target\b|"
+                          r"\bsacrifices?\b|\bowner's hand\b|\bloses?\b|\bfights?\b|\bgain control\b|\bdiscards?\b")
+FRIENDLY_TEXT = re.compile(r"(?i)\bgains?\b|\+\d+/\+\d+|\bgets? \+|\bcounter on\b|\bfrom your graveyard\b|"
+                           r"\buntap target\b|\bregenerate\b|\bhexproof\b|\bprotection from\b|\bexplores\b")
+
+
+def targeting_hostile(semantics: list[Mapping[str, Any]], me: str, rules: str | None) -> bool:
+    """Whether the targets of this decision are for harming: every candidate is the opponent's, or (candidates of
+    both sides, a Bolt) the source's rules text is a hostile effect. Anything unclear is not hostile."""
+    sides = [_controlled_by_opponent(s.get("target"), me) for s in semantics]
+    known = [side for side in sides if side is not None]
+    if known and len(known) == len(sides):
+        if all(known):
+            return True
+        if not any(known):
+            return False
+    if not rules:
+        return False
+    rules = re.sub(r"\([^)]*\)", "", rules)  # reminder text ("you may cast this from your graveyard") says nothing
+    return bool(HOSTILE_TEXT.search(rules)) and not FRIENDLY_TEXT.search(rules)
+
+
 def board_targets(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answer]:
-    candidates, by_ref, done = [], {}, None
+    candidates, by_ref, done, semantics = [], {}, None, []
     for c in pending.get("candidates") or []:
         s = c.get("semantic") or {}
         if s.get("kind") == "finish_target_selection":
@@ -113,25 +172,38 @@ def board_targets(pending: Mapping[str, Any], seats: Seats) -> tuple[dict, Answe
         ref = view.target_ref(s.get("target"), seats)
         if ref is not None:
             candidates.append(ref)
+            semantics.append(s)
             by_ref[(ref["kind"], ref["id"])] = c["id"]
     source = ((pending.get("context") or {}).get("source") or {}).get("card_name")
-    data = {"type": "chooseBoardTargets", "presentation": presentation(pending, text=CARDS.get(source or "", {}).get("text")),
-            "candidates": candidates, "hostile": False, "intent": "hostile", "minTargets": 0 if done is not None else 1,
-            "maxTargets": 1, "chosenTargets": 0, "cancellable": False}
+    rules = CARDS.get(source or "", {}).get("text")
+    first = semantics[0] if semantics else {}
+    # the engine's own bounds and progress: Blood Fountain's "up to two" shows 0 of 2 and then Done after one
+    minimum = first.get("minimum", 0 if done is not None else 1)
+    maximum = first.get("maximum", 1)
+    chosen = first.get("selected_count", 0)
+    hostile = targeting_hostile(semantics, seats.human_seat, rules)
+    data = {"type": "chooseBoardTargets", "presentation": presentation(pending, text=rules),
+            "candidates": candidates, "hostile": hostile, "intent": "hostile" if hostile else "friendly",
+            "minTargets": int(minimum), "maxTargets": max(int(maximum), int(minimum)), "chosenTargets": int(chosen),
+            # a target prompt can be backed out of only where the engine can rewind; no engine here can (every
+            # decision's context says rewind false, and the protocol has no candidate for a rewind), so no Cancel
+            "cancellable": False}
 
     def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
-        chosen = output.get("chosen") or []
-        if not chosen:
+        if output.get("type") == "cancel":
+            raise Rejected("this prompt is not cancellable", "cancelNotAllowed")
+        picked = output.get("chosen") or []
+        if not picked:
             if done is None:
-                raise ValueError("a target is required")
+                raise Rejected("a target is required")
             return "answer", done
-        ref = chosen[0]
+        ref = picked[0]
         key = (ref.get("kind"), ref.get("id"))
         if key not in by_ref:  # a card on the stack may come back as "card"
             key = next((k for k in by_ref if k[1] == ref.get("id")), key)
         if key in by_ref:
             return "answer", by_ref[key]
-        raise ValueError("not a candidate target")
+        raise Rejected("not a candidate target", "unknownActionId")
 
     return data, answer
 
@@ -164,7 +236,9 @@ def choose_cards(pending: Mapping[str, Any], observation: Mapping[str, Any], sea
         chosen = output.get("chosenCardIds") or []
         if len(chosen) == 1 and chosen[0] in by_id:
             return "answer", by_id[chosen[0]]
-        raise ValueError("choose exactly one of the offered cards")
+        if len(chosen) == 1:
+            raise Rejected("that card is not one of the offered cards", "unknownActionId")
+        raise Rejected("choose exactly one of the offered cards")
 
     return data, answer
 
@@ -179,7 +253,9 @@ def selection(pending: Mapping[str, Any]) -> tuple[dict, Answer]:
         chosen = output.get("chosenIndices") or []
         if len(chosen) == 1 and 0 <= int(chosen[0]) < len(candidates):
             return "answer", candidates[int(chosen[0])]["id"]
-        raise ValueError("choose exactly one option")
+        if len(chosen) == 1:
+            raise Rejected("that option was not offered", "unknownActionId")
+        raise Rejected("choose exactly one option")
 
     return data, answer
 
@@ -225,11 +301,11 @@ def mulligan(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: 
 
     def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
         if output.get("type") != "mulliganDecision" or not isinstance(output.get("keep"), bool):
-            raise ValueError("answer keep or mulligan")
+            raise Rejected("answer keep or mulligan")
         if output["keep"]:
             return "answer", keep["id"]
         if mull is None:
-            raise ValueError("no further mulligan is allowed")
+            raise Rejected("no further mulligan is allowed")
         return "answer", mull["id"]
 
     return data, answer
@@ -252,18 +328,28 @@ def put_back(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: 
 
     def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
         picked = output.get("cardIds") if output.get("type") == "mulliganPutBackDecision" else None
-        if (not isinstance(picked, list) or len(picked) != count or len(set(picked)) != count
-                or any(p not in ids for p in picked)):
-            raise ValueError(f"choose exactly {count} different cards from your hand")
+        if not isinstance(picked, list) or len(picked) != count or len(set(map(str, picked))) != count:
+            raise Rejected(f"choose exactly {count} different cards from your hand")
+        if any(p not in ids for p in picked):
+            raise Rejected("one of those cards is not in your hand", "unknownActionId")
         return "plan", {"kind": "bottom", "cards": list(picked)}
 
     return data, answer
 
 
+def _keywords(card: Mapping[str, Any]) -> set[str]:
+    return {str(k).lower() for k in (card.get("characteristics") or {}).get("keywords") or []}
+
+
 def attackers(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Seats) -> tuple[dict, Answer]:
+    """The attack declaration as one prompt, when the creatures the engine will ask about are known for certain: the
+    untapped creatures that are not summoning sick (or have haste) and have no defender. The engine asks about each
+    in turn (``substep_count`` of them); when our list does not have that many, or lacks the one asked about now, the
+    declaration is asked creature by creature (``selection``) so no creature is guessed or dropped."""
     me = seats.human_seat
     opponent = "p1" if me == "p0" else "p0"
-    first = ((pending.get("candidates") or [{}])[0].get("semantic") or {}).get("attacker") or {}
+    candidates = pending.get("candidates") or []
+    mine = ((candidates[0].get("semantic") or {}).get("attacker") or {}) if candidates else {}
     count = (pending.get("group") or {}).get("substep_count") or 1
     options = []
     for player in observation.get("players") or []:
@@ -272,17 +358,22 @@ def attackers(pending: Mapping[str, Any], observation: Mapping[str, Any], seats:
         for card in player.get("battlefield") or []:
             permanent = card.get("permanent") or {}
             chars = card.get("characteristics") or {}
-            haste = "haste" in (chars.get("keywords") or [])
+            keywords = _keywords(card)
             if ("creature" in (chars.get("types") or []) and not permanent.get("tapped")
-                    and (not permanent.get("summoning_sick") or haste)):
+                    and (not permanent.get("summoning_sick") or "haste" in keywords) and "defender" not in keywords):
                 options.append(card.get("object_id"))
-    if first.get("object_id") in options:
-        options.remove(first["object_id"])
-    options = ([first["object_id"]] if first.get("object_id") else []) + options
-    options = options[:count]
+    first = mine.get("object_id")
+    if len(options) != count or (first and first not in options):
+        return selection(pending)
+    if first:
+        options.remove(first)
+        options.insert(0, first)
+    # an attack that is forced (no "no attack" candidate: goad, must attack) is known for the creature asked about now
+    forced = bool(candidates) and not any(c["semantic"].get("defender") is None for c in candidates)
     target = seats.pid(opponent)
     data = {"type": "chooseAttackers",
-            "attackers": [{"attackerId": oid, "validTargetIds": [target], "mustAttack": False} for oid in options],
+            "attackers": [{"attackerId": oid, "validTargetIds": [target], "mustAttack": forced and oid == first}
+                          for oid in options],
             "attackTargets": [{"id": target, "label": seats.names.get(target, "Opponent"), "kind": "player"}]}
 
     def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
@@ -292,29 +383,55 @@ def attackers(pending: Mapping[str, Any], observation: Mapping[str, Any], seats:
     return data, answer
 
 
-def blockers(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Seats) -> tuple[dict, Answer]:
+def can_block(attacker: Mapping[str, Any], blocker: Mapping[str, Any]) -> bool:
+    """Whether the blocker may block the attacker on evasion alone: flying needs flying or reach."""
+    if "flying" in _keywords(attacker) and not {"flying", "reach"} & _keywords(blocker):
+        return False
+    return True
+
+
+def unblockable(attacker: Mapping[str, Any], defender_lands: set[str]) -> bool:
+    keywords = _keywords(attacker)
+    return "cant_be_blocked" in keywords or any(LANDWALKS[k] in defender_lands for k in keywords if k in LANDWALKS)
+
+
+def blockers(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Seats,
+             error: str | None = None) -> tuple[dict, Answer]:
+    """The block declaration as one prompt. Each attacker lists the blockers that may block it (flying and reach, the
+    landwalks and "can't be blocked"; menace asks for two); the engine's own check of the first block still rules, and
+    a block it refuses comes back as this prompt again with ``error`` (``Bridge`` sends it)."""
     me = seats.human_seat
-    attacking, mine = [], []
+    attacking, mine, lands = [], [], set()
     for player in observation.get("players") or []:
         for card in player.get("battlefield") or []:
             permanent = card.get("permanent") or {}
+            chars = card.get("characteristics") or {}
             if player.get("seat") != me and permanent.get("attacking"):
-                attacking.append(card.get("object_id"))
-            elif (player.get("seat") == me and "creature" in ((card.get("characteristics") or {}).get("types") or [])
-                  and not permanent.get("tapped")):
-                mine.append(card.get("object_id"))
-    data = {"type": "chooseBlockers",
-            "attackers": [{"attackerId": a, "validBlockerIds": mine, "minBlockers": 0, "mustBeBlocked": False}
-                          for a in attacking], "availableBlockerIds": mine}
+                attacking.append(card)
+            elif player.get("seat") == me:
+                if "creature" in (chars.get("types") or []) and not permanent.get("tapped"):
+                    mine.append(card)
+                if "land" in (chars.get("types") or []):
+                    lands.update(str(t).lower() for t in chars.get("subtypes") or [])
+    entries = []
+    for attacker in attacking:
+        valid = [] if unblockable(attacker, lands) else [b.get("object_id") for b in mine if can_block(attacker, b)]
+        entries.append({"attackerId": attacker.get("object_id"), "validBlockerIds": valid,
+                        "minBlockers": 2 if "menace" in _keywords(attacker) else 0, "mustBeBlocked": False})
+    ids = [b.get("object_id") for b in mine]
+    data = {"type": "chooseBlockers", "attackers": entries, "availableBlockerIds": ids}
+    if error:
+        data["error"] = error
 
     def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
         blocks = {a.get("blockerId"): a.get("attackerId") for a in output.get("assignments") or []}
-        return "plan", {"kind": "block", "blocks": {b: blocks.get(b) for b in mine}}
+        return "plan", {"kind": "block", "blocks": {b: blocks.get(b) for b in ids}}
 
     return data, answer
 
 
-def build(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Seats) -> tuple[dict, Answer]:
+def build(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Seats,
+          error: str | None = None) -> tuple[dict, Answer]:
     kinds = {c.get("kind") for c in pending.get("candidates") or []}
     context = pending.get("context") or {}
     if context.get("kind") == "priority" and kinds <= PRIORITY_KINDS:
@@ -330,7 +447,7 @@ def build(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Sea
     if pending.get("screen") == "attack":
         return attackers(pending, observation, seats)
     if pending.get("screen") == "block":
-        return blockers(pending, observation, seats)
+        return blockers(pending, observation, seats, error)
     if kinds <= {"choose_target", "finish_target_selection"} and "choose_target" in kinds:
         return board_targets(pending, seats)
     if kinds <= {"choose_cost_target", "select_object"}:
