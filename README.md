@@ -231,12 +231,13 @@ engine and decks: seven reference rungs from uniform to oh2-r2s1-b512, each
 playing the rungs nearest it, so a new entrant gets a rating from games
 against 3 rungs near its strength. Its b512-argmax rung is within noise of
 b512 (+22 Elo, 95% CI [-21, +67], in the unrated pass that sized the
-ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on the infoset adapter, with every rung re-rated: rated run 2026-11-08 (snapshot 2026-11-09) on mtg-kernel 4fccd3ebc, evaluation 2.0.0. Its ratings are not comparable with v1's. 5 of its 1,920 games halted on an infoset adapter fault in Faeries mirrors (a paid ninjutsu activation, mtg-kernel#612), within the 97% natural-ending rule. The fault is repaired in the engine pin d11d986d9 (4fccd3ebc plus mtg-kernel#614) and the board is at evaluation 2.1.0: every rung and Basilisk 2 are re-rated on the repaired engine before the next snapshot publishes, and 2.0.0 and 2.1.0 ratings are not comparable. The 2.0.0 runs and snapshots stay published as records.
+ladder; +10, [-36, +54], in the rated run). `pauper-ladder-v2` plays the same ladder on the infoset adapter. Evaluation 2.1.0 is the live board: engine pin d11d986d9 (mtg-kernel 4fccd3ebc plus mtg-kernel#614, which repairs the paid ninjutsu fault), rated run 2026-11-15, snapshot 2026-11-15. The board's pairing is mirror-only: both seats play the same deck, and every deck is played in both seats. The run played 2,304 games (the 15 rung blocks and Basilisk 2 against g115, oh2-r2s1-b512 and its argmax version, 18 blocks of 128), and every game ended naturally. Evaluation 2.0.0 (rated run 2026-11-08, snapshot 2026-11-09, on mtg-kernel 4fccd3ebc) and 2.1.0 ratings are not comparable, and neither are the ratings of `pauper-ladder-v1`. The 2.0.0 runs and snapshots stay published as records; the 5 games of the 2.0.0 run that halted were all the repaired fault (mtg-kernel#612).
 The `oh2-r2s1-b512-s4a-16k-k4` placement on 2.0.0 finished at 1473.7 Elo
 (95% CI [1411.2, 1543.8]). On 2.1.0 it is pending until its own re-rate, and
 that number is not a 2.1.0 rating. On 2.0.0, rung admission
 required 1594.3 Elo because no adjacent rung gap exceeded 200 Elo.
-[Rated snapshot, evaluation 2.0.0, engine 4fccd3ebc](benchmarks/pauper-ladder-v2/snapshots/2026-11-09-2/LEADERBOARD.md)
+[Rated snapshot, evaluation 2.1.0, engine d11d986d9](benchmarks/pauper-ladder-v2/snapshots/2026-11-15/LEADERBOARD.md)
+[Rated snapshot, evaluation 2.0.0, engine 4fccd3ebc (record)](benchmarks/pauper-ladder-v2/snapshots/2026-11-09-2/LEADERBOARD.md)
 
 `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
 decks, not only mirrors, and adds a deck matchup matrix, deck Elo and each

@@ -54,7 +54,43 @@
     "validity": "Strict: every 128-game block (the three chains-a-c4-u1048576 entrant blocks included) needs at least 125 natural endings, and every rung's total across the run needs at least 97% natural endings (forfeits of any cause, halts and truncations all count against). A block below 125 invalidates the run even if its rung total passes. No code enforces this unit; it is applied from the post-run per-block and per-rung table. If any block or rung fails, the run is excluded, no block is replaced, topped up or rerun, and its measured numbers are not shown as ratings.",
     "schedule_note": "evaluation_matchups and evaluation_targets in benchmark.json were narrowed by hand after bench prepare: 18 matchups, the three oh2-r2s1-b512-s4a-16k-k4 matchups and its target removed (prepare writes 21 and 2,688 games). Rerunning prepare re-adds them, so the commitment is made from the merged file without a rerun.",
     "not_in_this_run": "oh2-r2s1-b512-s4a-16k-k4 is not scheduled. It stays in the roster and is listed as pending on the board until its own entrant-only re-rate on this evaluation version; its 2.0.0 placement is a record of that version and not a 2.1.0 rating.",
-    "excluded": "Run 2026-11-14 stays excluded and published as a record; runs 2026-11-08 and 2026-11-09 and their snapshots stay published under evaluation 2.0.0."
+    "excluded": "Run 2026-11-14 stays excluded and published as a record; runs 2026-11-08 and 2026-11-09 and their snapshots stay published under evaluation 2.0.0.",
+    "result": {
+      "run": "2026-11-15",
+      "games": "2,304 scheduled, 2,304 played, 2,304 natural (reason game_over); 0 halted, 0 truncated, 0 forfeit",
+      "validity_unit_applied_by_hand": "Every one of the 18 blocks has at least 125 of 128 natural games (lowest 128) and every rung's total, counting every block it plays, is at least 97% natural (lowest 100%). The run is valid. The rating is published as measured.",
+      "natural_games_per_block": [
+        "uniform v heuristic: 128 of 128",
+        "uniform v c12: 128 of 128",
+        "uniform v gorge-ar8: 128 of 128",
+        "heuristic v c12: 128 of 128",
+        "heuristic v gorge-ar8: 128 of 128",
+        "heuristic v g115: 128 of 128",
+        "c12 v gorge-ar8: 128 of 128",
+        "c12 v g115: 128 of 128",
+        "c12 v oh2-r2s1-b512: 128 of 128",
+        "gorge-ar8 v g115: 128 of 128",
+        "gorge-ar8 v oh2-r2s1-b512: 128 of 128",
+        "gorge-ar8 v oh2-r2s1-b512-argmax: 128 of 128",
+        "g115 v oh2-r2s1-b512: 128 of 128",
+        "g115 v oh2-r2s1-b512-argmax: 128 of 128",
+        "g115 v chains-a-c4-u1048576: 128 of 128",
+        "oh2-r2s1-b512 v oh2-r2s1-b512-argmax: 128 of 128",
+        "oh2-r2s1-b512 v chains-a-c4-u1048576: 128 of 128",
+        "oh2-r2s1-b512-argmax v chains-a-c4-u1048576: 128 of 128"
+      ],
+      "natural_games_per_rung": [
+        "uniform: 384 of 384",
+        "heuristic: 512 of 512",
+        "c12: 640 of 640",
+        "gorge-ar8: 768 of 768",
+        "g115: 768 of 768",
+        "oh2-r2s1-b512: 640 of 640",
+        "oh2-r2s1-b512-argmax: 512 of 512",
+        "chains-a-c4-u1048576: 384 of 384"
+      ],
+      "also_checked": "Also from the ledger: all 64 seat-swapped pairs of every block are complete, and each of the 8 deck mirrors has 288 of 288 natural games. chains-a-c4-u1048576 is Basilisk 2."
+    }
   },
   "audits": {
     "history_two_world": {
