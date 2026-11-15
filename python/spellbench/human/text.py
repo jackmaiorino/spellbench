@@ -30,6 +30,26 @@ def where(observation: Mapping[str, Any], me: str | None) -> str:
 
 ABILITY_KINDS = ("activated_ability", "triggered_ability")
 
+# The engine's observation lists the stack TOP FIRST: index 0 resolves next and a new object appears at index 0
+# (the kernel adapter reverses its native bottom-first order, integrations/mtg_kernel/kernel_observation_v2.py,
+# "native bottom-first; protocol top-first"; recorded games: every pop and push seen between two decisions was at
+# index 0). The spec text (Section 6.2) says the opposite and the xmage engine follows it, so this is the one place
+# that knows the order: every reader of the stack end goes through ``stack_top`` or ``stack_bottom_first``.
+STACK_TOP_FIRST = True
+
+
+def stack_top(stack: Any) -> Mapping[str, Any] | None:
+    """The stack object that resolves next, or ``None`` when the stack is empty."""
+    if not stack:
+        return None
+    return stack[0] if STACK_TOP_FIRST else stack[-1]
+
+
+def stack_bottom_first(stack: Any) -> list[Any]:
+    """The stack from the bottom up (the last entry is the top), the order the Manabrew client draws."""
+    entries = list(stack or [])
+    return entries[::-1] if STACK_TOP_FIRST else entries
+
 
 _CARD_TEXT: dict[str, str] | None = None
 
@@ -267,7 +287,7 @@ def prompt(decision: Mapping[str, Any], me: str | None) -> str:
     if context.get("kind") == "priority":
         stack = observation.get("stack") or []
         if stack:
-            top = stack[-1]
+            top = stack_top(stack)
             who = seat_name(top.get("controller_seat"), me)
             return f"{who}: {card(top)} on the stack. Respond?"
         if observation.get("phase_step") in MAIN_STEPS and observation.get("active_seat") == me:

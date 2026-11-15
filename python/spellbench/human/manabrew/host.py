@@ -281,10 +281,10 @@ class Bridge:
             winner = None
             if over and over.get("winner"):
                 winner = self.seats.pid(over.get("winner"))
-            if observation.get("turn") == 1 and self.starter is None:
-                self.starter = observation.get("active_seat")
+            # the seat that took the first turn is the game's own setting, not the first turn this seat saw
+            self.starter = (game.get("rules") or {}).get("starting_seat") or "p0"
             gv = view.game_view(observation, self.seats, self.game_id or str(game.get("game_id")),
-                                game_over=bool(over), winner=winner, starter=self.starter)
+                                game_over=bool(over), winner=winner, starter=self.starter, terminal=over)
             raw = json.dumps(gv, sort_keys=True)
             if raw != self.sent_view:
                 self.sent_view = raw
