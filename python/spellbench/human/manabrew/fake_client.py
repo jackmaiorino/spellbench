@@ -91,11 +91,11 @@ def pass_output(view: Mapping[str, Any] | None, me: str, mode: str = "plain",
 
 def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[str, ...] = (), *,
            view: Mapping[str, Any] | None = None, me: str = "player-0", pass_mode: str = "plain",
-           attack: bool = True) -> dict[str, Any] | None:
+           attack: bool = True, passive: bool = False) -> dict[str, Any] | None:
     """The scripted answer. ``take``: texts of actions to prefer (any action whose label or description contains one,
     case-insensitively, is taken before anything else); ``avoid``: texts of actions never taken. ``view``: the latest
     gameView and ``me`` the person's player id, which the pass controls (``pass_mode``) read; ``attack``: whether to
-    attack with everything."""
+    attack with everything; ``passive``: take no action but those in ``take`` (a person who only passes)."""
     data = prompt.get("input") or {}
     kind = data.get("type")
     if kind == "chooseAction":
@@ -105,7 +105,7 @@ def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[s
                   and any(t.lower() in action_text(a).lower() for t in take)]
         lands = [a for a in actions if a.get("type") == "cast" and str(a.get("label", "")).startswith("Play ")]
         spells = [a for a in actions if a.get("type") == "cast" and a not in lands]
-        pick = (wanted or lands or spells or [None])[0]
+        pick = (wanted or ([] if passive else lands or spells) or [None])[0]
         return {"type": "act", "actionId": pick["id"]} if pick else pass_output(view, me, pass_mode)
     if kind == "chooseBoardTargets":
         chosen = (data.get("candidates") or [])[:max(1, data.get("minTargets") or 0)]
@@ -149,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--self-stops", default=",".join(DEFAULT_SELF_STOPS),
                         help="the client's own phase stops (StepKind names), for --pass-mode stops and end-turn")
     parser.add_argument("--no-attack", action="store_true", help="declare no attackers")
+    parser.add_argument("--passive", action="store_true", help="play no land and cast no spell: only pass (and take --take)")
     parser.add_argument("--concede-game", type=int, default=0,
                         help="concede this game (1, 2, ...) after --concede-after answered prompts")
     parser.add_argument("--concede-after", type=int, default=3)
@@ -225,7 +226,7 @@ def main(argv: list[str] | None = None) -> int:
                     send({"type": "ListRooms"})
                     continue
                 output = answer(prompt, take, avoid, view=latest_view, me=slot, pass_mode=args.pass_mode,
-                                attack=not args.no_attack)
+                                attack=not args.no_attack, passive=args.passive)
                 if output is not None and output.get("type") == "pass" and (output.get("until") or output.get("exhaustStack")):
                     print(f"pass with {json.dumps({k: v for k, v in output.items() if k != 'type'})}", flush=True)
                 if output is not None:

@@ -385,8 +385,8 @@ class Bridge:
             print(f"\n  {self.human} is back; the game continues.", flush=True)
 
     def _on_response(self, sender: str | None, envelope: Mapping[str, Any]) -> None:
-        if sender != self.human:
-            return
+        if sender != (self.human or self.last_human):  # a table update without the person clears self.human; their
+            return                                      # answers are still theirs (as for the board and prompts)
         if envelope.get("kind") == "directive":
             self._on_directive(envelope.get("directive") or {})
             return
