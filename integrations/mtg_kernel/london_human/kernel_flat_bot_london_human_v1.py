@@ -214,6 +214,9 @@ class KernelFlatBot:
             "kind": "decision", "step": decision.seat_step, "candidate_id": rows[row], "selected_row": row,
             "sample_seed": sample_seed, "logits_bits": choice["logits_bits"], "value_bits": choice["value_bits"],
             "request_sha256": choice["request_sha256"], "elapsed_us": (time.perf_counter_ns() - started) // 1000,
+            # A numeric choice (an X value) the V7 contract cannot encode: its tensor is the V4 fill, outside any
+            # trained V7 input. Recorded so a played game says where the model was asked off its inputs.
+            "numeric_choice_v4_fill": bool(extension.get("numeric_choice_v4_fill")),
         })
         return rows[row]
 
