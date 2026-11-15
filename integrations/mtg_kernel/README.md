@@ -28,13 +28,19 @@ built from the mtg-kernel 92ec2393 line. `pauper-ladder-v2` runs them built
 from mtg-kernel main at the commit named by its `--source-revision`, which
 carries the same bridge (mtg-kernel PRs #462 and #476). The pin moved from
 63a019dc9 to 89fb69a95 (mtg-kernel #505's merge), then to 4fccd3ebc, the
-frozen W1 engine. Since 4fccd3ebc the board enables `x_kernel_infoset_v1`
+frozen W1 engine, then to d11d986d9: 4fccd3ebc plus the three commits of
+mtg-kernel #614 (PR #705 into `release/ladder-v2-4fccd3ebc`), which keep a
+paid ninjutsu source pristine in hand so the opponent infoset export no
+longer halts on it (mtg-kernel #612). Only `agent_bridge_v1` and
+`spellbench_qualify_v1` are rebuilt for that pin; the scorer (b7deed4d) and the
+catalog are the pinned ones. Since 4fccd3ebc the board enables `x_kernel_infoset_v1`
 for the W1 search entrant, so its engine is `kernel_engine_infoset_v2.py`,
 named by its own placeholder `${MTG_KERNEL_V2_INFOSET_ENGINE}` (the other
 boards keep `${MTG_KERNEL_V2_ENGINE}` for `kernel_engine_v2.py`). The
 adapter imports `kernel_engine_v2.py` and `kernel_g6_digest.py`, so both
 are in `evaluation_engine_inputs` and their bytes join the evaluation
-engine identity. Build at that commit with the W1 soak profile:
+engine identity. Build at the pinned commit with the W1 soak profile (for d11d986d9 leave out
+`--bin spellbench_scorer_v1`):
 
     CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64 \
     CARGO_PROFILE_RELEASE_INCREMENTAL=false \
@@ -44,6 +50,17 @@ engine identity. Build at that commit with the W1 soak profile:
 
 The catalog stays the 89fb69a95 one (sha256 `af8e1b91...`, byte-identical to
 `pauper-v2-omen-92ec2393.json`).
+
+The board runs the python engine inputs by sha256 from a spellbench
+checkout at 0c486ed. Main's `kernel_history_v2.py` and
+`kernel_observation_v2.py` differ from those bytes (spellbench d4dcb42), so
+resolve the engine placeholders to a 0c486ed checkout, not to main. The
+adapter pytest and goldens run on main's bytes; the other audits run on the
+pinned ones (`engine_bytes` in `ENGINE-AUDITS.json`). The engine and builtin bot identities also depend on the launch environment: drive
+`bench commit` and `bench run` with the pinned `python.exe` and with
+`MTG_KERNEL_V2_BRIDGE`, `MTG_KERNEL_PUBLIC_CATALOG` and `MTG_KERNEL_V2_SOURCE`
+removed from the launch process environment (including any user-level value it inherits), and check the printed engine
+identity from `bench prepare` in a clean checkout before committing.
 
 Every engine change behind a board needs fresh audits on the pinned binary
 before that board rates games: the history two-world audit, the

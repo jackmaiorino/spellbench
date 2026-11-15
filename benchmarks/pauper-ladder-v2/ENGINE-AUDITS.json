@@ -3,20 +3,58 @@
   "benchmark": "pauper-ladder-v2",
   "engine": {
     "name": "mtg-kernel",
-    "source_revision": "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
-    "pull_requests": ["mtg-kernel#462", "mtg-kernel#476"],
-    "later_pull_requests": "4fccd3ebc is the frozen W1 engine. The board now enables x_kernel_infoset_v1 (mtg-kernel#466, #488, #489, #496, #497, #505 and the W1 export repairs through #541) through integrations/mtg_kernel/kernel_engine_infoset_v2.py; mtg-kernel#540 changes the order of equipment effects in the observation (public battlefield order, not arena ids)",
+    "source_revision": "d11d986d9db790425584512de1757d240a8553ff",
+    "built_commit": "d11d986d9db790425584512de1757d240a8553ff, the head of mtg-kernel#705 as built. The merge commit b9f528fe on release/ladder-v2-4fccd3ebc has the same tree and is not what was built; the --source-revision literal stays d11d986d9.",
+    "pull_requests": ["mtg-kernel#462", "mtg-kernel#476", "mtg-kernel#614 (its three commits, as mtg-kernel#705 into release/ladder-v2-4fccd3ebc)"],
+    "later_pull_requests": "4fccd3ebc is the frozen W1 engine; d11d986d9 is 4fccd3ebc plus mtg-kernel#614 (a paid ninjutsu source no longer takes the turn-use stamp while it waits in hand, so the opponent infoset export does not halt on it; mtg-kernel#612) and nothing else. The board now enables x_kernel_infoset_v1 (mtg-kernel#466, #488, #489, #496, #497, #505 and the W1 export repairs through #541) through integrations/mtg_kernel/kernel_engine_infoset_v2.py; mtg-kernel#540 changes the order of equipment effects in the observation (public battlefield order, not arena ids)",
     "adapter": "integrations/mtg_kernel/kernel_engine_infoset_v2.py (placeholder MTG_KERNEL_V2_INFOSET_ENGINE), which imports kernel_engine_v2.py and kernel_g6_digest.py; both are evaluation_engine_inputs",
-    "build": "cargo build --release --locked -p mtg-kernel with CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64, CARGO_PROFILE_RELEASE_INCREMENTAL=false, rust-lld (Windows x86_64 MSVC, rust 1.94.1): the W1 soak binaries, pinned in E:/pinned-binaries/w1-soak-20261106",
-    "qualify_build": "spellbench_qualify_v1.exe built later from the same checkout, target directory and profile; agent_bridge_v1.exe rebuilt in the same invocation differs from the pinned one only in 14 bytes (the PE link timestamp and debug-directory id), same size",
-    "host": "second build host (Windows, Zen 2), under slot claims of 3 to 10 cores",
-    "date": "2026-11-08"
+    "build": "cargo build --release --locked -p mtg-kernel --bin agent_bridge_v1 --bin spellbench_qualify_v1 with CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64, CARGO_PROFILE_RELEASE_INCREMENTAL=false, rust-lld (Windows x86_64 MSVC, rust 1.94.1), one invocation from the d11d986d9 checkout, pinned by sha256 in the build host's pinned-binaries store",
+    "qualify_build": "spellbench_qualify_v1.exe built in the same invocation as agent_bridge_v1.exe",
+    "host": "Windows build host (Windows 11, 24 logical CPUs), under a 4-core slot claim",
+    "date": "2026-11-14"
   },
   "pinned_files": {
-    "agent_bridge_v1.exe": {"sha256": "3338b4d809a3eada3f6abffd21a8085491ba42500ea0d6caeccad98871cfae03", "bytes": 79480320},
-    "spellbench_scorer_v1.exe": {"sha256": "b7deed4df80431f446176d20f469449f1dbf133caa7d6de3c14c7db9840ebb76", "bytes": 6599680},
-    "spellbench_qualify_v1.exe": {"sha256": "09ad25110b9bc4da008ddfccf7466380ce2a5e04c0df5a081dcda48eb1d89426", "bytes": 84010496},
-    "pauper-v2-catalog.json": {"sha256": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e", "bytes": 56975, "note": "byte-identical to pauper-v2-omen-92ec2393.json, unchanged since 89fb69a95"}
+    "agent_bridge_v1.exe": {"sha256": "f8bae9fd2e03214cd98d5d9259d32af569864f5885f8ed58d2c6bb982033bc28", "bytes": 79480832},
+    "spellbench_scorer_v1.exe": {
+      "sha256": "b7deed4df80431f446176d20f469449f1dbf133caa7d6de3c14c7db9840ebb76",
+      "bytes": 6599680,
+      "note": "unchanged from the 4fccd3ebc pin (inference only; the repair does not touch it)"
+    },
+    "spellbench_qualify_v1.exe": {"sha256": "7cafdb577c19d95612f31c612386b2de3681b869f8b037e2daaad91787b29110", "bytes": 84011008},
+    "pauper-v2-catalog.json": {
+      "sha256": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e",
+      "bytes": 56975,
+      "note": "byte-identical to pauper-v2-omen-92ec2393.json, unchanged since 89fb69a95"
+    }
+  },
+  "engine_bytes": {
+    "rule": "The board pins the engine inputs by sha256 (evaluation_engine_inputs and the files named by the engine command). The run executes exactly the pinned bytes: the placeholders resolve to a spellbench checkout at 0c486ed for the adapter files, the pinned python.exe, the pinned catalog and the pinned bridge, never to a checkout of main. The engine identity and the uniform and heuristic bot identities also depend on the launch environment: drive `bench commit` and `bench run` with the pinned python.exe (sha256 623f6690...) and with MTG_KERNEL_V2_BRIDGE, MTG_KERNEL_PUBLIC_CATALOG and MTG_KERNEL_V2_SOURCE removed from the launch process environment, including any user-level value it inherits (a set variable wins over local values, and the builtin bot fingerprints hash the interpreter). Before `bench commit`, rerun `bench prepare` with that interpreter and environment in a clean checkout of the merged default branch and confirm the engine identity is 290573cb7ef56dc63ec5e427ce43ef40687368f4e62d8fdaf0ccc1711a626c54, the nine bot identities are unchanged, and the only difference from the committed definition is the three oh2-r2s1-b512-s4a-16k-k4 matchups and its target; a commitment cannot be redone.",
+    "inputs_sha256": {
+      "agent_bridge_v1.exe": "f8bae9fd2e03214cd98d5d9259d32af569864f5885f8ed58d2c6bb982033bc28",
+      "pauper-v2-catalog.json": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e",
+      "python.exe": "623f669041a962346e6a377408193e628bfc409d12e5851042a727685980813e",
+      "kernel_engine_infoset_v2.py": "84b72bbc63e99a290f9e09d7e03485bdc094581cad80077a18191ca84f3ac137",
+      "kernel_engine_v2.py": "163aaf2fa222efa1cb13bacc19d54094305ffbf59932e1198cb23f623c0dd0d5",
+      "kernel_g6_digest.py": "e524e60feb041b93eaa8542e07df36bc268e1ef3460389ddfe6efa45fe146d11",
+      "kernel_observation_v2.py": "b512106827c307cce5d5b457ca217328a80dce0624aad9d8af61c76420ed2123",
+      "kernel_semantics_v2.py": "30c1ec14ccb11f4d5a484846f684125b0b16c6158f849adb445952f14f9d00bf",
+      "kernel_combat_v2.py": "a3c1b6d040cd1e1de1f94bf81954faf6bd83abed2832b4ef39c0f2f124ff830a",
+      "kernel_arrangement_v2.py": "d6ce5bb3f681e99042c5991162575e63486767f0b849c79162e59829a005120d",
+      "kernel_selection_order_v2.py": "acb9e01fb2c2d585578359e2f8b46418eb9453a82bdc2897d651f6b2b069e947",
+      "kernel_order_v2.py": "aaa22d362d42ba4f251923deb6c494fa60b69b7fb34fdd191add37271ccf309b",
+      "kernel_history_v2.py": "3ef3dbb0d4f596fd10ca7ca311a4991241436ab77a0efcdf9dd64d58f293c906"
+    },
+    "against_the_2026-11-14_run": "Only agent_bridge_v1.exe differs from that run's engine_files (3338b4d8 to f8bae9fd). The adapter files, python.exe and the catalog are byte for byte the same.",
+    "main_differs": "Main's kernel_history_v2.py (b41e376a) and kernel_observation_v2.py (3bfc00de) differ from the pinned bytes: spellbench d4dcb42 (grid board, ProjectionError repair) changed them after 0c486ed, and it is the only change to them since. The other eight adapter files on main equal the pinned bytes. The definition on main therefore cites files whose current bytes differ from the recorded hashes, as the earlier pins did.",
+    "audit_bytes": "The history two-world audit, check_engine_v2, check_private_preview_v2, the gorge-ar8 smoke, the sweep and the unrated pass ran on the pinned 0c486ed bytes. The adapter pytest and the goldens check ran on main's bytes (see adapter_tests).",
+    "untested": "The grid-board ProjectionError class ('known hand facts exceed the hand count', off-mirror Faeries) is untested on the pinned bytes. This ladder plays mirrors only, and none appears in its 2,688 published games or in the unrated runs."
+  },
+  "rated_run": {
+    "games": "15 rung matchups plus 3 entrant matchups of chains-a-c4-u1048576 (Basilisk 2) against g115, oh2-r2s1-b512 and oh2-r2s1-b512-argmax, 18 blocks of 128 games = 2,304 games",
+    "validity": "Strict: every 128-game block (the three chains-a-c4-u1048576 entrant blocks included) needs at least 125 natural endings, and every rung's total across the run needs at least 97% natural endings (forfeits of any cause, halts and truncations all count against). A block below 125 invalidates the run even if its rung total passes. No code enforces this unit; it is applied from the post-run per-block and per-rung table. If any block or rung fails, the run is excluded, no block is replaced, topped up or rerun, and its measured numbers are not shown as ratings.",
+    "schedule_note": "evaluation_matchups and evaluation_targets in benchmark.json were narrowed by hand after bench prepare: 18 matchups, the three oh2-r2s1-b512-s4a-16k-k4 matchups and its target removed (prepare writes 21 and 2,688 games). Rerunning prepare re-adds them, so the commitment is made from the merged file without a rerun.",
+    "not_in_this_run": "oh2-r2s1-b512-s4a-16k-k4 is not scheduled. It stays in the roster and is listed as pending on the board until its own entrant-only re-rate on this evaluation version; its 2.0.0 placement is a record of that version and not a 2.1.0 rating.",
+    "excluded": "Run 2026-11-14 stays excluded and published as a record; runs 2026-11-08 and 2026-11-09 and their snapshots stay published under evaluation 2.0.0."
   },
   "audits": {
     "history_two_world": {
@@ -25,8 +63,7 @@
       "result": "pass",
       "games": 48,
       "natural_endings": 48,
-      "differences": 0,
-      "identical_to_63a019dc9_record": true
+      "differences": 0
     },
     "check_engine_v2": {
       "tool": "integrations/mtg_kernel/check_engine_v2.py, without extensions and again with --extension x_kernel_flat_v4 --extension x_public_history_v1",
@@ -34,7 +71,7 @@
       "result": "pass",
       "decks": 8,
       "buffer_cap_reset_equals_fresh": true,
-      "traces_identical_to_89fb69a95": "true for the run without extensions (every record, trace_sha256 included)"
+      "traces_identical_to_4fccd3ebc_pin": "true for both runs (without extensions and with x_kernel_flat_v4 and x_public_history_v1): every record, trace_sha256 included, equal to the 3338b4d8 bridge's; the repair changes no non-ninjutsu play"
     },
     "check_private_preview_v2": {
       "tool": "integrations/mtg_kernel/check_private_preview_v2.py",
@@ -46,20 +83,20 @@
       }
     },
     "gorge_ar8_smoke": {
-      "matchup": "c12 vs gorge-ar8, 8 pairs (16 games), unrated, on this board's engine command (the infoset adapter) with all three extensions enabled",
+      "matchup": "c12 vs gorge-ar8, 16 games (one seat-swapped pair per deck), unrated, on this board's engine command (the infoset adapter) with all three extensions enabled; the run also played each of them against uniform (48 games in all)",
       "binary": "agent_bridge_v1.exe and spellbench_scorer_v1.exe above",
       "result": "pass",
       "games": 16,
       "halted": 0,
       "truncated": 0,
       "forfeit": 0,
-      "validator": "pass, 5162 decisions checked, 0 violations",
-      "replay_at_this_pin": "the 16 games replayed from the run's revealed secret (bench rerun): every ledger field equal, game_digest included",
-      "replay_of_63a019dc9_run": "the 16 games of the 63a019dc9 run (kernel_engine_v2.py, two extensions) replayed on the binaries above: 15 equal in every ledger field except c12's bot_id (and winner_bot_id where c12 won), which hashes c12's scorer binary; game 5, an Affinity mirror, has the same steps (74), decisions (73) and winner but a different game_digest, which chains the engine traffic. The 89fb69a95 replay matched all 16, so the change lies in 89fb69a95..4fccd3ebc, consistent with mtg-kernel#540's equipment-effect observation order (Affinity plays equipment)"
+      "validator": "pass, 12382 decisions checked over the 48 games, 0 violations",
+      "all_games_in_run": "48 natural of 48",
+      "replay_at_this_pin": "the 48 games replayed from the run's revealed secret (bench rerun): every ledger field equal, game_digest included"
     },
     "v4_visibility": {
       "tool": "cargo test --release -p mtg-kernel --lib -- --ignored spellbench_v4_visibility_audit --nocapture",
-      "commit": "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
+      "commit": "d11d986d9db790425584512de1757d240a8553ff",
       "result": "pass",
       "what_it_tests": "At every decision of neutral private-support games on the eight board decks, the acting seat's V4 boundary and x_kernel_flat_v4 encoding are unchanged when the search sampler redeterminizes every hidden card the engine's knowledge tables mark as unknown to that seat; and every place one player learned hidden cards of the other (library look or reveal, hand reveal, library reorder revealed to the opponent) is a reviewed site marked in the source. It is a consistency check against the engine's own knowledge tables plus a pinned enumeration of reveal sites, not a proof against a fact the tables wrongly mark as known.",
       "games": 16,
@@ -85,14 +122,38 @@
         "library mtg-kernel/src/effect.rs:19907",
         "library mtg-kernel/src/event.rs:7414"
       ],
-      "same_sites_as_89fb69a95": "the same 14 calls; engine.rs and event.rs lines moved with mtg-kernel#465 and #467",
+      "same_sites_as_89fb69a95": "the same 14 calls at the same lines as the 4fccd3ebc receipt (the repair is in push_paid_activation, after the last reveal site); same 16 games, 4,731 decisions, 14,193 sampled worlds",
       "coverage": "The audit exercised 6 of the 25 marked library-reveal calls and 8 of the 36 marked hand-reveal calls. The 21 and 35 present at 89fb69a95 rest on the static enumeration reviewed in mtg-kernel #462 and #476; the 4 library and 1 hand marked calls added since are premodern card code from mtg-kernel #465 and #467, outside this board's pool. No library reorder call is marked as revealing to the opponent."
     },
     "adapter_tests": {
-      "tool": "pytest integrations/mtg_kernel (adapter contract tests, the infoset adapter's included) and python/tools/generate_goldens_v2.py --check, at this change's spellbench commit",
+      "tool": "pytest integrations/mtg_kernel (adapter contract tests, the infoset adapter's included) and python/tools/generate_goldens_v2.py --check, in a spellbench checkout of main",
+      "bytes_run": "main's adapter bytes (kernel_history_v2.py b41e376a, kernel_observation_v2.py 3bfc00de), not the pinned bytes below",
       "result": "pass",
-      "tests": "229 passed, 1 skipped",
+      "tests": "283 passed, 1 skipped on 5fb38f8 plus the pin edit; 300 passed, 12 skipped on the current main with the bridge and catalog environment set (the added tests are the London human adapter's; without it 291 passed, 12 skipped)",
       "goldens": "all OK"
+    },
+    "unrated_board_pass": {
+      "what": "The 15 rung matchups (7 rungs, band 3) at 128 games each, 1,920 games, unrated, on the pinned bridge through the board's own `bench run --unrated` path with the board's plain engine command (no tap wrapper), evaluation 2.1.0, engine identity 290573cb. Two shards of one definition (8 and 7 matchups), each validated (`validate`: digests verified, ratings re-derived from the ledger). Unrated games are never promoted to the rated run.",
+      "result": "pass",
+      "games": 1920,
+      "natural": 1920,
+      "halted": 0,
+      "truncated": 0,
+      "forfeit": 0,
+      "per_block": "every one of the 15 blocks 128 of 128 natural",
+      "blocks": ["c12 v g115", "c12 v gorge-ar8", "c12 v heuristic", "c12 v oh2-r2s1-b512", "c12 v uniform", "g115 v gorge-ar8", "g115 v heuristic", "g115 v oh2-r2s1-b512", "g115 v oh2-r2s1-b512-argmax", "gorge-ar8 v heuristic", "gorge-ar8 v oh2-r2s1-b512", "gorge-ar8 v oh2-r2s1-b512-argmax", "gorge-ar8 v uniform", "heuristic v uniform", "oh2-r2s1-b512 v oh2-r2s1-b512-argmax"],
+      "per_rung": {"uniform": "384 of 384", "heuristic": "512 of 512", "c12": "640 of 640", "gorge-ar8": "768 of 768", "g115": "640 of 640", "oh2-r2s1-b512": "512 of 512", "oh2-r2s1-b512-argmax": "384 of 384"},
+      "date": "2026-11-15"
+    },
+    "paid_ninjutsu_repair": {
+      "tool": "cargo test --release -p mtg-kernel --lib paid_ninjutsu_keeps_the_waiting_hand_source_pristine_for_opponent_infoset, and integrations/mtg_kernel bridge transcript equality",
+      "result": "pass",
+      "regression_test": "fails on the test-only commit aaab89a8a (\"Ninja of the Deep Hours in seat PlayerId(0): I1 hidden object 0 is not pristine\") and passes on d11d986d9",
+      "transcript_equality": "old (3338b4d8) and new bridge answer byte for byte on 24 games (8 decks x 3 seeds) in plain and in --x-kernel-flat-v4 --private-v2-support mode",
+      "halt_attribution": "All 11 published halts (rated run 2026-11-08 games 1567, 1678, 1711, 1743, 1823; rated run 2026-11-09 game 350; run 2026-11-14 games 14, 30, 46, 47, 222) are paid ninjutsu activations of Ninja of the Deep Hours or Moon-Circuit Hacker from hand, followed by the returned attacker and the halt at the next export. Replayed on the old bridge (3338b4d8) all 11 halt again with every ledger field equal to the published row; replayed on the new bridge all 11 end natural. A halt for another reason is not seen in any published or unrated game, but the exporter still refuses any untracked hidden object with a non-default field, so a state not yet met could halt again.",
+      "halted_games_replayed": "diagnostic only: bench rerun refuses a changed bridge, so the recorded config and secret were replayed directly",
+      "scripted_ninjutsu": "72 scripted human-seat Faeries games against chains-a-c4-u1048576 playing Burn: 72 natural, 0 halted, 21 ninjutsu activations in 19 games (the same script had 13 of 17 ninjutsu games halt on 4fccd3ebc)",
+      "halt_sweep": "unrated Faeries mirrors on this bridge: 647 games between uniform, g115, oh2-r2s1-b512, oh2-r2s1-b512-argmax and chains-a-c4-u1048576, 0 not natural. 560 of them (336 among the four non-anchor bots, every pairing in both seats) ran with a tap wrapper around the adapter that counts ninjutsu activations: 560 natural, 1,416 activations in 451 games. The other 87 ran without the tap. The sweep is the only run that used the wrapper; the unrated pass below ran the board's plain command."
     }
   },
   "rule": "Rerun every audit above on the pinned binaries, and replace this receipt, whenever the engine behind this board changes. The board rates no games on an engine without a passing receipt."

@@ -14,7 +14,7 @@
       "--catalog",
       "${MTG_KERNEL_PUBLIC_CATALOG}",
       "--source-revision",
-      "4fccd3ebc6f119a4746d8ce8b85d3fe3c8481d0c",
+      "d11d986d9db790425584512de1757d240a8553ff",
       "--known-cards"
     ]
   },
@@ -39,7 +39,7 @@
     "oh2-r2s1-b512",
     "oh2-r2s1-b512-argmax"
   ],
-  "evaluation_version": "pauper-ladder-v2.0.0",
+  "evaluation_version": "pauper-ladder-v2.1.0",
   "ladder": {
     "band": 3,
     "entrants": {
@@ -320,7 +320,7 @@
         "label": "Basilisk 1 + search (16k, 4 workers)",
         "author": "mipo",
         "url": null,
-        "description": "The Basilisk 1 policy (oh2-r2s1-b512) with root-parallel s4a search: 4 single-threaded trees share 16,000 native transitions per searched decision, under a per-game allowance metered in transitions, never the clock, so reruns are identical on any host. It searches only the information-set payload the engine attaches (x_kernel_infoset_v1), never hidden state, and plays the sampled policy on every refusal, fault or allowance shortfall. The W1 search entrant; its constants are frozen in integrations/mtg_kernel/entrants/oh2-r2s1-b512-s4a-16k-k4.json. Placed on the 3 rungs nearest its unrated soak against b512 (61-67, provisional 1503)."
+        "description": "The Basilisk 1 policy (oh2-r2s1-b512) with root-parallel s4a search: 4 single-threaded trees share 16,000 native transitions per searched decision, under a per-game allowance metered in transitions, never the clock, so reruns are identical on any host. It searches only the information-set payload the engine attaches (x_kernel_infoset_v1), never hidden state, and plays the sampled policy on every refusal, fault or allowance shortfall. The W1 search entrant; its constants are frozen in integrations/mtg_kernel/entrants/oh2-r2s1-b512-s4a-16k-k4.json. Placed on the 3 rungs nearest its unrated soak against b512 (61-67, provisional 1503). Its 2.0.0 placement is a record of that version; on 2.1.0 it is pending until its own entrant-only re-rate."
       },
       "evaluation_identity": "0b0fea989fd6ec03b84ac620f574cb37f9c71626b88ec940a24dd23b92de0122"
     },
@@ -361,8 +361,34 @@
     "projected_bytes": 4294967296,
     "cap_bytes": 25769803776
   },
-  "evaluation_engine_identity": "8476a87d7cc4d9a5724ecf27821f7276d56a1021280d87becc245a6157f8aa9d",
+  "evaluation_engine_identity": "290573cb7ef56dc63ec5e427ce43ef40687368f4e62d8fdaf0ccc1711a626c54",
+  "excluded_runs": [
+    {
+      "run": "2026-11-14",
+      "reason": "Failed the ladder validity rule (at least 97% of each rung's games end naturally): 5 of 384 games halted on the engine fault \"engine_fault:infoset:I1: hidden object N is not pristine\" (mtg-kernel issue 612). Natural games per block: g115 124 of 128 (96.875%, 125 required), oh2-r2s1-b512 127 of 128, oh2-r2s1-b512-argmax 128 of 128. Kept published as a record; chains-a-c4-u1048576 has no published rating from this run."
+    }
+  ],
   "evaluation_matchups": [
+    [
+      "c12",
+      "g115"
+    ],
+    [
+      "c12",
+      "gorge-ar8"
+    ],
+    [
+      "c12",
+      "heuristic"
+    ],
+    [
+      "c12",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "c12",
+      "uniform"
+    ],
     [
       "chains-a-c4-u1048576",
       "g115"
@@ -374,18 +400,56 @@
     [
       "chains-a-c4-u1048576",
       "oh2-r2s1-b512-argmax"
+    ],
+    [
+      "g115",
+      "gorge-ar8"
+    ],
+    [
+      "g115",
+      "heuristic"
+    ],
+    [
+      "g115",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "g115",
+      "oh2-r2s1-b512-argmax"
+    ],
+    [
+      "gorge-ar8",
+      "heuristic"
+    ],
+    [
+      "gorge-ar8",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "gorge-ar8",
+      "oh2-r2s1-b512-argmax"
+    ],
+    [
+      "gorge-ar8",
+      "uniform"
+    ],
+    [
+      "heuristic",
+      "uniform"
+    ],
+    [
+      "oh2-r2s1-b512",
+      "oh2-r2s1-b512-argmax"
     ]
   ],
   "evaluation_targets": [
+    "c12",
     "chains-a-c4-u1048576",
     "g115",
+    "gorge-ar8",
+    "heuristic",
     "oh2-r2s1-b512",
-    "oh2-r2s1-b512-argmax"
-  ],
-  "excluded_runs": [
-    {
-      "run": "2026-11-14",
-      "reason": "Failed the ladder validity rule (at least 97% of each rung's games end naturally): 5 of 384 games halted on the engine fault \"engine_fault:infoset:I1: hidden object N is not pristine\" (mtg-kernel issue 612). Natural games per block: g115 124 of 128 (96.875%, 125 required), oh2-r2s1-b512 127 of 128, oh2-r2s1-b512-argmax 128 of 128. Kept published as a record; chains-a-c4-u1048576 has no published rating from this run."
-    }
+    "oh2-r2s1-b512-argmax",
+    "uniform"
   ]
 }
