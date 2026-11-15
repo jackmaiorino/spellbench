@@ -96,11 +96,19 @@ class Conceded(RuntimeError):
     """The person gave up the game: every later decision of it is refused so the arena ends it at once."""
 
 
+# Said at the put-back prompt (in the log, and in the description of the plain selection used when the Manabrew prompt
+# cannot be built): the engine puts the cards back right after the new seven are drawn, before the next Keep or
+# Mulligan choice (a real table asks Keep or Mulligan first). It is the order the bots trained on.
+PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the new seven are drawn, then asks Keep or "
+                 "Mulligan on the smaller hand (real tables ask Keep or Mulligan first, then bottom).")
+
+
 class Hub:
     """All session state, guarded by one condition variable."""
 
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
-                 opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False) -> None:
+                 opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False,
+                 banner: str | None = None) -> None:
         self.cond = threading.Condition()
         # True: the person gets every priority at which they have a legal action besides passing and mana abilities,
         # in any step of either turn and on any stack (the Manabrew path, which has no panel for stops). False: only
@@ -109,6 +117,7 @@ class Hub:
         self.version = 0
         self.log_dir = log_dir
         self.label = label
+        self.banner = banner  # a line shown first in every game's log and written in each game's record header
         self.opponent = opponent
         self.games_total = games_total
         self.stops = dict(DEFAULT_STOPS)
@@ -203,6 +212,8 @@ class Hub:
                          "rules": request.get("rules") or {}}
             self.log, self.observation, self.clock, self.pending = [], None, None, None
             self.log_total = 0
+            if self.banner:
+                self._note("game", self.banner)
             self.plan = self.skip = self.game_over = None
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
             self.hold = self.auto_attack_group = self.forced_attack_group = self.passed_at = self.pending_key = None
@@ -223,7 +234,7 @@ class Hub:
                 self._log_file = open(path, "w", encoding="utf-8", newline="\n")
                 self._write({"schema": LOG_SCHEMA, "kind": "header", "game_id": request.get("game_id"), "seat": seat,
                              "bot_name": "Human", "own_deck": own, "opponent_deck": opp, "time_control": request.get("time_control"),
-                             "label": self.label, "stops": self.stops})
+                             "label": self.label, "banner": self.banner, "stops": self.stops})
             self._bump()
 
     def game_end(self, request: Mapping[str, Any]) -> None:
@@ -309,6 +320,8 @@ class Hub:
             self._priority_note(decision)
             self.seq += 1
             self.pending = self._view(decision)
+            if self.pending.get("screen") == "bottom":
+                self._note("game", PUT_BACK_NOTE)
             self.pending_key = position_key(decision)
             self.answer = None
             self._bump()
@@ -666,7 +679,7 @@ class Hub:
             screen = "bottom"
         # The engine's autopay only uses plain tap sources, so a spell payable only with mana from a costed source
         # (an Eldrazi Spawn's sacrifice, a Treasure) is not offered until that mana is floating.
-        hint = None
+        hint = PUT_BACK_NOTE if screen == "bottom" else None
         if any(c["kind"] == "activate_mana_ability" and (c["semantic"].get("source") or {}).get("object_id") not in lands
                for c in candidates):
             hint = ("Autopay only taps lands and plain mana sources: a spell that needs mana from an Activate source "

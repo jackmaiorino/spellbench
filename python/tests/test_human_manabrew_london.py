@@ -9,7 +9,7 @@ import pytest
 
 from spellbench.human import text
 from spellbench.human.manabrew import prompts, view
-from spellbench.human.server import Hub
+from spellbench.human.server import PUT_BACK_NOTE, Hub
 
 ME, OPP = "p0", "p1"
 SEATS = view.Seats(ME, "player-1", "player-0", {"player-1": "human", "player-0": "Basilisk 2"})
@@ -222,3 +222,81 @@ def test_a_lost_connection_at_the_put_back_prompt_ends_the_game_the_same_way(hub
     thread.join(timeout=5)
     assert errors and isinstance(errors[0], Conceded)
     assert hub.game_over["reason"] == "connection_lost"
+
+
+def test_the_pregame_prompts_answer_with_the_typed_protocol_codes(hub: Hub) -> None:
+    started = pending_of(hub, mulligan_decision(7, 0))
+    _, answer = prompts.build(started["pending"], hub.observation, SEATS)
+    for bad in ({"type": "mulliganDecision"}, {"type": "mulliganDecision", "keep": "yes"}, {}):
+        with pytest.raises(prompts.Rejected) as caught:
+            answer(bad)
+        assert caught.value.code == "invalidShape"
+    hub.answer_with(started["pending"]["seq"], 1)
+    started["thread"].join(timeout=5)
+    started = pending_of(hub, bottom_decision(0, 2, hand=list(range(7)), group_id=2))
+    _, answer = prompts.build(started["pending"], hub.observation, SEATS)
+    for bad, code in ((["c1"], "invalidShape"), (["c1", "c1"], "invalidShape"), (["c1", "zzz"], "unknownActionId")):
+        with pytest.raises(prompts.Rejected) as caught:
+            answer({"type": "mulliganPutBackDecision", "cardIds": bad})
+        assert caught.value.code == code, bad
+    hub.answer_with(started["pending"]["seq"], 0)
+    started["thread"].join(timeout=5)
+
+
+@pytest.mark.parametrize("which", ["mulligan", "bottom"])
+def test_a_hold_never_answers_a_mulligan_or_put_back_prompt(which: str) -> None:
+    hub = Hub(real_action_stops=True)  # the Manabrew path: pass-until holds are honoured
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    # a hold the person set (as the client's pass-until) and an exhausted stack, both still pending
+    hub.hold = {"seat": ME, "step": "end_step", "through_combat": False, "origin": (1, ME), "origin_index": 0, "turn": None}
+    hub.exhaust_stack, hub.exhaust_ids = True, frozenset()
+    decision = mulligan_decision(7, 0) if which == "mulligan" else bottom_decision(0, 2, hand=list(range(7)))
+    started = pending_of(hub, decision)
+    assert started["pending"] is not None
+    assert started["thread"].is_alive() and "answer" not in started["result"]  # the engine waits for the person
+    hub.answer_with(started["pending"]["seq"], 1 if which == "mulligan" else 0)
+    started["thread"].join(timeout=5)
+
+
+def test_the_put_back_prompt_says_the_order_the_engine_uses(hub: Hub) -> None:
+    started = pending_of(hub, bottom_decision(0, 1, hand=list(range(7))))
+    assert any(entry["text"] == PUT_BACK_NOTE for entry in hub.log)
+    assert started["pending"]["hint"] == PUT_BACK_NOTE
+    decision = bottom_decision(0, 1, hand=list(range(7)), group_id=3)
+    decision["observation"]["players"][0]["hand"].pop()  # forces the plain selection
+    hub.answer_with(started["pending"]["seq"], 0)
+    started["thread"].join(timeout=5)
+    started = pending_of(hub, decision)
+    data, _ = prompts.build(started["pending"], hub.observation, SEATS)
+    assert data["type"] == "chooseFromSelection" and data["presentation"]["description"] == PUT_BACK_NOTE
+    hub.answer_with(started["pending"]["seq"], 0)
+    started["thread"].join(timeout=5)
+
+
+def test_a_session_banner_is_the_first_log_line_of_every_game_and_in_the_record(tmp_path) -> None:
+    import json
+    hub = Hub(log_dir=tmp_path, banner="FLOW TEST ONLY: X choices are not the model's input")
+    for game in ("g-1", "g-2"):
+        hub.game_start({"game_id": game, "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+        assert hub.log[0]["text"].startswith("FLOW TEST ONLY")
+    header = json.loads((tmp_path / f"g-2.{ME}.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert header["banner"].startswith("FLOW TEST ONLY")
+    plain = Hub()
+    plain.game_start({"game_id": "g-3", "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    assert not any("FLOW TEST" in entry["text"] for entry in plain.log)
+
+
+def test_excluded_decks_are_not_offered_picked_or_dealt() -> None:
+    from spellbench.human.manabrew import decks
+    before = decks.ORDER
+    try:
+        order = decks.exclude(["Elves", "Wildfire"])
+        assert "Elves" not in order and "Wildfire" not in order and len(order) == len(before) - 2
+        assert "spellbench_elves" not in decks.preset_index() and "spellbench_burn" in decks.preset_index()
+        assert decks.catalog_id("Elves (Basilisk 2 training deck)") is None
+        assert decks.catalog_id("Burn (Basilisk 2 training deck)") == "Burn"
+        with pytest.raises(ValueError):
+            decks.exclude(["Nonexistent"])
+    finally:
+        decks.exclude([])
+        assert decks.ORDER == before

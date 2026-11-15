@@ -52,6 +52,14 @@ def listening(port: int) -> bool:
         return probe.connect_ex(("127.0.0.1", port)) == 0
 
 
+def unreadable(now: dict) -> list[str]:
+    """Every file the snapshot names must be readable: a missing or unreadable file hashes to None, and two Nones
+    would otherwise compare equal."""
+    named = {**now["rated_files"], **now["repo_pinned_files"]}
+    named["the rated board"], named["the rated local values"] = now["rated_board_sha256"], now["rated_local_sha256"]
+    return sorted(path for path, digest in named.items() if not digest)
+
+
 def snapshot(board_path: Path, local_path: Path) -> dict:
     board = json.loads(board_path.read_text(encoding="utf-8"))
     local = json.loads(local_path.read_text(encoding="utf-8"))
@@ -89,15 +97,21 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--out", type=Path, required=True)
         else:
             p.add_argument("before", type=Path)
-            p.add_argument("--base", default="origin/claude/manabrew-adapter-20261114")
+            p.add_argument("--base", default="origin/main")
     args = parser.parse_args(argv)
     now = snapshot(args.rated_board, args.rated_local)
+    missing = unreadable(now)
+    if missing:
+        print("RATED IDENTITY CHECK FAILED: unreadable or missing (no hash):\n  " + "\n  ".join(missing))
+        return 1
     if args.command == "snapshot":
         args.out.write_text(json.dumps(now, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
         print(f"snapshot: {len(now['rated_files'])} rated files, {len(now['repo_pinned_files'])} repository pins -> {args.out}")
         return 0
     before = json.loads(args.before.read_text(encoding="utf-8"))
     problems: list[str] = []
+    for path in unreadable(before):
+        problems.append(f"the snapshot has no hash for {path}")
     for key in ("rated_board_sha256", "rated_local_sha256", "rated_files", "repo_pinned_files"):
         if before[key] != now[key]:
             problems.append(f"{key} changed")

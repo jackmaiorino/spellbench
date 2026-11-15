@@ -14,7 +14,15 @@ no keep lean here. Standard library only.
 `--test-keep-seven` is a test mode for a bot entry named for it: the bot keeps
 at every `mulligan` decision without scoring it. It exists to check the human's
 London flow against an ordinary game while the model's own mulligan play is
-untrained; a played game never mixes it with a learned entry's name.
+untrained; a played game never mixes it with a learned entry's name: the flag and
+the name part `keep7` go together (a bot started with one and not the other is
+refused, here and in the board generator and the entrant registration).
+
+A numeric choice (Nyxborn Hydra's X) cannot be encoded in the FlatV7 contract, so
+its tensor would be the V4 fill: off the inputs the model trained on. The bot
+refuses such a decision unless started with `--allow-numeric-v4-fill`, which a
+session names only for flow testing (the launcher says so on screen and in the
+record); otherwise the decks that contain it are left out of London sessions.
 """
 
 from __future__ import annotations
@@ -45,6 +53,7 @@ REQUEST_SCHEMA = "mtg-kernel-spellbench-scorer-request/v1"
 CHOICE_SCHEMA = "mtg-kernel-spellbench-scorer-choice/v1"
 READY_SCHEMA = "mtg-kernel-spellbench-scorer-ready/v1"
 LOG_SCHEMA = "spellbench-kernel-bot-log/v1"
+KEEP_SEVEN_NAME_PART = "keep7"
 KEEP_SEVEN_TEST_NOTE = "test-keep-seven: answered keep at a mulligan decision without scoring"
 FEATURE_CONTRACT_DIGEST = "1f894f0dcaaeb4e5ac0233e3f39d866c0dddca494f1afc8152107bded0551a4d"
 FEATURE_ENCODING_DIGEST = "4c592d136a74240f40b12c638203ab1758ed3cd63748ab7cd2788a60a78850a3"
@@ -120,8 +129,13 @@ class ScorerProcess:
 class KernelFlatBot:
     def __init__(
         self, scorer: ScorerProcess, *, seed: int, decision_log: Path | None, name: str, version: str,
-        expect_model_state: str | None = None, test_keep_seven: bool = False,
+        expect_model_state: str | None = None, test_keep_seven: bool = False, allow_numeric_v4_fill: bool = False,
     ) -> None:
+        if test_keep_seven != (KEEP_SEVEN_NAME_PART in name):
+            raise BotError(
+                f"the keep-seven test mode and the name part {KEEP_SEVEN_NAME_PART!r} go together: "
+                f"--test-keep-seven is {'on' if test_keep_seven else 'off'} for the bot named {name!r}"
+            )
         ready = scorer.ready
         if (ready.get("feature_contract_digest"), ready.get("feature_encoding_digest")) != (
             FEATURE_CONTRACT_DIGEST, FEATURE_ENCODING_DIGEST,
@@ -148,6 +162,7 @@ class KernelFlatBot:
         self._rng: SplitMix64 | None = None
         self._log = None
         self._test_keep_seven = test_keep_seven
+        self._allow_numeric_v4_fill = allow_numeric_v4_fill
 
     def on_game_start(self, request: GameStart) -> None:
         engine = request.engine
@@ -166,7 +181,7 @@ class KernelFlatBot:
                 "schema": LOG_SCHEMA, "kind": "header", "game_id": request.game_id, "seat": request.seat,
                 "bot_name": self._identity[0], "bot_version": self._identity[1], "selection": self._selection,
                 "stream_seed": stream_seed, "model_state_sha256": self._state,
-                "test_keep_seven": self._test_keep_seven,
+                "test_keep_seven": self._test_keep_seven, "allow_numeric_v4_fill": self._allow_numeric_v4_fill,
             })
 
     def choose(self, decision: Decision) -> int:
@@ -182,6 +197,12 @@ class KernelFlatBot:
         if not isinstance(extension, dict):
             raise self._fail("decision lacks x_kernel_flat_v7; run the bridge with --x-kernel-flat-v7")
         rows = self._validated_rows(decision, extension)
+        if extension.get("numeric_choice_v4_fill") and not self._allow_numeric_v4_fill:
+            raise self._fail(
+                "a numeric choice (a Nyxborn Hydra X) arrived as the V4 fill, which is not an input the V7 model "
+                "trained on; leave Elves and Wildfire out of the session, or start the bot with "
+                "--allow-numeric-v4-fill for flow testing only"
+            )
         assert self._rng is not None
         sample_seed = self._rng.next() if self._selection == SAMPLED else None
         request = {
@@ -307,14 +328,21 @@ def main(argv: list[str] | None = None) -> int:
         "--test-keep-seven", action="store_true",
         help="TEST MODE: keep at every mulligan decision without scoring it (a bot entry named for it only)",
     )
+    parser.add_argument(
+        "--allow-numeric-v4-fill", action="store_true",
+        help="FLOW TESTING ONLY: score a numeric choice on its V4 fill (off the model's trained inputs) instead of refusing",
+    )
     args = parser.parse_args(argv)
     if args.seed < 0:
         parser.error("--seed must be nonnegative")
+    if args.test_keep_seven != (KEEP_SEVEN_NAME_PART in args.name):
+        parser.error(f"--test-keep-seven and the name part {KEEP_SEVEN_NAME_PART!r} go together")
     try:
         scorer = ScorerProcess([args.scorer, *args.scorer_arg, "--config", args.config])
         bot = KernelFlatBot(
             scorer, seed=args.seed, decision_log=args.decision_log, name=args.name, version=args.version,
             expect_model_state=args.expect_model_state, test_keep_seven=args.test_keep_seven,
+            allow_numeric_v4_fill=args.allow_numeric_v4_fill,
         )
     except (BotError, OSError, ValueError) as exc:
         print(f"kernel_flat_bot: {exc}", file=sys.stderr)

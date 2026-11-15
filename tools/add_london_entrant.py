@@ -31,6 +31,7 @@ V7_ENCODING = "4c592d136a74240f40b12c638203ab1758ed3cd63748ab7cd2788a60a78850a3"
 SCHEMA = "mtg-kernel-spellbench-scorer-config/v1"
 READY = "mtg-kernel-spellbench-scorer-ready/v1"
 DEFAULT_INPUTS = Path("E:/londonplay-20261114/inputs")
+LEAN_END_UPDATE = 32768  # arm M: the training-only keep offset reaches exactly zero at this fork update
 
 
 def sha256_file(path: Path) -> str:
@@ -48,6 +49,14 @@ def scorer_config(base: dict, checkpoint: Path, checkpoint_sha256: str) -> dict:
         "feature_transfer": {"expected_feature_contract_digest": V7_CONTRACT,
                              "expected_feature_encoding_digest": V7_ENCODING},
         "checkpoint": {"path": str(checkpoint).replace("\\", "/"), "sha256": checkpoint_sha256}}}
+
+
+def chain_label(chain: str, fork_updates: int, lean_end: int) -> tuple[str, bool]:
+    """The table name of a chain state and whether the training-only keep lean was still active when the state was
+    saved (any state before ``lean_end`` fork updates trained with a nonzero lean; the lean is never applied at play)."""
+    active = fork_updates < lean_end
+    return (f"{chain} at {fork_updates:,} updates (keep lean "
+            f"{'still active in training' if active else 'already zero in training'})"), active
 
 
 def probe(scorer: Path, config: Path) -> dict:
@@ -73,7 +82,12 @@ def probe(scorer: Path, config: Path) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--name", required=True, help="the bot's name (the launcher's -Opponent)")
-    parser.add_argument("--label", help="the name shown in the table (default: the bot's name)")
+    parser.add_argument("--label", help="the name shown in the table (default: the bot's name); not with --chain")
+    parser.add_argument("--chain", help="a chain state's name, for example 'arm M m1': the table name is then derived "
+                                        "as '<chain> at <N> updates (keep lean ...)' from --fork-updates")
+    parser.add_argument("--fork-updates", type=int, help="the chain state's update count since its fork")
+    parser.add_argument("--lean-end-update", type=int, default=LEAN_END_UPDATE,
+                        help="the fork update at which the training-only keep offset reached zero (default: %(default)s)")
     parser.add_argument("--description")
     parser.add_argument("--checkpoint-json", type=Path, required=True)
     parser.add_argument("--sha256", help="the checkpoint's sha256 (checked against the file; default: computed)")
@@ -93,6 +107,16 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("a keep-seven test entrant's name must contain keep7, so it is never mistaken for a learned one")
     if not args.keep_seven_test and "keep7" in args.name:
         raise SystemExit("only a --keep-seven-test entrant may carry keep7 in its name")
+    label, lean_active = args.label, None
+    if args.keep_seven_test:  # the table name of a test entrant always says so (the board generator derives it again)
+        plain = (label or args.name).removesuffix(" (keeps seven, test)")
+        label = plain + " (keeps seven, test)"
+    if args.chain or args.fork_updates is not None:
+        if not args.chain or args.fork_updates is None or args.fork_updates < 0:
+            raise SystemExit("--chain and --fork-updates (a nonnegative count) go together")
+        if args.label or args.keep_seven_test:
+            raise SystemExit("--chain derives the table name: do not pass --label or --keep-seven-test with it")
+        label, lean_active = chain_label(args.chain, args.fork_updates, args.lean_end_update)
     base = json.loads(args.base_config.read_text(encoding="utf-8"))
     args.inputs_dir.mkdir(parents=True, exist_ok=True)
     config = args.inputs_dir / f"{args.name}.scorer.json"
@@ -102,13 +126,20 @@ def main(argv: list[str] | None = None) -> int:
     registry = args.registry or args.inputs_dir / "london-entrants.json"
     document = json.loads(registry.read_text(encoding="utf-8")) if registry.exists() else {"entrants": []}
     document["entrants"] = [e for e in document["entrants"] if e["name"] != args.name]
+    description = args.description
+    if lean_active is not None and not description:
+        description = ("A chain state of the arm M mulligan lineage, played as saved: its mulligan and bottom choices are "
+                       "the model's own. The keep lean of its training is never applied at play time.")
     document["entrants"].append({
-        "name": args.name, "label": args.label or args.name, "description": args.description,
+        "name": args.name, "label": label or args.name, "description": description,
+        "chain": ({"name": args.chain, "fork_updates": args.fork_updates, "lean_end_update": args.lean_end_update,
+                   "lean_active_when_saved": lean_active} if lean_active is not None else None),
         "scorer_config": str(config).replace("\\", "/"), "checkpoint": str(checkpoint).replace("\\", "/"),
         "checkpoint_sha256": actual, "model_state_sha256": state, "selection": base["selection"],
         "keep_seven_test": bool(args.keep_seven_test)})
     registry.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"registered {args.name}: scorer config {config}")
+    print(f"  table name: {label or args.name}")
     print(f"  checkpoint sha256 {actual}\n  model state sha256 {state}\n  adam step {ready.get('model', {}).get('adam_step')}")
     print(f"  play it: play_manabrew_london.ps1 -Opponent {args.name}")
     return 0

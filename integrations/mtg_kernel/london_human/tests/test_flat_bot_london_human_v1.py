@@ -45,20 +45,25 @@ class FakeScorer:
         pass
 
 
-def make_bot(scorer: FakeScorer | None = None, *, keep_seven: bool = False) -> tuple[bot_module.KernelFlatBot, FakeScorer]:
+def make_bot(scorer: FakeScorer | None = None, *, keep_seven: bool = False,
+             allow_fill: bool = False) -> tuple[bot_module.KernelFlatBot, FakeScorer]:
     scorer = scorer or FakeScorer()
-    bot = bot_module.KernelFlatBot(scorer, seed=3, decision_log=None, name="london-test", version="v",
-                                   test_keep_seven=keep_seven)
+    bot = bot_module.KernelFlatBot(scorer, seed=3, decision_log=None,
+                                   name="london-keep7-test" if keep_seven else "london-test", version="v",
+                                   test_keep_seven=keep_seven, allow_numeric_v4_fill=allow_fill)
     bot.on_game_start(GameStart.from_request({
         "game_id": GAME, "seat": "p0", "engine": {"name": "mtg-kernel",
                                                   "card_pool_identity": f"mtg-kernel-pauper-pool-v1/carddb-{DB}"}}))
     return bot, scorer
 
 
-def decision(semantics: list[dict], *, step: int = 0, flat_key: str = "x_kernel_flat_v7") -> Decision:
+def decision(semantics: list[dict], *, step: int = 0, flat_key: str = "x_kernel_flat_v7",
+             numeric_fill: bool = False) -> Decision:
     extension = {"schema": bot_module.EXTENSION_SCHEMA, "feature_contract_digest": V7_CONTRACT,
                  "feature_encoding_digest": V7_ENCODING, "card_db_hash": DB, "acting_seat": "p0", "step": step,
                  "row_candidate_ids": list(range(len(semantics))), "tensor": TENSOR}
+    if numeric_fill:
+        extension["numeric_choice_v4_fill"] = True
     return Decision.from_request({"game_id": GAME, "decision": {
         "acting_seat": "p0", "seat_step": step, "observation": {}, "context": {}, "group": {},
         "candidates": [{"candidate_id": i, "semantic": s, "display_text": None} for i, s in enumerate(semantics)],
@@ -106,3 +111,40 @@ def test_the_keep_seven_flag_exists_only_as_a_named_test_option(capsys) -> None:
     with pytest.raises(SystemExit):
         bot_module.main(["--help"])
     assert "--test-keep-seven" in capsys.readouterr().out
+
+
+def test_the_keep_seven_mode_and_the_keep7_name_go_together_in_both_directions() -> None:
+    scorer = FakeScorer()
+    with pytest.raises(bot_module.BotError):  # the flag under a learned bot's name
+        bot_module.KernelFlatBot(scorer, seed=0, decision_log=None, name="chains-a-c4-london-test", version="v",
+                                 test_keep_seven=True)
+    with pytest.raises(bot_module.BotError):  # a keep7 name without the flag: a learned run under a test name
+        bot_module.KernelFlatBot(scorer, seed=0, decision_log=None, name="chains-a-c4-keep7-test", version="v")
+    bot_module.KernelFlatBot(scorer, seed=0, decision_log=None, name="chains-a-c4-keep7-test", version="v",
+                             test_keep_seven=True)
+
+
+def test_the_command_line_enforces_the_same_name_rule(capsys) -> None:
+    for argv in (["--name", "learned-bot", "--test-keep-seven"], ["--name", "x-keep7-test"]):
+        with pytest.raises(SystemExit) as exit_info:
+            bot_module.main(["--scorer", "none.exe", "--config", "none.json", "--version", "v", *argv])
+        assert exit_info.value.code == 2
+        assert "go together" in capsys.readouterr().err
+
+
+def test_a_numeric_choice_on_the_v4_fill_is_refused_unless_flow_testing_names_it() -> None:
+    bot, scorer = make_bot()
+    with pytest.raises(bot_module.BotError):
+        bot.choose(decision([PASS, LAND], numeric_fill=True))
+    assert scorer.requests == []
+    bot, scorer = make_bot(allow_fill=True)
+    bot.choose(decision([PASS, LAND], numeric_fill=True))
+    assert len(scorer.requests) == 1
+    bot.choose(decision([PASS, LAND], step=1))  # an ordinary row is scored either way
+    assert len(scorer.requests) == 2
+
+
+def test_the_numeric_fill_flag_exists_as_a_named_option(capsys) -> None:
+    with pytest.raises(SystemExit):
+        bot_module.main(["--help"])
+    assert "--allow-numeric-v4-fill" in capsys.readouterr().out

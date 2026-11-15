@@ -21,7 +21,8 @@ def rated_board() -> dict:
             "native_id_audits": {"x_kernel_flat_v4": "docs/a.md"},
             "ladder": {"band": 1}, "opponent_panel": ["uniform"], "evaluation_version": "v", "evaluation_targets": {},
             "bots": [{"name": "uniform", "evaluation_identity": "a"}, {"name": "heuristic", "evaluation_identity": "b"},
-                     {"name": "g115", "evaluation_identity": "c"}]}
+                     {"name": "g115", "evaluation_identity": "c", "type": "subprocess", "engine": "mtg-kernel",
+                      "owner": "owner-x", "display": {"label": "g", "author": "author-x"}}]}
 
 
 def entrant(name: str, keep7: bool = False) -> dict:
@@ -77,3 +78,45 @@ def test_the_generator_never_writes_into_the_rated_boards_folder(tmp_path, capsy
                       "--out", str(out), "--bridge", "b", "--engine-revision", "r"]) == 0
     assert (out / "benchmark.json").exists() and (out / "local.json").exists()
     assert json.loads(board_path.read_text(encoding="utf-8"))["id"] == "pauper-ladder-v2"
+
+
+def test_a_keep_seven_entrant_is_named_and_labelled_as_a_test_and_nothing_else_is(tmp_path) -> None:
+    keep7 = dict(entrant("chains-a-c4-keep7-test", keep7=True), label="Basilisk 2")
+    board_path, local_path, registry = write(tmp_path, [entrant("chains-a-c4-london-test"), keep7])
+    board, _ = make.make(board_path, local_path, registry, "b", "r")
+    assert board["bots"][2]["display"]["label"] == "chains-a-c4-london-test"
+    assert board["bots"][3]["display"]["label"] == "Basilisk 2 (keeps seven, test)"
+    # The suffix is derived, not doubled for a registry that already has it.
+    keep7["label"] = "Basilisk 2 (keeps seven, test)"
+    board_path, local_path, registry = write(tmp_path, [keep7])
+    assert make.make(board_path, local_path, registry, "b", "r")[0]["bots"][2]["display"]["label"] == keep7["label"]
+
+
+@pytest.mark.parametrize("bad", [dict(name="learned-bot", keep7=True), dict(name="learned-keep7-bot", keep7=False)])
+def test_the_keep7_name_rule_holds_in_both_directions_in_the_generator(tmp_path, bad) -> None:
+    board_path, local_path, registry = write(tmp_path, [entrant(bad["name"], keep7=bad["keep7"])])
+    with pytest.raises(SystemExit):
+        make.make(board_path, local_path, registry, "b", "r")
+
+
+def test_a_learned_entrant_cannot_claim_to_keep_seven_in_its_label(tmp_path) -> None:
+    claiming = dict(entrant("chains-a-c4-london-test"), label="Basilisk 2 (keeps seven, test)")
+    board_path, local_path, registry = write(tmp_path, [claiming])
+    with pytest.raises(SystemExit):
+        make.make(board_path, local_path, registry, "b", "r")
+
+
+def test_the_numeric_fill_flag_is_on_the_bot_commands_only_when_asked_for(tmp_path) -> None:
+    board_path, local_path, registry = write(tmp_path, [entrant("chains-a-c4-london-test")])
+    plain, _ = make.make(board_path, local_path, registry, "b", "r")
+    assert "--allow-numeric-v4-fill" not in plain["bots"][2]["command"]
+    flow, _ = make.make(board_path, local_path, registry, "b", "r", allow_numeric_fill=True)
+    assert "--allow-numeric-v4-fill" in flow["bots"][2]["command"]
+
+
+def test_the_generator_names_nobody_it_copies_the_rated_boards_own_fields(tmp_path) -> None:
+    board_path, local_path, registry = write(tmp_path, [entrant("chains-a-c4-london-test")])
+    board, _ = make.make(board_path, local_path, registry, "b", "r")
+    assert (board["bots"][2]["owner"], board["bots"][2]["display"]["author"]) == ("owner-x", "author-x")
+    source = (REPO / "tools" / "make_london_human_board.py").read_text(encoding="utf-8")
+    assert "mipo" not in source and "jackmaiorino" not in source

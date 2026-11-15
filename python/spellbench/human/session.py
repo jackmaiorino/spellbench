@@ -305,7 +305,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--opponent-deck", default="mirror",
                         help="manabrew: the bot's deck against the person's pick: mirror (default), random (drawn "
                              "from the pool for each game, recorded), or a pool deck name")
+    parser.add_argument("--exclude-decks", default="",
+                        help="manabrew: comma-separated board decks this session leaves out (the table does not offer "
+                             "them, none is dealt to either seat)")
+    parser.add_argument("--game-banner", default="",
+                        help="a line shown first in every game's log and written in each game's record header (for "
+                             "a session whose conditions the person should always see)")
     args = parser.parse_args(argv)
+    if args.exclude_decks:
+        from .manabrew import decks as board_decks
+        left_out = [d.strip() for d in args.exclude_decks.split(",") if d.strip()]
+        try:
+            board_decks.exclude(left_out)
+        except ValueError as exc:
+            parser.error(f"--exclude-decks: {exc}")
+        named = {d.strip() for d in (args.decks or "").split(",") if d.strip()} | {args.opponent_deck}
+        if named & set(left_out):
+            parser.error(f"--decks and --opponent-deck name an excluded deck: {', '.join(sorted(named & set(left_out)))}")
     if args.client == "manabrew":
         from .manabrew import ws as manabrew_ws
         try:
@@ -343,7 +359,7 @@ def main(argv: list[str] | None = None) -> int:
     # Both seats log to one directory as <game_id>.<seat>.jsonl, the layout the misplay review converter reads.
     shown = next(((bot.get("display") or {}).get("label") for bot in config_doc["bots"] if bot["name"] == args.opponent),
                  None) or args.opponent  # the page names the opponent by its board label
-    hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=shown,
+    hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=shown, banner=args.game_banner or None,
               label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank",
               record_root=None if args.no_record else out / "engine-records" / "hot",
               real_action_stops=args.client == "manabrew")

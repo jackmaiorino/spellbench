@@ -182,7 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--relay-key", default="forge")
     parser.add_argument("--symbol-cache", type=Path,
                         help="folder for the mana symbols fetched from Scryfall (default: <dist>/scryfall-symbols)")
+    parser.add_argument("--exclude-decks", default="", help="comma-separated board decks the table does not offer")
     args = parser.parse_args(argv)
+    if args.exclude_decks:
+        decks.exclude([d.strip() for d in args.exclude_decks.split(",") if d.strip()])
     runtime = {"relay": {"host": "127.0.0.1", "port": args.relay_port, "password": args.relay_key},
                "hubApiUrl": "http://127.0.0.1:9", "hostedAiEnabled": True}
     config_js = f"window.__MANABREW_RUNTIME__ = {json.dumps(runtime)};\n".encode()
