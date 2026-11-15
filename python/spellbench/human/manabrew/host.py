@@ -24,6 +24,7 @@ the engine-client messages follow the Manabrew protocol documentation (CC-BY-4.0
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import threading
@@ -34,6 +35,7 @@ from typing import Any, Mapping
 import queue
 
 from ..server import log_since
+from ..text import ABILITY_KINDS
 from . import decks, prompts, view
 from .ws import Closed, WebSocket
 
@@ -158,6 +160,8 @@ class Bridge:
         self.starting = False
         self._grace: threading.Timer | None = None
         self.fallback_seq: int | None = None
+        self.resent_seq: int | None = None  # the decision whose block declaration was already asked again
+        self._fresh_ids = itertools.count(2_000_000)  # prompt ids of prompts sent again (apart from decision numbers)
         self.starter: str | None = None  # the seat that took the first turn
         # Deck picks: the person's table pick (a board deck, or None), the bot's deck for it, and each started game.
         self.bot_deck_for = bot_deck_for or (lambda deck: deck)
@@ -378,6 +382,7 @@ class Bridge:
             self._name_base = dict(names)
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
             self.sent_frames = 0
+            self.resent_seq = None
             self._bank_warned = set()
             self._log_hold_until = time.time() + LOG_MOUNT_WINDOW_S  # see _send_log
             if self._gone is not None:  # the person left between the relay's GameStarted and this game's first view
@@ -468,20 +473,43 @@ class Bridge:
         self._envelope({"kind": "state", "forPlayer": self.seats.pid(game.get("seat")), "state": {"gameView": gv}})
         return True
 
-    def _send_prompt(self, pending: Mapping[str, Any], observation: Mapping[str, Any]) -> None:
+    def _send_prompt(self, pending: Mapping[str, Any], observation: Mapping[str, Any], *, error: str | None = None,
+                     fresh: bool = False) -> None:
+        """Send a pending decision as a prompt. ``fresh`` sends it again under a new prompt id (``error``: why the
+        answer to the last one was refused, shown by the combat prompt), the way their engines mint one per prompt."""
         if self.fallback_seq == pending["seq"]:
             data, answer = prompts.selection(pending)
         else:
-            data, answer = prompts.build(pending, observation, self.seats)
-        self.prompt = {"seq": pending["seq"], "answer": answer, "type": data["type"]}
+            data, answer = prompts.build(pending, observation, self.seats, error)
+        wire_id = next(self._fresh_ids) if fresh else pending["seq"]
+        self.prompt = {"seq": pending["seq"], "id": wire_id, "answer": answer, "type": data["type"]}
         me = self.seats.pid(self.seats.human_seat)
-        prompt = {"promptId": pending["seq"], "decidingPlayerId": me, "input": data}
+        prompt = {"promptId": wire_id, "decidingPlayerId": me, "input": data}
         source = (pending.get("context") or {}).get("source")
         if isinstance(source, Mapping) and source.get("object_id"):
-            found = view.find_card(observation, source["object_id"])
-            if found:
-                prompt["sourceCard"] = view.card_dto(found[0], self.seats, found[1])
+            self._source_of(prompt, source, observation)
         self._envelope({"kind": "prompt", "forPlayer": me, "prompt": prompt})
+
+    def _source_of(self, prompt: dict[str, Any], source: Mapping[str, Any], observation: Mapping[str, Any]) -> None:
+        """The card a choice comes from, for the client's card art and casting arrow. A choice is made while its spell
+        or ability is on the stack, so the source is looked up there first (``view.find_object``): a spell is the
+        card, an ability is its source card (``view.source_card``, built from the name when the card has left the
+        board), and the line of its rules text the ability is goes with it when that is certain."""
+        found = view.find_object(observation, source["object_id"])
+        if not found:
+            return
+        record, zone = found
+        if zone != "stack":
+            prompt["sourceCard"] = view.card_dto(record, self.seats, zone)
+            return
+        card = view.source_card(record, observation, self.seats)
+        if card is not None:
+            prompt["sourceCard"] = card
+        if record.get("stack_kind") in ABILITY_KINDS:
+            line = view.ability_line((view.CARDS.get(record.get("card_name") or "") or {}).get("text"),
+                                     record.get("stack_kind"), (record.get("source") or {}).get("zone"))
+            if line:
+                prompt["sourceAbilityText"] = line
 
     def _on_directive(self, directive: Mapping[str, Any]) -> None:
         """A client-to-engine directive (fire and forget, not tied to a prompt). Concede ends the game now as the
@@ -643,15 +671,20 @@ class Bridge:
             # response that finds no open decision is answered with an error instead of being dropped silently.
             self._error(me, "stalePrompt", "no decision is open right now", envelope.get("promptId"))
             return
-        if envelope.get("promptId") != self.prompt["seq"]:
+        if envelope.get("promptId") != self.prompt.get("id", self.prompt["seq"]):
             self._error(me, "stalePrompt", "that prompt is no longer open", envelope.get("promptId"))
             return
         action = envelope.get("action") or {}
-        output = action.get("output") if isinstance(action.get("output"), Mapping) else action
+        wrapped = isinstance(action.get("output"), Mapping)
+        output = action["output"] if wrapped else action
+        if wrapped and isinstance(action.get("type"), str) and action["type"] != self.prompt["type"]:
+            self._error(me, "wrongPromptType", "response output does not match the prompt type",
+                        envelope.get("promptId"))
+            return
         try:
             how, value = self.prompt["answer"](output)
-        except (ValueError, TypeError, KeyError) as exc:
-            self._error(me, "invalidShape", str(exc), envelope.get("promptId"))
+        except (ValueError, TypeError, KeyError) as exc:  # Rejected carries its protocol code
+            self._error(me, getattr(exc, "code", "invalidShape"), str(exc), envelope.get("promptId"))
             return
         seq = self.prompt["seq"]
         if how == "answer":
@@ -661,6 +694,15 @@ class Bridge:
         else:
             error = self.hub.plan_with(seq, value)
         if error is not None:
+            pending = self.hub.pending
+            if (how == "plan" and self.prompt["type"] == "chooseBlockers" and self.resent_seq != seq
+                    and pending is not None and pending["seq"] == seq):
+                # The engine refused a block the prompt allowed. Ask for the whole declaration again, under a new
+                # prompt id with the reason, instead of switching to the one-by-one choice (asked only if that fails).
+                self.resent_seq = seq
+                self._send_prompt(pending, self.hub.observation or {}, fresh=True, error=(
+                    "That block is not allowed: a blocker cannot block that attacker. Choose the blocks again."))
+                return
             if how == "plan":
                 self.fallback_seq = seq
                 self.prompt = None  # re-sent as a substep choice on the next pump
