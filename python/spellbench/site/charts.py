@@ -492,9 +492,13 @@ def preview_chart(run_dir: Path, *, title: str | None = None) -> str:
     benchmark_id = manifest["run"]["benchmark_id"]
     benchmark_dir = run_dir.parent.parent
     from ..bench import definition
-    excluded = run_dir.name in definition.excluded_run_names(benchmark_dir)
+    names = definition.excluded_run_names(benchmark_dir)
+    # A snapshot that cites an excluded run is off the board too, whatever its own label is.
+    sources = manifest.get("sources", [])
+    cited = {source.get("run") for source in sources if isinstance(source, dict)} & names
+    excluded = run_dir.name in names or bool(cited)
     return benchmark_chart(benchmark_id, title or benchmark_id, board, label=f"{run_dir.parent.name}/{run_dir.name}"
-                           + (" (excluded run)" if excluded else ""),
+                           + (" (cites an excluded run)" if cited else " (excluded run)" if excluded else ""),
                            references=config.opponent_panel, sessions=load_human_sessions(benchmark_dir),
                            preview=manifest["run"]["rated"] is not True or excluded)
 

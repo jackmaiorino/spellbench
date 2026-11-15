@@ -516,11 +516,17 @@ def test_a_run_that_replays_a_failed_matchup_is_excluded_whatever_it_scored(pass
     """Two commitments made before either played: the later run passes, then the earlier one fails. The later run
     replays a failed evaluation, so it is excluded by code, and a snapshot composed from it leaves the board."""
     directory, _ = passing
+    from spellbench.site.charts import preview_chart
     target = tmp_path / "before" / directory.name
     shutil.copytree(directory, target)
-    composed = panel.compose_benchmark(target, date="2026-10-01")  # published while only the later run existed
+    composed = panel.compose_benchmark(target, date="2026-10-05")  # published while only the later run existed
     assert board_run_dir(target) == composed
+    assert "UNRATED PREVIEW" not in preview_chart(composed) and "excluded" not in preview_chart(composed)
     target = _with_an_earlier_failed_attempt(target, tmp_path / "after")
+    # An explicitly requested chart of that snapshot says what it cites and is no published rating.
+    chart = preview_chart(target / "snapshots" / "2026-10-05")
+    assert "snapshots/2026-10-05 (cites an excluded run)" in chart and "UNRATED PREVIEW" in chart
+    assert "(excluded run)" in preview_chart(target / "runs" / "2026-10-01")
     assert definition.excluded_runs(target) == (
         ("2026-09-30", "failed the board's validity unit (spellbench-validity/v1): block 0: thin"),
         ("2026-10-01", "plays heuristic vs uniform again, which run 2026-09-30 played under the same evaluation and "
@@ -540,6 +546,35 @@ def test_a_run_that_replays_a_failed_matchup_is_excluded_whatever_it_scored(pass
     (later / "runs" / "2026-09-30").rename(later / "runs" / "2026-10-02")
     assert [run for run, _ in definition.excluded_runs(later)] == ["2026-10-02"]
     assert [source.path.name for source in panel.sources(later)] == ["2026-10-01"]
+
+
+def test_a_historical_run_with_a_broken_config_binds_nothing(passing, tmp_path: Path,
+                                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    """An old committed run whose config no longer parses must not stop, or reveal, a run that should play."""
+    from spellbench.bench import run as bench_run
+    directory, _ = passing
+    target = _with_an_earlier_failed_attempt(directory, tmp_path)
+    (target / "runs" / "2026-09-30" / "config.json").write_bytes(b"{}\n")
+    benchmark = definition.load_benchmark(target)
+    assert snapshot.replaying_runs(definition.published_runs(target)) == {}
+    assert [run for run, _ in definition.excluded_runs(target)] == ["2026-09-30"]  # by its own record only
+    panel.refuse_replay(target, benchmark)
+    # Through the committed-run guard: it passes the replay check and goes on to the launch guard.
+    reached = []
+    monkeypatch.setattr(bench_run, "_holds_only_the_commitment", lambda *args: None)
+    monkeypatch.setattr(bench_run.commit, "run_lock", lambda *args, **kwargs: __import__("contextlib").nullcontext())
+    for name in ("check_not_started", "load_run_secret", "load_placement", "pushed_commit", "check_definition",
+                 "mark_started", "reveal_run"):
+        monkeypatch.setattr(bench_run.commit, name, lambda *args, **kwargs: None)
+
+    def catalog(*args: Any) -> None:
+        reached.append("launch guard")
+        raise bench_run.GuardError("stop here")
+
+    monkeypatch.setattr(bench_run, "_catalog", catalog)
+    with pytest.raises(bench_run.GuardError, match="stop here"):
+        bench_run._committed_run(benchmark, target, "2026-10-02", proof="test", environ={})
+    assert reached == ["launch guard"]
 
 
 def test_the_refusal_needs_no_fingerprint_of_a_bot_that_is_not_scheduled(failing, passing, tmp_path: Path) -> None:

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from . import leaderboard, registry, store, validity
-from .config import BotSpec, Ladder, TournamentConfig, ladder_pairs
+from .config import BotSpec, Ladder, TournamentConfig, TournamentError, ladder_pairs
 from .ledger import LedgerRow, parse_ledger
 from .manifest import EngineFile
 from ..run_secret import RunSecret
@@ -210,8 +210,8 @@ def _committed_attempts(run_dirs: Sequence[Path]) -> list[tuple[str, TournamentC
                 continue
             config = TournamentConfig.from_json(store.read_json(run_dir / store.CONFIG_NAME))
             terms = contract(config)
-        except (store.StoreError, SnapshotError, ValueError, TypeError, KeyError):
-            continue
+        except (store.StoreError, SnapshotError, TournamentError, ValueError, TypeError, KeyError):
+            continue  # not a readable, fingerprinted config: it binds nothing, and the validator reports it
         attempts.append((run_dir.name, config, terms, validity.verdict(manifest[validity.MANIFEST_KEY]) == "fail"))
     return attempts
 
