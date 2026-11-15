@@ -345,6 +345,99 @@ def test_a_reconnecting_client_gets_the_whole_log_again_once_its_panel_can_show_
     assert log_lines(bridge) == first  # and only once
 
 
+class LogPanel:
+    """The client's log panel as the local patch builds it: it appends every log entry it is sent and, being mounted
+    with the board's game id as its key, starts empty whenever that id changes."""
+
+    def __init__(self) -> None:
+        self.lines: list[str] = []
+        self.key: str | None = None
+        self.board: dict | None = None  # the last board it was sent: what the relay replays to a page that loads
+
+    def take(self, sent: list[dict]) -> None:
+        for message in sent:
+            body = message.get("state") or {}
+            if body.get("kind") == "state":
+                self.board = message
+                game_id = body["state"]["gameView"]["gameId"]
+                if game_id != self.key:
+                    self.lines, self.key = [], game_id
+            elif body.get("kind") == "log":
+                self.lines.append(body["entry"]["message"])
+
+
+def whole_log(bridge: Bridge) -> list[str]:
+    return [("  " if line.get("depth") else "") + str(line["text"]) for line in bridge.hub.log]
+
+
+def board_ids(bridge: Bridge) -> list[str]:
+    return [m["state"]["state"]["gameView"]["gameId"] for m in bridge.host.sent if m.get("state", {}).get("kind") == "state"]
+
+
+def logged_game(lines: int = 4) -> tuple[Bridge, LogPanel]:
+    bridge = bridge_in_game()
+    bridge.hub.observation = observation()
+    for n in range(lines):
+        bridge.hub.say(f"line {n}")
+    panel = LogPanel()
+    bridge._push(bridge.hub.state())
+    panel.take(bridge.host.sent)
+    bridge.host.sent.clear()
+    assert panel.lines == whole_log(bridge) and panel.key == "g-1"
+    return bridge, panel
+
+
+def come_back(bridge: Bridge, panel: LogPanel, *, reloaded: bool) -> None:
+    """The person's client reconnects (one session reclaim: the room's PlayerDisconnected and PlayerConnected, the same
+    messages whether the page was reloaded or only its socket came back) and the held log goes out once its hold ends."""
+    bridge._on_host(None, {"type": "PlayerDisconnected", "username": "human"})
+    bridge.hub.say("said while the client was away")  # sent into the void: the panel never gets it
+    bridge._push(bridge.hub.state())
+    bridge.host.sent.clear()
+    bridge._on_host(None, {"type": "PlayerConnected", "username": "human"})
+    if reloaded:
+        board = panel.board
+        panel.lines, panel.key = [], None  # a new page: an empty panel, and the relay replays the last board to it
+        panel.take([board])
+    bridge._push(bridge.hub.state())  # the board under its new id; the log is held while the panel mounts
+    panel.take(bridge.host.sent)
+    bridge.host.sent.clear()
+    bridge._log_hold_until = 0.0
+    bridge._push(bridge.hub.state())
+    panel.take(bridge.host.sent)
+    bridge.host.sent.clear()
+
+
+@pytest.mark.parametrize("reloaded", [False, True], ids=["socket reconnect, panel kept its lines", "page reload, new panel"])
+def test_the_whole_log_shows_once_after_a_return_whether_or_not_the_page_was_reloaded(reloaded) -> None:
+    bridge, panel = logged_game()
+    come_back(bridge, panel, reloaded=reloaded)
+    assert panel.lines == whole_log(bridge)  # every line, in order, none twice
+    assert "said while the client was away" in panel.lines and len(panel.lines) == len(set(panel.lines))
+    bridge.hub.say("a later line")
+    bridge._push(bridge.hub.state())
+    panel.take(bridge.host.sent)
+    assert panel.lines == whole_log(bridge)
+    assert panel.lines[-1] == "a later line"
+
+
+def test_each_return_gives_the_board_a_new_game_id_that_the_next_game_starts_over() -> None:
+    bridge, panel = logged_game()
+    come_back(bridge, panel, reloaded=False)
+    assert panel.key == "g-1.1"
+    come_back(bridge, panel, reloaded=False)
+    assert panel.key == "g-1.2" and panel.lines == whole_log(bridge)
+    assert bridge.game_id == "g-1"  # the relay's own id for the game is not touched
+    bridge.hub.concede("conceded")
+    bridge._push(bridge.hub.state())
+    bridge.order, bridge.seats, bridge.game_id = ["human", "Basilisk 2"], None, "g-2"
+    start_arena_game(bridge.hub, "g-2")
+    bridge.hub.observation = observation()
+    bridge.host.sent.clear()
+    bridge._push(bridge.hub.state())
+    assert board_ids(bridge) == ["g-2"] and bridge.rejoins == 0
+
+
 def test_a_person_who_comes_back_between_games_changes_nothing() -> None:
     bridge = bridge_in_game()
     bridge.order, bridge.seats = None, None
@@ -391,6 +484,44 @@ def test_a_send_on_a_dead_relay_connection_is_reported_as_a_lost_relay(capsys) -
     assert bridge.relay_lost and "reset" in bridge.relay_lost
     assert bridge.hub.game_over["reason"] == "relay_lost"
     assert "RELAY LOST" in capsys.readouterr().out
+
+
+def dead_host_bridge() -> Bridge:
+    bridge = bridge_in_game()
+    bridge.host = type("Host", (StubRelay,), {"username": "spellbench-host"})()
+    return bridge
+
+
+@pytest.mark.parametrize("error", [ConnectionResetError("reset"), BrokenPipeError("broken pipe"),
+                                   ConnectionAbortedError("aborted"), ConnectionRefusedError("refused"),
+                                   manabrew_host.Closed("closed by peer")])
+def test_a_connection_error_on_a_relay_socket_is_a_lost_relay(error, capsys) -> None:
+    bridge = dead_host_bridge()
+    bridge._fault(error)
+    assert bridge.relay_lost and "RELAY LOST" in capsys.readouterr().out
+    assert bridge.hub.game_over["reason"] == "relay_lost"
+
+
+@pytest.mark.parametrize("error", [PermissionError(13, "Permission denied"), OSError(28, "No space left on device"),
+                                   FileNotFoundError(2, "No such file or directory"), TimeoutError("timed out")])
+def test_any_other_os_error_is_a_host_fault_with_its_own_message_not_a_lost_relay(error, capsys) -> None:
+    bridge = dead_host_bridge()
+    bridge._fault(error)
+    assert bridge.relay_lost is None  # the relay is not what failed
+    assert bridge.hub.game_over["reason"] == "host_fault"
+    out = capsys.readouterr().out
+    assert "RELAY LOST" not in out and f"internal error ({type(error).__name__}" in out and str(error) in out
+    fatal = [m["state"] for m in bridge.host.sent if m.get("state", {}).get("kind") == "fatal"]
+    assert fatal and type(error).__name__ in fatal[0]["message"]
+    assert end_game_sent(bridge)
+
+
+def test_the_dead_session_is_the_one_named_in_a_lost_relay_message(capsys) -> None:
+    bridge = dead_host_bridge()
+    bridge.host.alive = True
+    bridge.bot = type("Bot", (), {"username": "Basilisk 2", "alive": False})()
+    bridge._fault(ConnectionResetError("reset"))
+    assert "Basilisk 2" in bridge.relay_lost
 
 
 def test_an_exception_in_a_relay_handler_is_not_silent(capsys) -> None:

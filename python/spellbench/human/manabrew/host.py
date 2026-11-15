@@ -155,7 +155,9 @@ class Bridge:
         self.seats: view.Seats | None = None
         self.prompt: dict[str, Any] | None = None  # {"seq", "answer", "type"}
         self.sent_log = 0
-        self.sent_frames = 0  # the hub's stack-changing positions already drawn (Hub.frames_total)
+        self.sent_frames = 0  # the hub's stack-changing positions already drawn (Hub.frames_total) ...
+        self.sent_frames_game: Any = None  # ... of this game of the hub's (its frame count restarts with each game)
+        self.rejoins = 0  # times the person's client came back in this game (see _view_game_id)
         self.sent_view: str | None = None
         self.starting = False
         self._grace: threading.Timer | None = None
@@ -352,23 +354,50 @@ class Bridge:
         block: whatever fails here ends the game loudly (``_fault``), and the pump goes on with the next one."""
         try:
             wait = 1.0 if time.time() < self._log_hold_until else 5.0  # held log lines go out as soon as the hold ends
-            state = self.hub.wait_state(version, timeout=wait, frames_from=self.sent_frames)
+            state = self.hub.wait_state(version, timeout=wait, frames_from=self.sent_frames,
+                                        frames_game=self.sent_frames_game)
             version = state["version"]
-            with self.lock:
-                self._push(state)
-                if state.get("hello_waiting") and self.room is not None:
-                    self._maybe_start()
+            self._push(state)  # takes the lock in steps: the pacing of drawn stack positions holds nothing
+            if state.get("hello_waiting"):
+                with self.lock:
+                    if self.room is not None:
+                        self._maybe_start()
         except Exception as exc:  # noqa: BLE001
             self._fault(exc)
             time.sleep(1.0)
         return version
 
     def _push(self, state: Mapping[str, Any]) -> None:
+        """Send the client what the state changed: the board (every stack position of the decisions since, in order,
+        then the current one), the new log lines, the open decision, the end of the game. The pacing between two
+        drawn positions is done without the lock, so a relay message or the person's answer is handled meanwhile."""
+        with self.lock:
+            begun = self._push_begin(state)
+        if begun is None:
+            return
+        game, seats, frames, over = begun
+        paced = False
+        for index, frame in enumerate(frames):
+            with self.lock:
+                if self.seats is not seats:
+                    return  # the game ended meanwhile (a concession, a fault): nothing of this state is current
+                sent = self._send_view(frame, game, None)
+            if sent and index < len(frames) - 1:
+                paced = True
+                time.sleep(self.FRAME_GAP_S)  # so the client renders each position
+        with self.lock:
+            if self.seats is not seats:
+                return
+            self._push_end(state, game, over, paced)
+
+    def _push_begin(self, state: Mapping[str, Any]) -> tuple[Any, Any, list[Mapping[str, Any]], Any] | None:
+        """The first part of ``_push`` (under the lock): the seats of a new game, the decision bank, the stack positions
+        to draw. None when there is nothing to send."""
         game = state.get("game")
         if not game or (self.human or self.last_human) is None or self.order is None:
-            return
+            return None
         if game.get("game_id") == getattr(self, "stale_game", None):
-            return
+            return None
         if self.seats is None or self.seats.human_seat != game.get("seat"):
             person = self.human or self.last_human
             human_index = self.order.index(person) if person in self.order else 0
@@ -381,7 +410,7 @@ class Bridge:
             self.seats = view.Seats(game.get("seat"), f"player-{human_index}", f"player-{bot_index}", names)
             self._name_base = dict(names)
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
-            self.sent_frames = 0
+            self.sent_frames, self.sent_frames_game, self.rejoins = 0, None, 0
             self.resent_seq = None
             self._bank_warned = set()
             self._log_hold_until = time.time() + LOG_MOUNT_WINDOW_S  # see _send_log
@@ -390,21 +419,27 @@ class Bridge:
                 if self.hub.concede(reason):
                     print(f"\n  {person} had left before the game began: it is recorded as a loss ({reason}). Join "
                           f"the table and press Start for the next game.", flush=True)
-                return  # the game is over now: the next pump sends the client its end
-        observation = state.get("observation")
+                return None  # the game is over now: the next pump sends the client its end
         over = state.get("game_over")
         self._bank(state, over)
         # Every decision at which the stack changed is drawn, in order, even when the session answered it at once and
         # the engine has moved on: an opponent's spell is on the board before it resolves.
         frames = [] if over else (state.get("frames") or [])[-self.FRAMES_SHOWN:]
-        for frame in frames:
-            if self._send_view(frame, game, None) and frame is not frames[-1]:
-                time.sleep(self.FRAME_GAP_S)
+        return game, self.seats, frames, over
+
+    def _push_end(self, state: Mapping[str, Any], game: Mapping[str, Any], over: Any, paced: bool) -> None:
+        """The rest of ``_push`` (under the lock): the current board, the log, the open decision, the end of the game.
+        ``paced``: the lock was let go while the positions were drawn, so a decision the person has answered or the
+        game's end since is looked for before a prompt is sent."""
         self.sent_frames = state.get("frames_total", self.sent_frames)
+        self.sent_frames_game = state.get("frames_game", self.sent_frames_game)
+        observation = state.get("observation")
         if observation:
             self._send_view(observation, game, over)
         self._send_log(state, bool(over))
         pending = state.get("pending")
+        if paced and pending and (self.hub.pending or {}).get("seq") != pending["seq"]:
+            pending = None  # answered (or the game ended) while the positions were drawn: the next state says so
         if pending and (self.prompt is None or self.prompt["seq"] != pending["seq"]):
             self._send_prompt(pending, observation or {})
         if over and self.game_id and getattr(self, "_ended", None) != game.get("game_id"):
@@ -457,6 +492,16 @@ class Bridge:
     FRAME_GAP_S = 0.2  # between two drawn stack positions, so the client renders each
     FRAMES_SHOWN = 8   # at most this many of the newest (a long run of passes does not delay the next prompt)
 
+    def _view_game_id(self, game: Mapping[str, Any]) -> str:
+        """The game id the client's board carries. After the person's client has come back it carries a new one (the
+        relay's game id and ``.1``, ``.2`` ...): the client's log panel is mounted under the board's game id and starts
+        empty whenever that changes, so the whole log sent again after a return fills it once, whether the page was
+        reloaded (its panel is new anyway) or only its socket reconnected (its panel kept the lines). Nothing else of
+        the client reads the id of its board except to skip one move animation, and the relay's own game id (the
+        table's) is not touched."""
+        base = self.game_id or str(game.get("game_id"))
+        return f"{base}.{self.rejoins}" if self.rejoins else base
+
     def _send_view(self, observation: Mapping[str, Any], game: Mapping[str, Any], over: Mapping[str, Any] | None) -> bool:
         """Send the board for ``observation`` if it differs from the one last sent; returns whether it was sent."""
         winner = None
@@ -464,7 +509,7 @@ class Bridge:
             winner = self.seats.pid(over.get("winner"))
         # the seat that took the first turn is the game's own setting, not the first turn this seat saw
         self.starter = (game.get("rules") or {}).get("starting_seat") or "p0"
-        gv = view.game_view(observation, self.seats, self.game_id or str(game.get("game_id")),
+        gv = view.game_view(observation, self.seats, self._view_game_id(game),
                             game_over=bool(over), winner=winner, starter=self.starter, terminal=over)
         raw = json.dumps(gv, sort_keys=True)
         if raw == self.sent_view:
@@ -582,13 +627,18 @@ class Bridge:
                 self._end_person("connection_lost")
 
     def _human_back(self) -> None:
-        """The person's client reconnected (the relay's PlayerConnected). A reloaded client has an empty log panel
-        (the relay replays the last board and the open decision, not the log), so the log goes out again in full."""
+        """The person's client reconnected (the relay's PlayerConnected). Lines sent while it was away are lost, and a
+        reloaded client has an empty log panel too (the relay replays the last board and the open decision, not the
+        log), so the log goes out again in full. Nothing the relay tells this host says whether the page was reloaded
+        or only its socket came back (both are the same session reclaim: ``AuthResult`` with ``reconnected`` to the
+        client, ``PlayerConnected`` to the room; the client's ``RequestResync`` is answered by the relay alone), so the
+        board's game id changes with the return and the client empties its panel either way (``_view_game_id``)."""
         if self._grace is not None:
             self._cancel_grace()
             print(f"\n  {self._person()} is back; the game continues.", flush=True)
         if self.seats is not None and self.order is not None:
             self.sent_log = 0
+            self.rejoins += 1
             self._log_hold_until = time.time() + LOG_MOUNT_WINDOW_S
 
     # -- failures ------------------------------------------------------------------------------------------------
@@ -599,8 +649,12 @@ class Bridge:
         (``host_fault``; the ledger can only file it as the human seat's forfeit), so the table is usable again."""
         if self._closing or self.relay_lost:
             return  # the session is ending on purpose, or a lost relay (reported loudly) is the cause
-        if isinstance(exc, (OSError, Closed)) and hasattr(getattr(self, "host", None), "username"):
-            self._relay_closed(self.host, f"{type(exc).__name__}: {exc}")  # a send on a dead connection: the relay
+        if isinstance(exc, (Closed, ConnectionError)) and hasattr(getattr(self, "host", None), "username"):
+            # a send or read on a dead relay connection: the relay (any other OSError, such as a full disk or a
+            # refused file, is not about the relay and is a host fault below, with its own message)
+            dead = next((c for c in (self.host, getattr(self, "bot", None)) if getattr(c, "alive", True) is False),
+                        self.host)
+            self._relay_closed(dead, f"{type(exc).__name__}: {exc}")
             return
         traceback.print_exception(type(exc), exc, exc.__traceback__)
         with self.lock:

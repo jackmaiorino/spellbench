@@ -167,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     avoid = tuple(t for t in args.avoid.split(",") if t)
     self_stops = tuple(t for t in args.self_stops.split(",") if t)
     latest_view: dict[str, Any] | None = None
-    out =args.out.open("w", encoding="utf-8") if args.out else None
+    out = args.out.open("w", encoding="utf-8") if args.out else None
     ws = WebSocket(args.relay)
     send = lambda m: ws.send(json.dumps(m))  # noqa: E731
     send({"type": "Authenticate", "username": args.username, "password": args.key, "service": False})
