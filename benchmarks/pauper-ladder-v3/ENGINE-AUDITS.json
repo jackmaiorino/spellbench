@@ -154,7 +154,7 @@
    "result": "pass",
    "tests": "291 passed, 12 skipped; the skipped tests are 11 of the London human adapter, which need that adapter's own bridge, and 1 of the protocol v1 kernel bot",
    "goldens": "all OK",
-   "ci": "the full suite, the goldens and the site validation also ran green in CI on the definition's head"
+   "ci": "the full suite, the goldens and the site validation also ran green in CI on the definition's head c00309ed2bb5add4cf276866b60829bb332ddf76 (pull request 316, workflow run 43745966669)"
   },
   "gorge_ar8_smoke": {
    "what": "gorge-ar8's six rung blocks of the unrated board pass, on this board's engine command",
