@@ -195,6 +195,83 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
     return selected
 
 
+def _committed_attempts(run_dirs: Sequence[Path]) -> list[tuple[str, TournamentConfig, dict[str, Any], bool]]:
+    """Each committed run of a board with a validity unit, oldest first: its name, config, snapshot contract and
+    whether it failed the unit. Runs without a validity record (boards that name no unit), unrated runs and runs
+    whose files cannot be read as a fingerprinted config are left out."""
+    attempts = []
+    for run_dir in sorted(run_dirs, key=lambda path: _run_order(path.name)):
+        try:
+            manifest = store.read_json(run_dir / store.MANIFEST_NAME)
+            if not isinstance(manifest, dict) or validity.MANIFEST_KEY not in manifest:
+                continue
+            secrets = manifest.get("secrets")
+            if not isinstance(secrets, dict) or secrets.get("commitment_proof") is None:
+                continue
+            config = TournamentConfig.from_json(store.read_json(run_dir / store.CONFIG_NAME))
+            terms = contract(config)
+        except (store.StoreError, SnapshotError, ValueError, TypeError, KeyError):
+            continue
+        attempts.append((run_dir.name, config, terms, validity.verdict(manifest[validity.MANIFEST_KEY]) == "fail"))
+    return attempts
+
+
+def _played(config: TournamentConfig) -> dict[tuple[str, str], tuple[Any, Any]]:
+    """Each matchup a run scheduled (its listed matchups, or the round robin; no self-play) with both players'
+    inputs."""
+    return {tuple(sorted((first.name, second.name))): tuple(
+                bot_inputs(spec, config) for spec in sorted((first, second), key=lambda spec: spec.name))
+            for first, second in config.scheduled_pairs() if first.name != second.name}
+
+
+def failed_attempts(run_dirs: Sequence[Path], desired: TournamentConfig) -> dict[tuple[str, str], str]:
+    """Each matchup that a committed run among ``run_dirs`` scheduled under ``desired``'s evaluation conditions,
+    with the same two players, and that failed the board's validity unit: the matchup (sorted names) and the
+    earliest such run.
+
+    Such a run stays published and excluded. Its matchups are not played again under the same evaluation, and
+    no later run's block of such a matchup is ever selected, so a later attempt cannot stand in for a failed one;
+    a new evaluation (another ``evaluation_version``, engine or bot) is a reviewed change of the definition.
+    Unrated runs are never rated, so they bind nothing here. A board without a validity unit has none. Only the
+    bots ``desired`` holds are compared, so a roster entry that is not scheduled needs no fingerprint.
+    """
+    if desired.validity is None:
+        return {}
+    expected = contract(desired)
+    current = {bot.name: bot_inputs(bot, desired) for bot in desired.bots}
+    found: dict[tuple[str, str], str] = {}
+    for name, config, terms, failed in _committed_attempts(run_dirs):
+        if not failed or terms != expected:
+            continue
+        for pair, inputs in _played(config).items():
+            if all(player in current for player in pair) and inputs == tuple(current[player] for player in pair):
+                found.setdefault(pair, name)  # oldest first
+    return found
+
+
+def replaying_runs(run_dirs: Sequence[Path]) -> dict[str, str]:
+    """Each committed run that scheduled a matchup which an earlier committed run had played under the same
+    evaluation conditions, with the same two players, and failed: its name and the reason it is excluded.
+
+    ``bench commit`` and ``bench run`` refuse such a run, so it should not exist; if it does (two commitments made
+    before either played, say), it is excluded like the failed run itself, whatever it scored, and so are the
+    snapshots that cite it. Nothing stands in for a failed evaluation."""
+    attempts = _committed_attempts(run_dirs)
+    replays: dict[str, str] = {}
+    for name, config, terms, _ in attempts:
+        for earlier, failed_config, failed_terms, failed in attempts:
+            if not failed or failed_terms != terms or _run_order(earlier) >= _run_order(name):
+                continue
+            before = _played(failed_config)
+            again = sorted(pair for pair, inputs in _played(config).items() if before.get(pair) == inputs)
+            if again:
+                replays[name] = (f"plays {' vs '.join(again[0])} again, which run {earlier} played under the same "
+                                 "evaluation and failed the board's validity unit; nothing stands in for a failed "
+                                 "evaluation")
+                break
+    return replays
+
+
 def dropped_ladder_blocks(config: TournamentConfig, sources: Sequence[Source]) -> list[tuple[str, str]]:
     """Rated rung-versus-rung blocks, compatible with ``config``, that its ladder no longer schedules.
 

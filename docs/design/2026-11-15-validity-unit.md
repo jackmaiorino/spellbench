@@ -94,6 +94,9 @@ one game of the same pairing pass one by one and fail together (3 of 6, 5 needed
   needs a changed evaluation (a new `evaluation_version`, engine or bot), which is a reviewed change of the
   definition, so a later attempt cannot quietly stand in for a failed one. This binds reference-panel and
   ladder boards, the ones that compose ratings; an unrated run binds nothing.
+- A committed run that plays such a matchup again anyway (two commitments made before either played, say) is
+  excluded like the failed run, whatever it scored, and a snapshot that cites it is kept off the board. A run
+  played before the failed attempt keeps its place.
 - The secret is revealed and every file stays published, as for any run.
 
 ## What does not change

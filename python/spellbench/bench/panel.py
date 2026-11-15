@@ -13,7 +13,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Mapping
 
-from ..arena import runner, snapshot, store, validity
+from ..arena import runner, snapshot, store
 from ..arena.config import BotSpec, TournamentConfig
 from ..arena.manifest import EngineFile
 from .. import builtins
@@ -71,32 +71,7 @@ def failed_attempts(directory: Path, desired: TournamentConfig) -> dict[tuple[st
     a new evaluation (another ``evaluation_version``, engine or bot) is a reviewed change of the definition.
     Unrated runs are never rated, so they bind nothing here. A board without a validity unit has none.
     """
-    if desired.validity is None:
-        return {}
-    expected = snapshot.contract(desired)
-    current = {bot.name: bot for bot in desired.bots}
-    attempts: dict[tuple[str, str], str] = {}
-    for run_dir in definition.published_runs(directory):
-        try:
-            manifest = store.read_json(run_dir / store.MANIFEST_NAME)
-        except store.StoreError:
-            continue
-        secrets = manifest.get("secrets")
-        if (validity.verdict(manifest.get(validity.MANIFEST_KEY)) != "fail" or not isinstance(secrets, dict)
-                or secrets.get("commitment_proof") is None):
-            continue
-        config = TournamentConfig.from_json(store.read_json(run_dir / store.CONFIG_NAME))
-        try:
-            if snapshot.contract(config) != expected:
-                continue
-        except snapshot.SnapshotError:
-            continue
-        for first, second in config.scheduled_pairs():  # the run's schedule, listed or the round robin
-            if first.name != second.name and all(
-                    spec.name in current and snapshot.bot_inputs(spec, config)
-                    == snapshot.bot_inputs(current[spec.name], desired) for spec in (first, second)):
-                attempts.setdefault(tuple(sorted((first.name, second.name))), run_dir.name)  # oldest first
-    return attempts
+    return snapshot.failed_attempts(definition.published_runs(directory), desired)
 
 
 def _replay_refusal(again: list[tuple[str, str]], failed: Mapping[tuple[str, str], str]) -> str:
@@ -114,9 +89,11 @@ def refuse_replay(directory: Path, benchmark: definition.Benchmark) -> None:
     having been run again after the failure."""
     if not benchmark.opponent_panel or benchmark.validity is None:
         return
-    failed = failed_attempts(directory, full_config(benchmark))
-    scheduled = TournamentConfig.from_json(benchmark.tournament_config("check")).scheduled_pairs()
-    again = sorted({tuple(sorted((first.name, second.name))) for first, second in scheduled} & failed.keys())
+    # The config the run would play: only its scheduled bots need fingerprints, not the whole roster.
+    playing = TournamentConfig.from_json(benchmark.tournament_config("check"))
+    failed = failed_attempts(directory, playing)
+    again = sorted({tuple(sorted((first.name, second.name))) for first, second in playing.scheduled_pairs()}
+                   & failed.keys())
     if again:
         raise definition.BenchmarkError(_replay_refusal(again, failed))
 

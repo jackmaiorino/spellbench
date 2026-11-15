@@ -813,9 +813,10 @@ def excluded_runs(benchmark_dir: Path, benchmark: Benchmark | None = None) -> tu
 
     First the definition's ``excluded_runs`` (``benchmark``, read from the folder when not given; none when it
     does not parse), then each published run whose own manifest records a failed validity unit
-    (``validity.run_exclusion``), oldest first. A run named in the definition keeps the definition's reason.
+    (``validity.run_exclusion``), oldest first, then each committed run that plays a failed matchup again
+    (``snapshot.replaying_runs``). A run named in the definition keeps the definition's reason.
     """
-    from ..arena import validity
+    from ..arena import snapshot, validity
     if benchmark is None:
         try:
             benchmark = load_benchmark(benchmark_dir)
@@ -823,8 +824,11 @@ def excluded_runs(benchmark_dir: Path, benchmark: Benchmark | None = None) -> tu
             benchmark = None
     listed = () if benchmark is None else benchmark.excluded_runs
     named = {run for run, _ in listed}
-    generated = [found for found in map(validity.run_exclusion, published_runs(benchmark_dir))
+    published = published_runs(benchmark_dir)
+    generated = [found for found in map(validity.run_exclusion, published)
                  if found is not None and found[0] not in named]
+    named |= {run for run, _ in generated}
+    generated += [(run, reason) for run, reason in snapshot.replaying_runs(published).items() if run not in named]
     return (*listed, *generated)
 
 

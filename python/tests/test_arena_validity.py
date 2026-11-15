@@ -498,6 +498,67 @@ def test_a_later_run_never_stands_in_for_a_failed_one(passing) -> None:
     assert snapshot.select_blocks(config, [source], barred={pair: "2026-10-02"}) == {pair: source}
 
 
+def _with_an_earlier_failed_attempt(directory: Path, tmp_path: Path) -> Path:
+    """A copy of the passing board with an earlier committed run of the same evaluation that failed the unit (the
+    passing run's files under an earlier name, its manifest recording a failure)."""
+    target = tmp_path / directory.name
+    shutil.copytree(directory, target)
+    shutil.copytree(target / "runs" / "2026-10-01", target / "runs" / "2026-09-30")
+    path = target / "runs" / "2026-09-30" / "manifest.json"
+    manifest = json.loads(path.read_bytes())
+    manifest["validity"].update(verdict="fail", failures=["block 0: thin"],
+                                exclusion={"run": "2026-09-30", "reason": validity.exclusion_reason(["block 0: thin"])})
+    path.write_bytes(store.canonical_bytes(manifest) + b"\n")
+    return target
+
+
+def test_a_run_that_replays_a_failed_matchup_is_excluded_whatever_it_scored(passing, tmp_path: Path) -> None:
+    """Two commitments made before either played: the later run passes, then the earlier one fails. The later run
+    replays a failed evaluation, so it is excluded by code, and a snapshot composed from it leaves the board."""
+    directory, _ = passing
+    target = tmp_path / "before" / directory.name
+    shutil.copytree(directory, target)
+    composed = panel.compose_benchmark(target, date="2026-10-01")  # published while only the later run existed
+    assert board_run_dir(target) == composed
+    target = _with_an_earlier_failed_attempt(target, tmp_path / "after")
+    assert definition.excluded_runs(target) == (
+        ("2026-09-30", "failed the board's validity unit (spellbench-validity/v1): block 0: thin"),
+        ("2026-10-01", "plays heuristic vs uniform again, which run 2026-09-30 played under the same evaluation and "
+                       "failed the board's validity unit; nothing stands in for a failed evaluation"))
+    assert panel.sources(target) == []
+    assert board_run_dir(target) is None  # neither the run nor the snapshot that cites it
+    with pytest.raises(snapshot.SnapshotError, match=r"no rating is composed for heuristic vs uniform \(run "
+                                                     r"2026-09-30\)"):
+        panel.compose_benchmark(target, date="2026-10-02")
+    warnings = build_site(target.parent, tmp_path / "site")
+    assert any("runs/2026-10-01: excluded from measurement: plays heuristic vs uniform again" in warning
+               for warning in warnings)
+    assert not (tmp_path / "site" / "b" / target.name).exists()
+    # A failed attempt that came later binds nothing before it: the earlier valid run keeps its place.
+    later = tmp_path / "later" / directory.name
+    shutil.copytree(target, later)
+    (later / "runs" / "2026-09-30").rename(later / "runs" / "2026-10-02")
+    assert [run for run, _ in definition.excluded_runs(later)] == ["2026-10-02"]
+    assert [source.path.name for source in panel.sources(later)] == ["2026-10-01"]
+
+
+def test_the_refusal_needs_no_fingerprint_of_a_bot_that_is_not_scheduled(failing, passing, tmp_path: Path) -> None:
+    for (directory, _), refused in ((failing, True), (passing, False)):
+        raw = json.loads((directory / "benchmark.json").read_bytes())
+        idle = builtin("first")  # in the roster, outside the targets, never prepared
+        idle["display"] = {"label": "first", "author": "fixture", "description": "local test bot", "url": None}
+        raw["bots"].append(idle)
+        raw["evaluation_targets"] = ["heuristic", "uniform"]
+        benchmark = definition.parse_benchmark(raw)
+        with pytest.raises(snapshot.SnapshotError, match="evaluation_identity"):
+            snapshot.contract(panel.full_config(benchmark))  # the whole roster is not fingerprinted
+        if refused:
+            with pytest.raises(definition.BenchmarkError, match="a failed evaluation is not replayed"):
+                panel.refuse_replay(directory, benchmark)
+        else:
+            panel.refuse_replay(directory, benchmark)
+
+
 # A unit loose enough per block that one lost game passes a one-block run of eight games.
 LOOSE = {"unit": "spellbench-validity/v1", "block_natural_permille": 800, "block_complete_pairs_permille": 700,
          "rung_natural_permille": 800, "pairing_natural_permille": 900}
