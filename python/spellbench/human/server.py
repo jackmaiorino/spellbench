@@ -283,7 +283,9 @@ class Hub:
             taken = player.get("mulligans_taken") or 0
             if taken > opening[key]:
                 size = 7 - taken
-                self._note(who, f"{name} a mulligan (mulligan {taken}: draws seven, puts {taken} on the bottom, "
+                more = taken - opening[key]
+                what = "a mulligan" if more == 1 else f"{more} more mulligans"
+                self._note(who, f"{name} {what} (now {taken} taken: draws seven, puts {taken} on the bottom, "
                                 f"{size} cards if kept)", header=False)
                 opening[key] = taken
         if (observation.get("turn") or 0) >= 1:

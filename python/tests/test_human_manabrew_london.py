@@ -161,8 +161,8 @@ def test_the_log_counts_the_mulligans_of_both_seats_and_the_keeps(hub: Hub) -> N
     hub._absorb(mulligan_decision(7, 0), {})
     hub._absorb(mulligan_decision(6, 1, opp_taken=2), {})
     lines = [(entry["side"], entry["text"]) for entry in hub.log]
-    assert any(side == "opp" and "Opponent takes a mulligan" in line and "mulligan 2" in line for side, line in lines)
-    assert any(side == "you" and "You take a mulligan" in line and "mulligan 1" in line for side, line in lines)
+    assert any(side == "opp" and "Opponent takes a mulligan" in line and "2 taken" in line for side, line in lines)
+    assert any(side == "you" and "You take a mulligan" in line and "1 taken" in line for side, line in lines)
     game = mulligan_decision(6, 1, opp_taken=2)
     game["observation"].update(turn=1, phase_step="untap", active_seat=ME, priority_seat=ME)
     hub._absorb(game, {})
