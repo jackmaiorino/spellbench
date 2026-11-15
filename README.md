@@ -133,9 +133,9 @@ seat-swapped pairs, and the share per bot and per ordered deck pairing.
 `bench run` writes the verdict and its tables into the run's manifest. A run
 that fails stays published in full, is not rated, shows no rating in its own
 leaderboard, and is left out of `bench compose` and the site by its own
-record. It is never topped up or replaced: `bench prepare` refuses to
-schedule its matchups again under the same evaluation, and a snapshot is
-published only when the results it combines pass the unit together.
+record. It is never topped up or replaced: its matchups are not prepared,
+committed, run or composed again under the same evaluation, and a snapshot
+is published only when the results it combines pass the unit together.
 
 A benchmark is a folder under `benchmarks/` with a `benchmark.json`: an
 engine, a deck pool, and a roster anchored on the builtin `uniform` bot

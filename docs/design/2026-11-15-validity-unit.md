@@ -88,9 +88,12 @@ one game of the same pairing pass one by one and fail together (3 of 6, 5 needed
   (observed scores and their intervals), no rating, rating interval, rank, subrating, deck slice or deck grid.
 - `bench compose` and the site leave the run out by its own record; `excluded_runs` needs no entry. A snapshot
   can never cite it, rated or unrated.
-- `bench prepare` refuses to schedule a matchup again that a committed run played under the same evaluation
-  conditions and failed. Rating again needs a changed evaluation (a new `evaluation_version`, engine or bot),
-  which is a reviewed change of the definition, so a later attempt cannot quietly stand in for a failed one.
+- A matchup that a committed run played under an evaluation and failed is not played again under that
+  evaluation: `bench prepare` does not schedule it, `bench commit` and a committed `bench run` refuse a
+  definition that still schedules it, and `bench compose` never takes its block from a later run. Rating again
+  needs a changed evaluation (a new `evaluation_version`, engine or bot), which is a reviewed change of the
+  definition, so a later attempt cannot quietly stand in for a failed one. This binds reference-panel and
+  ladder boards, the ones that compose ratings; an unrated run binds nothing.
 - The secret is revealed and every file stays published, as for any run.
 
 ## What does not change

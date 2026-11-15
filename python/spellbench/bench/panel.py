@@ -64,12 +64,15 @@ def sources(directory: Path) -> list[snapshot.Source]:
 
 def failed_attempts(directory: Path, desired: TournamentConfig) -> dict[tuple[str, str], str]:
     """Each matchup that a committed run scheduled under ``desired``'s evaluation conditions, with the same two
-    players, and that failed the board's validity unit: the matchup (sorted names) and that run's name.
+    players, and that failed the board's validity unit: the matchup (sorted names) and the earliest such run.
 
-    Such a run stays published and excluded. Its matchups are not played again under the same evaluation, so a
-    later attempt cannot stand in for a failed one; a new evaluation (another ``evaluation_version``, engine or
-    bot) is a reviewed change of the definition. Unrated runs are never rated, so they bind nothing here.
+    Such a run stays published and excluded. Its matchups are not played again under the same evaluation, and
+    no later run's block of such a matchup is ever selected, so a later attempt cannot stand in for a failed one;
+    a new evaluation (another ``evaluation_version``, engine or bot) is a reviewed change of the definition.
+    Unrated runs are never rated, so they bind nothing here. A board without a validity unit has none.
     """
+    if desired.validity is None:
+        return {}
     expected = snapshot.contract(desired)
     current = {bot.name: bot for bot in desired.bots}
     attempts: dict[tuple[str, str], str] = {}
@@ -88,12 +91,34 @@ def failed_attempts(directory: Path, desired: TournamentConfig) -> dict[tuple[st
                 continue
         except snapshot.SnapshotError:
             continue
-        played = {bot.name: bot for bot in config.bots}
-        for pair in config.matchups or ():
-            if all(name in current and snapshot.bot_inputs(played[name], config)
-                   == snapshot.bot_inputs(current[name], desired) for name in pair):
-                attempts[tuple(sorted(pair))] = run_dir.name
+        for first, second in config.scheduled_pairs():  # the run's schedule, listed or the round robin
+            if first.name != second.name and all(
+                    spec.name in current and snapshot.bot_inputs(spec, config)
+                    == snapshot.bot_inputs(current[spec.name], desired) for spec in (first, second)):
+                attempts.setdefault(tuple(sorted((first.name, second.name))), run_dir.name)  # oldest first
     return attempts
+
+
+def _replay_refusal(again: list[tuple[str, str]], failed: Mapping[tuple[str, str], str]) -> str:
+    return ("a committed run of this evaluation failed the board's validity unit and stays excluded: "
+            + ", ".join(f"{a} vs {b} (run {failed[(a, b)]})" for a, b in again)
+            + "; a failed evaluation is not replayed or topped up. To rate again, change the evaluation "
+            "(a new evaluation_version, engine or bot) and review that definition")
+
+
+def refuse_replay(directory: Path, benchmark: definition.Benchmark) -> None:
+    """Refuse a committed run of ``benchmark`` (as its definition schedules it) that would play a matchup again
+    which a committed run of the same evaluation already played and failed (:func:`failed_attempts`).
+
+    ``bench commit`` and a committed ``bench run`` call this, so the rule does not depend on ``bench prepare``
+    having been run again after the failure."""
+    if not benchmark.opponent_panel or benchmark.validity is None:
+        return
+    failed = failed_attempts(directory, full_config(benchmark))
+    scheduled = TournamentConfig.from_json(benchmark.tournament_config("check")).scheduled_pairs()
+    again = sorted({tuple(sorted((first.name, second.name))) for first, second in scheduled} & failed.keys())
+    if again:
+        raise definition.BenchmarkError(_replay_refusal(again, failed))
 
 
 def prepare_benchmark(directory: Path, *, unrated: bool = False,
@@ -134,16 +159,12 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
     if dropped:
         raise definition.BenchmarkError("the ladder would drop rated rung matchups it has played: " + ", ".join(
             f"{a} vs {b}" for a, b in dropped) + "; append rungs at the top, or start a new benchmark version")
-    selected = snapshot.select_blocks(desired, found, rated_only=not unrated)
-    missing = set(snapshot.required_matchups(desired)) - selected.keys()
     failed = failed_attempts(directory, desired)
+    selected = snapshot.select_blocks(desired, found, rated_only=not unrated, barred=failed)
+    missing = set(snapshot.required_matchups(desired)) - selected.keys()
     again = sorted(pair for pair in missing if pair in failed)
     if again and not unrated:
-        raise definition.BenchmarkError(
-            "a committed run of this evaluation failed the board's validity unit and stays excluded: "
-            + ", ".join(f"{a} vs {b} (run {failed[(a, b)]})" for a, b in again)
-            + "; a failed evaluation is not replayed or topped up. To rate again, change the evaluation "
-            "(a new evaluation_version, engine or bot) and review that definition")
+        raise definition.BenchmarkError(_replay_refusal(again, failed))
     panel = set(updated.opponent_panel)
     pending = {name for pair in missing for name in pair if name not in panel}
     if updated.ladder is not None:
@@ -197,12 +218,20 @@ def compose_benchmark(directory: Path, *, unrated: bool = False, date: str | Non
     found = sources(directory)
     unprepared = unprepared_entrants(config)
     config = snapshot.without_entrants(config, unprepared)
-    selected = snapshot.select_blocks(config, found, rated_only=not unrated)
+    # A matchup that a committed run played and failed is never taken from a later run of the same evaluation.
+    failed = failed_attempts(directory, config)
+    selected = snapshot.select_blocks(config, found, rated_only=not unrated, barred=failed)
     unplayed = pending_entrants(config, selected)
     if unplayed:
         config = snapshot.without_entrants(config, unplayed)
-        selected = snapshot.select_blocks(config, found, rated_only=not unrated)
+        selected = snapshot.select_blocks(config, found, rated_only=not unrated, barred=failed)
     pending = unprepared + unplayed
+    barred = sorted(pair for pair in set(snapshot.required_matchups(config)) - selected.keys() if pair in failed)
+    if barred:
+        raise snapshot.SnapshotError(
+            "no rating is composed for " + ", ".join(f"{a} vs {b} (run {failed[(a, b)]})" for a, b in barred)
+            + ": that run failed the board's validity unit, and no other run of the same evaluation stands in "
+            "for it")
     date = datetime.date.today().isoformat() if date is None else snapshot.checked_label(date)
     if len(date) != 10:
         raise definition.BenchmarkError("snapshot date must be YYYY-MM-DD")

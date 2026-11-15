@@ -10,7 +10,7 @@ import json
 import re
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from . import leaderboard, registry, store, validity
 from .config import BotSpec, Ladder, TournamentConfig, ladder_pairs
@@ -159,14 +159,23 @@ def read_source(path: Path) -> Source:
                   store.sha256_hex((path / store.MANIFEST_NAME).read_bytes()))
 
 
-def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_only: bool = True
-                  ) -> dict[tuple[str, str], Source]:
-    """Latest compatible whole block per matchup; outcomes never influence the selection."""
+def _run_order(name: str) -> tuple[str, int]:
+    """A run name's place in time: its date, then its suffix (the first run of a day is 1)."""
+    return name[:10], int(name[11:] or "1")
+
+
+def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_only: bool = True,
+                  barred: Mapping[tuple[str, str], str] | None = None) -> dict[tuple[str, str], Source]:
+    """Latest compatible whole block per matchup; outcomes never influence the selection.
+
+    ``barred`` maps a matchup to the committed run that played it under this evaluation and failed the board's
+    validity unit: a block of that matchup from a later run is never selected, so nothing stands in for a failed
+    evaluation."""
     expected = contract(config)
     current = {bot.name: bot for bot in config.bots}
     wanted = set(required_matchups(config))
     selected = {}
-    for source in sorted(sources, key=lambda s: (s.path.name[:10], int(s.path.name[11:] or "1"))):
+    for source in sorted(sources, key=lambda s: _run_order(s.path.name)):
         if rated_only and source.manifest["run"]["rated"] is not True:
             continue
         if validity.verdict(source.manifest.get(validity.MANIFEST_KEY)) == "fail":
@@ -179,6 +188,8 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
             continue
         by_name = {bot.name: bot for bot in source.config.bots}
         for pair in wanted & source.blocks().keys():
+            if barred and pair in barred and _run_order(source.path.name) > _run_order(barred[pair]):
+                continue
             if all(bot_inputs(by_name[name], source.config) == bot_inputs(current[name], config) for name in pair):
                 selected[pair] = source
     return selected

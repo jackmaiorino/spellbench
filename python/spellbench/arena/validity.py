@@ -25,8 +25,8 @@ published only when the composed sample passes too, and its manifest carries tha
 :func:`evaluate` returns the record a manifest publishes under ``validity``: the unit, the verdict, the three
 tables, one line per failed threshold, and, for a failing run, the generated exclusion record. A run that fails is
 still published in full; it is not rated (``manifest.is_rated``), its leaderboard withholds every rating, and
-``bench compose`` and the site leave it out (:func:`run_exclusion`). ``bench prepare`` does not schedule its
-matchups again under the same evaluation. Nothing here reads outcomes: who won never enters the verdict. A forfeit
+``bench compose`` and the site leave it out (:func:`run_exclusion`). Its matchups are not prepared, committed, run
+or composed again under the same evaluation (``bench/panel.py``). Nothing here reads outcomes: who won never enters the verdict. A forfeit
 is not natural, so a bot that forfeits more than the unit allows fails the run for both bots of the block.
 
 Configs without the field get no record, so runs of earlier boards keep their bytes.

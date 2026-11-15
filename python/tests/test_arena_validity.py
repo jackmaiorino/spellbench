@@ -411,9 +411,10 @@ def test_a_failing_run_is_excluded_by_its_own_record(failing, tmp_path: Path) ->
     assert excluded[0][1] == store.read_json(summary.tournament_dir / "manifest.json")["validity"]["exclusion"]["reason"]
     assert definition.excluded_run_names(directory) == {"2026-10-01"}
     assert panel.sources(directory) == []
-    with pytest.raises(snapshot.SnapshotError, match="missing compatible panel matchups"):
+    refusal = r"no rating is composed for heuristic vs uniform \(run 2026-10-01\): that run failed"
+    with pytest.raises(snapshot.SnapshotError, match=refusal):
         panel.compose_benchmark(directory, date="2026-10-01")
-    with pytest.raises(snapshot.SnapshotError, match="missing compatible panel matchups"):
+    with pytest.raises(snapshot.SnapshotError, match=refusal):
         panel.compose_benchmark(directory, unrated=True, date="2026-10-01")  # not as an unrated preview either
     assert not (directory / "snapshots").exists()
     assert board_run_dir(directory) is None
@@ -442,6 +443,116 @@ def test_a_failed_evaluation_is_not_replayed_under_the_same_conditions(failing, 
     write_definition(target, raw)
     assert set(panel.prepare_benchmark(target)) == {"uniform", "heuristic"}
     assert (target / "runs" / "2026-10-01" / "manifest.json").is_file()
+
+
+def test_a_failed_evaluation_is_not_committed_or_run_again(failing, tmp_path: Path,
+                                                         monkeypatch: pytest.MonkeyPatch) -> None:
+    """The unchanged definition still schedules the failed matchup: neither bench commit nor a committed bench run
+    plays it, whether or not bench prepare was run again."""
+    from spellbench.bench import commit as bench_commit, run as bench_run
+    directory, _ = failing
+    benchmark = definition.load_benchmark(directory)
+    assert benchmark.evaluation_matchups is None and benchmark.evaluation_targets == ("heuristic", "uniform")
+    with pytest.raises(definition.BenchmarkError, match="a failed evaluation is not replayed or topped up"):
+        panel.refuse_replay(directory, benchmark)
+    with pytest.raises(bench_commit.CommitError, match=r"heuristic vs uniform \(run 2026-10-01\)"):
+        bench_commit.commit_run(directory, placement="main-pc=used: test")
+    # A committed run that reaches play is refused inside the reveal guard, so its commitment is still published.
+    revealed = []
+    run_dir = directory / "runs" / "2026-10-02"
+    monkeypatch.setattr(bench_run, "_holds_only_the_commitment", lambda *args: None)
+    monkeypatch.setattr(bench_run.commit, "run_lock", lambda *args, **kwargs: __import__("contextlib").nullcontext())
+    for name in ("check_not_started", "load_run_secret", "load_placement", "pushed_commit", "check_definition",
+                 "mark_started"):
+        monkeypatch.setattr(bench_run.commit, name, lambda *args, **kwargs: None)
+    monkeypatch.setattr(bench_run.commit, "reveal_run", lambda run, **kwargs: revealed.append(kwargs["reason"]))
+    with pytest.raises(bench_run.GuardError, match="a failed evaluation is not replayed or topped up"):
+        bench_run._committed_run(benchmark, directory, "2026-10-02", proof="test", environ={})
+    assert revealed == ["guard"] and not run_dir.exists()
+    # An unrated run binds nothing, and a board without a unit is never refused.
+    panel.refuse_replay(directory, replace(benchmark, validity=None))
+
+
+def test_a_run_that_lists_no_matchups_still_binds_its_round_robin(failing, tmp_path: Path) -> None:
+    directory, _ = failing
+    target = tmp_path / directory.name
+    shutil.copytree(directory, target)
+    config_path = target / "runs" / "2026-10-01" / "config.json"
+    config = json.loads(config_path.read_bytes())
+    del config["matchups"]  # a panel config may leave its schedule to the round robin
+    config_path.write_bytes(store.canonical_bytes(config) + b"\n")
+    assert panel.failed_attempts(target, panel.full_config(definition.load_benchmark(target))) == {
+        ("heuristic", "uniform"): "2026-10-01"}
+
+
+def test_a_later_run_never_stands_in_for_a_failed_one(passing) -> None:
+    directory, summary = passing
+    source = snapshot.read_source(summary.tournament_dir)
+    config = panel.full_config(definition.load_benchmark(directory))
+    pair = ("heuristic", "uniform")
+    assert snapshot.select_blocks(config, [source]) == {pair: source}
+    # The matchup failed in an earlier committed run of this evaluation: this later block is never selected.
+    assert snapshot.select_blocks(config, [source], barred={pair: "2026-09-30"}) == {}
+    assert snapshot.select_blocks(config, [source], barred={pair: "2026-10-01"}) == {pair: source}
+    # A block played before the failed attempt keeps its place.
+    assert snapshot.select_blocks(config, [source], barred={pair: "2026-10-02"}) == {pair: source}
+
+
+# A unit loose enough per block that one lost game passes a one-block run of eight games.
+LOOSE = {"unit": "spellbench-validity/v1", "block_natural_permille": 800, "block_complete_pairs_permille": 700,
+         "rung_natural_permille": 800, "pairing_natural_permille": 900}
+
+
+def test_three_real_runs_that_each_pass_do_not_compose(tmp_path: Path) -> None:
+    """Three one-block runs of a ladder, played for real. With one game of the Burn mirror lost in each, every run
+    still passes the unit (3 of 4 games of the pairing, one always allowed) and the rating composed from the three
+    does not (9 of 12, 11 needed): the composition is judged from the sources' own schedules."""
+    directory = tmp_path / "fixture"
+    raw = value(directory)
+    first = builtin("first")
+    first["display"] = {"label": "first", "author": "fixture", "description": "local test bot", "url": None}
+    raw["bots"] = [raw["bots"][0], raw["bots"][1], first]
+    raw.update(deck_pool=["Burn", "Elves"], pairs_per_deck=2, validity=LOOSE,
+               opponent_panel=["uniform", "heuristic", "first"], ladder={"band": 2, "entrants": {}})
+    write_definition(directory, raw)
+    panel.prepare_benchmark(directory)
+    prepared = json.loads((directory / "benchmark.json").read_bytes())
+    matchups = prepared["evaluation_matchups"]
+    assert len(matchups) == 3
+    for day, pair in zip(("2026-10-01", "2026-10-02", "2026-10-03"), matchups):
+        write_definition(directory, {**prepared, "evaluation_matchups": [pair]})
+        summary = play(directory, day)
+        assert summary.rated and summary.games_total == 8
+    write_definition(directory, prepared)
+    config = panel.full_config(definition.load_benchmark(directory))
+    found = panel.sources(directory)
+    selected = snapshot.select_blocks(config, found)
+    assert sorted(source.path.name for source in selected.values()) == ["2026-10-01", "2026-10-02", "2026-10-03"]
+    manifest = snapshot.materialize(config, selected, benchmark_id="fixture", label="2026-10-04")[0]
+    assert manifest["validity"]["verdict"] == "pass"
+    assert sorted((block["run"], block["scheduled"], block["natural"]) for block in manifest["validity"]["blocks"]) == [
+        ("2026-10-01", 8, 8), ("2026-10-02", 8, 8), ("2026-10-03", 8, 8)]
+    assert [(pairing["decks"], pairing["scheduled"]) for pairing in manifest["validity"]["pairings"]] == [
+        (["Burn", "Burn"], 12), (["Elves", "Elves"], 12)]
+
+    def losing_one(source: snapshot.Source) -> snapshot.Source:
+        """The same run with its first Burn mirror game halted, as an engine halt records it."""
+        lost = next(row for row in source.rows if row.decks[0].catalog_id == "Burn")
+        halted = replace(lost, classification="halted", outcome="halted", winner=None, winner_bot_id=None,
+                         reason="engine_contract_failure:test")
+        return replace(source, rows=tuple(halted if row is lost else row for row in source.rows))
+
+    thin = {pair: losing_one(source) for pair, source in selected.items()}
+    for source in thin.values():  # each run alone still passes the unit
+        contexts = schedule(source.config, RunSecret.from_hex(source.manifest["secrets"]["run_secret"]))
+        alone = validity.evaluate(source.config, contexts, source.rows, run_label=source.path.name)
+        assert alone["verdict"] == "pass" and alone["blocks"][0]["natural"] == 7
+    with pytest.raises(snapshot.SnapshotError, match="the composed results fail the board's validity unit: deck "
+                                                     r"pairing Burn \(p0\) vs Burn \(p1\): 9 of 12 scheduled games "
+                                                     "ended natural, needs 11"):
+        snapshot.materialize(config, thin, benchmark_id="fixture", label="2026-10-04")
+    with pytest.raises(snapshot.SnapshotError, match="the composed results fail"):
+        snapshot.materialize(config, thin, benchmark_id="fixture", label="2026-10-04", rated_only=False)
 
 
 def test_a_hand_typed_exclusion_keeps_its_reason(failing, tmp_path: Path) -> None:
