@@ -150,11 +150,19 @@
    "carried": "not rerun: the audit runs inside the engine at commit d11d986d9 and does not use the adapter; the binary is the one this result was recorded for"
   },
   "adapter_tests": {
-   "tool": "pytest integrations/mtg_kernel (adapter contract tests, the infoset adapter's included) and python/tools/generate_goldens_v2.py --check, in CI on the default branch after this definition merges",
-   "bytes_run": "the board's adapter bytes (main's)",
-   "result": "pending: recorded here before any commitment"
+   "tool": "pytest integrations/mtg_kernel (adapter contract tests) with the pinned bridge and catalog, and python/tools/generate_goldens_v2.py --check, on the board's adapter bytes",
+   "result": "pass",
+   "tests": "291 passed, 12 skipped; the skipped tests are 11 of the London human adapter, which need that adapter's own bridge, and 1 of the protocol v1 kernel bot",
+   "goldens": "all OK",
+   "ci": "the full suite, the goldens and the site validation also ran green in CI on the definition's head c00309ed2bb5add4cf276866b60829bb332ddf76 (pull request 316, workflow run 43745966669)"
   },
-  "gorge_ar8_smoke": "pending: the unrated board pass plays gorge-ar8's six rung blocks on this engine command; recorded here before any commitment",
+  "gorge_ar8_smoke": {
+   "what": "gorge-ar8's six rung blocks of the unrated board pass, on this board's engine command",
+   "result": "pass",
+   "games": 768,
+   "natural": 768,
+   "validator": "pass, 356685 decisions checked over the whole pass, 0 violations"
+  },
   "paid_ninjutsu_repair": {
    "carried": "see benchmarks/pauper-ladder-v2/ENGINE-AUDITS.json: the bridge is the same binary"
   },
@@ -208,7 +216,49 @@
    "timing_note": "The two runs were measured at different times under different machine load: the timings give each run's own rate and are not a speed comparison of the adapters.",
    "date": "2026-11-15"
   },
-  "unrated_board_pass": "pending: played after this definition merges and recorded here before any commitment"
+  "unrated_board_pass": {
+   "what": "The 15 rung matchups (7 rungs, band 3), 64 pairs each, one pair per ordered pairing of the eight decks: 1,920 games, unrated, through `bench run --unrated` on this board's engine command and identities (the board's definition without its two entrants), judged by the validity unit. Unrated games are never promoted.",
+   "result": "pass",
+   "games": 1920,
+   "natural": 1920,
+   "halted": 0,
+   "truncated": 0,
+   "forfeit": 0,
+   "per_block": {
+    "uniform v heuristic": "128 of 128 natural, 64 of 64 pairs",
+    "uniform v c12": "128 of 128 natural, 64 of 64 pairs",
+    "uniform v gorge-ar8": "128 of 128 natural, 64 of 64 pairs",
+    "heuristic v c12": "128 of 128 natural, 64 of 64 pairs",
+    "heuristic v gorge-ar8": "128 of 128 natural, 64 of 64 pairs",
+    "heuristic v g115": "128 of 128 natural, 64 of 64 pairs",
+    "c12 v gorge-ar8": "128 of 128 natural, 64 of 64 pairs",
+    "c12 v g115": "128 of 128 natural, 64 of 64 pairs",
+    "c12 v oh2-r2s1-b512": "128 of 128 natural, 64 of 64 pairs",
+    "gorge-ar8 v g115": "128 of 128 natural, 64 of 64 pairs",
+    "gorge-ar8 v oh2-r2s1-b512": "128 of 128 natural, 64 of 64 pairs",
+    "gorge-ar8 v oh2-r2s1-b512-argmax": "128 of 128 natural, 64 of 64 pairs",
+    "g115 v oh2-r2s1-b512": "128 of 128 natural, 64 of 64 pairs",
+    "g115 v oh2-r2s1-b512-argmax": "128 of 128 natural, 64 of 64 pairs",
+    "oh2-r2s1-b512 v oh2-r2s1-b512-argmax": "128 of 128 natural, 64 of 64 pairs"
+   },
+   "per_bot": {
+    "uniform": "384 of 384",
+    "heuristic": "512 of 512",
+    "c12": "640 of 640",
+    "gorge-ar8": "768 of 768",
+    "g115": "640 of 640",
+    "oh2-r2s1-b512": "512 of 512",
+    "oh2-r2s1-b512-argmax": "384 of 384"
+   },
+   "ordered_pairings": "64 pairings, 30 games each; lowest 30 natural",
+   "timing": {
+    "workers": 4,
+    "one_worker_seconds_per_game": 6.17,
+    "play_wall_seconds": 8390,
+    "games_per_hour": 824
+   },
+   "date": "2026-11-15"
+  }
  },
  "rule": "Rerun every audit above on the pinned binaries, and replace this receipt, whenever the engine behind this board changes. The board rates no games on an engine without a passing receipt."
 }
