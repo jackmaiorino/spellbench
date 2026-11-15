@@ -56,22 +56,41 @@ would say; the published runs name no unit and are unchanged).
 - A pairing that never ends naturally (0 of 36) passes every block (126 natural, 63 pairs) and every rung, and
   fails this rule.
 
-Every one of the 17 games above came from two faults that are fixed (11 ninjutsu activations, 6 projection
-errors). On the fixed engine 2,567 unrated games ended natural with no halt, a rate under 0.12% at 95% confidence.
+Every one of the 17 games above came from two faults that are fixed: 11 paid ninjutsu activations
+(`paid_ninjutsu_repair` in `benchmarks/pauper-ladder-v2/ENGINE-AUDITS.json`) and 6 projection errors (reason
+`engine_contract_failure:ProjectionError` in the grid ledger, issue 288). On the repaired engine the unrated board
+pass recorded in that file ended 1,920 of 1,920 games naturally, a halt rate under 0.16% at 95% confidence.
 The price of the pair rule is a false failure when two unrelated halts land in different pairs of one block: for a
 per-game halt rate p that is about 8,064 p squared per block, so under 1% per 18-block run at p = 0.02%, about 15% at
 p = 0.1%. A run that fails for that reason is still an honest record; the unrated pass before a commitment shows
 the rate first.
+
+The thresholds are fixed in a board's definition before its first game and are part of every run's config and of
+the snapshot contract: they are chosen here once, from runs that are already published, and are not re-derived
+from a later run. Forfeits count against "natural" as ruled, so a bot that forfeits more than the unit allows
+fails the run for both bots of that block; its games are a record, not a low rating.
+
+## Runs of different sizes, and composed ratings
+
+The pairing rule is judged per run on that run's scheduled games, and always allows one game, so it is weak on a
+small run: a single block schedules two games per ordered pairing (one may be lost), an entrant-only run of three
+blocks six (five needed). A rating is fitted from blocks of several runs, so `bench compose` applies the whole unit
+again to the blocks it selects, with their scheduled denominators, and publishes the snapshot only if that
+composed sample passes; the snapshot's manifest carries the composed record. Three one-block runs that each lose
+one game of the same pairing pass one by one and fail together (3 of 6, 5 needed).
 
 ## What a failing run publishes
 
 - `manifest.json` gains `validity`: the unit, the verdict, per-block, per-bot and per-pairing tables, one line per
   failed threshold, and the generated exclusion record (`run`, `reason`). The validator recomputes all of it.
 - `run.rated` is false: a rated run must pass its board's unit.
-- The run's own `leaderboard.json` and `LEADERBOARD.md` have status `withheld`: games, W/D/L and matchup records,
-  no rating, interval, rank, subrating, deck slice or deck grid.
-- `bench prepare`, `bench compose` and the site leave the run out by its own record; `excluded_runs` needs no
-  entry. A snapshot can never cite it, rated or unrated.
+- The run's own `leaderboard.json` and `LEADERBOARD.md` have status `withheld`: games, W/D/L and matchup records
+  (observed scores and their intervals), no rating, rating interval, rank, subrating, deck slice or deck grid.
+- `bench compose` and the site leave the run out by its own record; `excluded_runs` needs no entry. A snapshot
+  can never cite it, rated or unrated.
+- `bench prepare` refuses to schedule a matchup again that a committed run played under the same evaluation
+  conditions and failed. Rating again needs a changed evaluation (a new `evaluation_version`, engine or bot),
+  which is a reviewed change of the definition, so a later attempt cannot quietly stand in for a failed one.
 - The secret is revealed and every file stays published, as for any run.
 
 ## What does not change

@@ -16,6 +16,7 @@ from . import leaderboard, registry, store, validity
 from .config import BotSpec, Ladder, TournamentConfig, ladder_pairs
 from .ledger import LedgerRow, parse_ledger
 from .manifest import EngineFile
+from ..run_secret import RunSecret
 
 SCHEMA = "spellbench-snapshot/v1"
 FILES = (store.CONFIG_NAME, store.REGISTRY_NAME, store.LEADERBOARD_JSON_NAME, store.LEADERBOARD_MD_NAME)
@@ -116,6 +117,13 @@ class Source:
     entries: tuple[registry.RegistryEntry, ...]
     rows: tuple[LedgerRow, ...]
     manifest_sha256: str
+
+    def scheduled(self, pair: tuple[str, str]) -> list[Any]:
+        """The games this run scheduled for the matchup ``pair`` (sorted names), from its own schedule."""
+        from .schedule import schedule
+        contexts = schedule(self.config, RunSecret.from_hex(self.manifest["secrets"]["run_secret"]))
+        return [context for context in contexts
+                if tuple(sorted(spec.name for _, spec in context.seat_specs)) == pair]
 
     def blocks(self) -> dict[tuple[str, str], tuple[LedgerRow, ...]]:
         groups: dict[tuple[str, str], list[LedgerRow]] = {}
@@ -227,6 +235,7 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
     sources = {}
     next_pair = 0
     facts = None
+    parts = []  # each selected block's run, scheduled games and ledger, for the board's validity unit
     for pair in sorted(chosen):
         source = chosen[pair]
         if source.manifest["run"]["benchmark_id"] != benchmark_id:
@@ -255,6 +264,8 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
         block = source.blocks().get(pair)
         if block is None:
             raise SnapshotError(f"source {source.path.name} lacks a complete {pair} matchup")
+        if config.validity is not None:
+            parts.append((source.path.name, source.scheduled(pair), source.rows))
         # The raw files stay intact. Give each source pair its own identity inside the temporary fit ledger.
         local_pairs = {index: next_pair + i for i, index in enumerate(sorted({row.pair_index for row in block}))}
         next_pair += len(local_pairs)
@@ -268,6 +279,10 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
                 entries_by_name[entry.name] = replace(entry, training_style_tags=spec.training_style_tags,
                                                     registered_at=spec.registered_at)
     entries = [entries_by_name[bot.name] for bot in config.bots]
+    # Each source passed the unit by itself; the sample this rating is fitted from must pass it too.
+    record = validity.evaluate_composition(config, parts)
+    if record is not None and record["verdict"] == "fail":
+        raise SnapshotError("the composed results fail the board's validity unit: " + "; ".join(record["failures"]))
     document, _ = leaderboard.build_leaderboard(rows, entries,
         anchor_bot_id=entries_by_name[config.rating_anchor].bot_id, base_seed=config.stats_seed,
         bootstrap_replicates=config.bootstrap_replicates, format=config.format, schema=store.LEADERBOARD_SCHEMA)
@@ -289,6 +304,8 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
         "sources": [receipts[name] for name in sorted(receipts)],
         "allow_unrated": not rated_only,
         **({"pending": sorted(pending)} if pending else {}),
+        # Written only for a board that names a validity unit, so earlier snapshots keep their bytes.
+        **({validity.MANIFEST_KEY: record} if record is not None else {}),
         "run": {"benchmark_id": benchmark_id, "label": checked_label(label), "status": "complete",
                 "rated": rated_only and all(source.manifest["run"]["rated"] for source in sources.values())},
         "validator": {"verdict": "pass", "decisions_checked": sum(row.decisions_checked for row in rows),

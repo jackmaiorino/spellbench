@@ -13,7 +13,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Mapping
 
-from ..arena import runner, snapshot, store
+from ..arena import runner, snapshot, store, validity
 from ..arena.config import BotSpec, TournamentConfig
 from ..arena.manifest import EngineFile
 from .. import builtins
@@ -62,6 +62,40 @@ def sources(directory: Path) -> list[snapshot.Source]:
     return found
 
 
+def failed_attempts(directory: Path, desired: TournamentConfig) -> dict[tuple[str, str], str]:
+    """Each matchup that a committed run scheduled under ``desired``'s evaluation conditions, with the same two
+    players, and that failed the board's validity unit: the matchup (sorted names) and that run's name.
+
+    Such a run stays published and excluded. Its matchups are not played again under the same evaluation, so a
+    later attempt cannot stand in for a failed one; a new evaluation (another ``evaluation_version``, engine or
+    bot) is a reviewed change of the definition. Unrated runs are never rated, so they bind nothing here.
+    """
+    expected = snapshot.contract(desired)
+    current = {bot.name: bot for bot in desired.bots}
+    attempts: dict[tuple[str, str], str] = {}
+    for run_dir in definition.published_runs(directory):
+        try:
+            manifest = store.read_json(run_dir / store.MANIFEST_NAME)
+        except store.StoreError:
+            continue
+        secrets = manifest.get("secrets")
+        if (validity.verdict(manifest.get(validity.MANIFEST_KEY)) != "fail" or not isinstance(secrets, dict)
+                or secrets.get("commitment_proof") is None):
+            continue
+        config = TournamentConfig.from_json(store.read_json(run_dir / store.CONFIG_NAME))
+        try:
+            if snapshot.contract(config) != expected:
+                continue
+        except snapshot.SnapshotError:
+            continue
+        played = {bot.name: bot for bot in config.bots}
+        for pair in config.matchups or ():
+            if all(name in current and snapshot.bot_inputs(played[name], config)
+                   == snapshot.bot_inputs(current[name], desired) for name in pair):
+                attempts[tuple(sorted(pair))] = run_dir.name
+    return attempts
+
+
 def prepare_benchmark(directory: Path, *, unrated: bool = False,
                       environ: Mapping[str, str] | None = None) -> tuple[str, ...]:
     """Fingerprint the current inputs and write the missing targets into benchmark.json.
@@ -102,6 +136,14 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
             f"{a} vs {b}" for a, b in dropped) + "; append rungs at the top, or start a new benchmark version")
     selected = snapshot.select_blocks(desired, found, rated_only=not unrated)
     missing = set(snapshot.required_matchups(desired)) - selected.keys()
+    failed = failed_attempts(directory, desired)
+    again = sorted(pair for pair in missing if pair in failed)
+    if again and not unrated:
+        raise definition.BenchmarkError(
+            "a committed run of this evaluation failed the board's validity unit and stays excluded: "
+            + ", ".join(f"{a} vs {b} (run {failed[(a, b)]})" for a, b in again)
+            + "; a failed evaluation is not replayed or topped up. To rate again, change the evaluation "
+            "(a new evaluation_version, engine or bot) and review that definition")
     panel = set(updated.opponent_panel)
     pending = {name for pair in missing for name in pair if name not in panel}
     if updated.ladder is not None:

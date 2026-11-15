@@ -208,6 +208,40 @@ def test_the_share_per_bot_is_its_own_threshold(tmp_path: Path) -> None:
     assert record["failures"] == ["bot entrant: 380 of 384 scheduled games ended natural, needs 381"]
 
 
+def test_small_runs_that_each_pass_can_fail_together(tmp_path: Path) -> None:
+    """Three one-block runs, each losing one game of the same ordered pairing: every run passes, the rating
+    composed from them does not."""
+    config = _board(tmp_path)
+    contexts = schedule(config, TEST_RUN_SECRET)
+    parts = []
+    for label, block in (("2026-11-01", 15), ("2026-11-02", 16), ("2026-11-03", 17)):
+        games = [context for context in contexts if context.matchup_index == block]
+        lost = next(context.game_index for context in games
+                    if (context.decks[0].catalog_id, context.decks[1].catalog_id) == ("Faeries", "Rally"))
+        rows = [_Row(context.game_index, "halted" if context.game_index == lost else "natural") for context in games]
+        alone = validity.evaluate_composition(config, [(label, games, rows)])
+        assert alone["verdict"] == "pass"  # 1 of 2 games of the pairing: one game is always allowed
+        parts.append((label, games, rows))
+    record = validity.evaluate_composition(config, parts)
+    assert record["verdict"] == "fail" and "exclusion" not in record
+    assert record["failures"] == ["deck pairing Faeries (p0) vs Rally (p1): 3 of 6 scheduled games ended natural, "
+                                  "needs 5"]
+    assert [(block["run"], block["matchup_index"], block["natural"], block["complete_pairs"])
+            for block in record["blocks"]] == [("2026-11-01", 15, 127, 63), ("2026-11-02", 16, 127, 63),
+                                               ("2026-11-03", 17, 127, 63)]
+    cell = next(pairing for pairing in record["pairings"] if pairing["decks"] == ["Faeries", "Rally"])
+    assert [run for run, _ in cell["not_natural"]] == ["2026-11-01", "2026-11-02", "2026-11-03"]
+    # With the 18-block run beside them the pairing has 42 scheduled games and may lose four.
+    whole = [("2026-11-04", list(contexts), [_Row(context.game_index) for context in contexts])]
+    assert validity.evaluate_composition(config, parts + whole)["verdict"] == "pass"
+    assert validity.evaluate_composition(_board(tmp_path, None), parts) is None
+
+
+def test_a_long_list_of_failures_is_cut_in_the_reason() -> None:
+    reason = validity.exclusion_reason([f"line {index}" for index in range(12)])
+    assert reason.endswith("line 7; and 4 more") and "line 8" not in reason
+
+
 def test_a_failing_verdict_keeps_a_run_unrated() -> None:
     facts = {"status": "complete", "verdict": "pass", "commitment_proof": TEST_PROOF,
              "allocation": small_allocation(), "engine_files": TEST_ENGINE_FILES}
@@ -354,6 +388,20 @@ def test_the_validator_recomputes_the_record(failing, tmp_path: Path) -> None:
                for failure in validate_tournament_dir(run_dir))
 
 
+def test_a_record_without_a_unit_fails_validation(tmp_path: Path) -> None:
+    directory = tmp_path / "fixture"
+    raw = _definition(directory, ["Burn", "Elves"])
+    del raw["validity"]
+    write_definition(directory, raw)
+    panel.prepare_benchmark(directory)
+    run_dir = play(directory, "2026-10-01").tournament_dir
+    manifest = json.loads((run_dir / "manifest.json").read_bytes())
+    manifest["validity"] = {"verdict": "pass"}
+    (run_dir / "manifest.json").write_bytes(store.canonical_bytes(manifest) + b"\n")
+    assert any("manifest validity is present, but config.json names no validity unit" in failure
+               for failure in validate_tournament_dir(run_dir))
+
+
 def test_a_failing_run_is_excluded_by_its_own_record(failing, tmp_path: Path) -> None:
     directory, summary = failing
     benchmark = definition.load_benchmark(directory)
@@ -375,8 +423,43 @@ def test_a_failing_run_is_excluded_by_its_own_record(failing, tmp_path: Path) ->
     assert any("runs/2026-10-01: excluded from measurement: failed the board's validity unit" in warning
                for warning in warnings)
     assert not (tmp_path / "site" / "b" / directory.name).exists()
-    # The failing run is kept, never topped up: preparation schedules the whole evaluation again.
-    assert set(panel.prepare_benchmark(directory)) == {"uniform", "heuristic"}
+
+
+def test_a_failed_evaluation_is_not_replayed_under_the_same_conditions(failing, tmp_path: Path) -> None:
+    directory, _ = failing
+    target = tmp_path / directory.name
+    shutil.copytree(directory, target)
+    before = (target / "benchmark.json").read_bytes()
+    assert panel.failed_attempts(target, panel.full_config(definition.load_benchmark(target))) == {
+        ("heuristic", "uniform"): "2026-10-01"}
+    with pytest.raises(definition.BenchmarkError, match=r"heuristic vs uniform \(run 2026-10-01\); a failed "
+                                                        "evaluation is not replayed or topped up"):
+        panel.prepare_benchmark(target)
+    assert (target / "benchmark.json").read_bytes() == before
+    # A changed evaluation is a new definition: everything is scheduled again, and the failed run stays a record.
+    raw = json.loads(before)
+    raw["evaluation_version"] = "fixture-v2"
+    write_definition(target, raw)
+    assert set(panel.prepare_benchmark(target)) == {"uniform", "heuristic"}
+    assert (target / "runs" / "2026-10-01" / "manifest.json").is_file()
+
+
+def test_a_hand_typed_exclusion_keeps_its_reason(failing, tmp_path: Path) -> None:
+    directory, _ = failing
+    target = tmp_path / directory.name
+    shutil.copytree(directory, target)
+    raw = json.loads((target / "benchmark.json").read_bytes())
+    raw["excluded_runs"] = [{"run": "2026-10-01", "reason": "typed by hand"}]
+    write_definition(target, raw)
+    assert definition.excluded_runs(target) == (("2026-10-01", "typed by hand"),)
+
+
+def test_an_unreadable_manifest_excludes_nothing(tmp_path: Path) -> None:
+    run_dir = tmp_path / "2026-10-01"
+    run_dir.mkdir()
+    assert validity.run_exclusion(run_dir) is None
+    (run_dir / "manifest.json").write_bytes(b"[1,2]\n")
+    assert validity.run_exclusion(run_dir) is None
 
 
 def test_a_snapshot_never_cites_a_failing_run(failing) -> None:
@@ -400,7 +483,22 @@ def test_a_passing_run_is_rated_and_composes(passing, tmp_path: Path) -> None:
     shutil.copytree(directory, target)
     composed = panel.compose_benchmark(target, date="2026-10-01")
     assert validate_tournament_dir(composed) == []
-    assert store.read_json(composed / store.MANIFEST_NAME)["contract"]["validity"] == UNIT
+    published = store.read_json(composed / store.MANIFEST_NAME)
+    assert published["contract"]["validity"] == UNIT
+    # The snapshot carries the unit applied to the blocks it combines, with their scheduled denominators.
+    assert published["validity"]["verdict"] == "pass" and "exclusion" not in published["validity"]
+    assert [(block["run"], block["scheduled"], block["natural"]) for block in published["validity"]["blocks"]] == [
+        ("2026-10-01", 8, 8)]
+    # A composed sample that fails the unit is not published, rated or as an unrated preview.
+    failed = {**published["validity"], "verdict": "fail", "failures": ["deck pairing Burn (p0) vs Elves (p1): thin"]}
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(validity, "evaluate_composition", lambda config, parts: failed)
+        for unrated in (False, True):
+            with pytest.raises(snapshot.SnapshotError, match="the composed results fail the board's validity unit: "
+                                                             "deck pairing Burn"):
+                panel.compose_benchmark(target, unrated=unrated, date="2026-10-02")
+        assert validate_tournament_dir(composed) != []  # and a published one would not validate
+    assert not (target / "snapshots" / "2026-10-02").exists()
     # The unit is part of the evaluation: another unit matches no played block.
     raw = json.loads((target / "benchmark.json").read_bytes())
     raw["validity"] = {**UNIT, "pairing_natural_permille": 950}

@@ -17,19 +17,24 @@ The unit ``spellbench-validity/v1`` holds four thresholds, each in thousandths:
 - ``pairing_natural_permille``: per ordered deck pairing (the deck of seat ``p0``, then the deck of seat ``p1``),
   the natural games over every block of the run. The games a pairing may lose are
   ``max(1, scheduled - ceil(scheduled * permille / 1000))``: one game that is not natural never fails a pairing by
-  itself, and a pairing that stops ending naturally fails the run even when every block passes.
+  itself (also at 1000), and a pairing that stops ending naturally fails the run even when every block passes.
+
+:func:`evaluate_composition` applies the same unit to a rating composed from blocks of several runs: a snapshot is
+published only when the composed sample passes too, and its manifest carries that record.
 
 :func:`evaluate` returns the record a manifest publishes under ``validity``: the unit, the verdict, the three
 tables, one line per failed threshold, and, for a failing run, the generated exclusion record. A run that fails is
 still published in full; it is not rated (``manifest.is_rated``), its leaderboard withholds every rating, and
-``bench compose`` and the site leave it out (:func:`run_exclusion`). Nothing here reads outcomes: who won never
-enters the verdict.
+``bench compose`` and the site leave it out (:func:`run_exclusion`). ``bench prepare`` does not schedule its
+matchups again under the same evaluation. Nothing here reads outcomes: who won never enters the verdict. A forfeit
+is not natural, so a bot that forfeits more than the unit allows fails the run for both bots of the block.
 
 Configs without the field get no record, so runs of earlier boards keep their bytes.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
@@ -57,67 +62,73 @@ def _deck_label(deck: DeckSpec) -> str:
     return deck.catalog_id if deck.catalog_id is not None else str(deck.name)
 
 
-def evaluate(
-    config: TournamentConfig, contexts: Sequence[GameContext], rows: Sequence[LedgerRow], *, run_label: str | None
-) -> dict[str, Any] | None:
-    """The manifest's ``validity`` record for ``rows`` under ``config``'s unit, or None when it names none.
+@dataclass(frozen=True)
+class _Game:
+    """One scheduled game as the thresholds read it."""
 
-    ``contexts`` is ``schedule(config, run_secret)``: every denominator comes from it. A ledger row counts for the
-    scheduled game with its ``game_index``; rows outside the schedule count for nothing (the validator reports
-    them). ``run_label`` names the run in a failing run's exclusion record.
-    """
-    unit = config.validity
-    if unit is None:
-        return None
+    block: Any  # the key of its block
+    pair: int  # its pair within the block
+    names: tuple[str, str]  # the bots at p0 and p1
+    decks: tuple[str, str]  # the deck labels at p0 and p1
+    ref: Any  # how a pairing's ``not_natural`` list names the game
+    row: Any  # its ledger row, or None when it was not played
+
+
+def _scheduled(contexts: Sequence[GameContext], rows: Sequence[LedgerRow], *, block: Any, ref: Any) -> list[_Game]:
+    """Each scheduled game of ``contexts`` with the ledger row of its ``game_index``; ``block`` and ``ref`` map a
+    context to its block key and its reference. Rows outside ``contexts`` count for nothing."""
     played = {row.game_index: row for row in rows}
+    return [_Game(block=block(context), pair=context.pair_index,
+                  names=(context.seat_specs[0][1].name, context.seat_specs[1][1].name),
+                  decks=(_deck_label(context.decks[0]), _deck_label(context.decks[1])),
+                  ref=ref(context), row=played.get(context.game_index)) for context in contexts]
 
-    def natural(context: GameContext) -> bool:
-        row = played.get(context.game_index)
-        return row is not None and row.classification == "natural"
 
-    blocks: dict[int, dict[str, Any]] = {}
-    pairs: dict[tuple[int, int], list[bool]] = {}
+def _judge(config: TournamentConfig, games: Sequence[_Game], blocks: dict[Any, dict[str, Any]],
+           labels: dict[Any, str]) -> dict[str, Any]:
+    """The unit, the verdict, the three tables and the failed thresholds of ``games``. ``blocks`` holds each
+    block's leading fields, in table order, and ``labels`` how a failure line names it."""
+    unit = config.validity
+    assert unit is not None
+    pairs: dict[tuple[Any, int], list[bool]] = {}
     rungs: dict[str, dict[str, Any]] = {}
     pairings: dict[tuple[str, str], dict[str, Any]] = {}
-    for context in contexts:
-        row = played.get(context.game_index)
-        names = [spec.name for _, spec in context.seat_specs]
-        block = blocks.setdefault(context.matchup_index, {
-            "matchup_index": context.matchup_index,
+    for game in games:
+        natural = game.row is not None and game.row.classification == "natural"
+        block = blocks[game.block]
+        if "scheduled" not in block:
             # The two bots in the order of the block's first game (seat p0, then p1).
-            "bots": list(names),
-            "scheduled": 0, "played": 0, "natural": 0, "forfeit": 0, "halted": 0, "truncated": 0, "missing": 0,
-        })
+            block.update(bots=list(game.names), scheduled=0, played=0, natural=0, forfeit=0, halted=0, truncated=0,
+                         missing=0)
         block["scheduled"] += 1
-        if row is None:
+        if game.row is None:
             block["missing"] += 1
         else:
             block["played"] += 1
-            block[row.classification] += 1
-        pairs.setdefault((context.matchup_index, context.pair_index), []).append(row is not None and row.rated)
-        for name in dict.fromkeys(names):  # a self-play game is one scheduled game of its bot
+            block[game.row.classification] += 1
+        pairs.setdefault((game.block, game.pair), []).append(game.row is not None and game.row.rated)
+        for name in dict.fromkeys(game.names):  # a self-play game is one scheduled game of its bot
             rung = rungs.setdefault(name, {"name": name, "scheduled": 0, "natural": 0})
             rung["scheduled"] += 1
-            rung["natural"] += natural(context)
-        decks = (_deck_label(context.decks[0]), _deck_label(context.decks[1]))
-        pairing = pairings.setdefault(decks, {"decks": list(decks), "scheduled": 0, "natural": 0, "not_natural": []})
+            rung["natural"] += natural
+        pairing = pairings.setdefault(game.decks, {"decks": list(game.decks), "scheduled": 0, "natural": 0,
+                                                   "not_natural": []})
         pairing["scheduled"] += 1
-        if natural(context):
+        if natural:
             pairing["natural"] += 1
         else:
-            pairing["not_natural"].append(context.game_index)
+            pairing["not_natural"].append(game.ref)
 
     failures: list[str] = []
     block_rows = []
-    for index in sorted(blocks):
-        block = blocks[index]
-        scheduled_pairs = sum(1 for key in pairs if key[0] == index)
-        complete = sum(1 for key, games in pairs.items() if key[0] == index and len(games) == 2 and all(games))
+    for key, block in blocks.items():
+        scheduled_pairs = sum(1 for pair in pairs if pair[0] == key)
+        complete = sum(1 for pair, rated in pairs.items() if pair[0] == key and len(rated) == 2 and all(rated))
         block["natural_min"] = at_least(block["scheduled"], unit.block_natural_permille)
         block["pairs_scheduled"] = scheduled_pairs
         block["complete_pairs"] = complete
         block["complete_pairs_min"] = at_least(scheduled_pairs, unit.block_complete_pairs_permille)
-        label = f"block {index} ({block['bots'][0]} vs {block['bots'][1]})"
+        label = f"{labels[key]} ({block['bots'][0]} vs {block['bots'][1]})"
         if block["natural"] < block["natural_min"]:
             failures.append(f"{label}: {block['natural']} of {block['scheduled']} scheduled games ended natural, "
                             f"needs {block['natural_min']}")
@@ -146,23 +157,73 @@ def evaluate(
                             f"{pairing['natural']} of {pairing['scheduled']} scheduled games ended natural, "
                             f"needs {pairing['natural_min']}")
         pairing_rows.append(pairing)
-    record: dict[str, Any] = {
+    return {
         "unit": unit.to_json(),
         "verdict": "fail" if failures else "pass",
         "blocks": block_rows,
         "rungs": rung_rows,
         "pairings": pairing_rows,
         "failures": failures,
-        "exclusion": None,
     }
-    if failures:
-        record["exclusion"] = {"run": run_label, "reason": exclusion_reason(failures)}
+
+
+def evaluate(
+    config: TournamentConfig, contexts: Sequence[GameContext], rows: Sequence[LedgerRow], *, run_label: str | None
+) -> dict[str, Any] | None:
+    """The manifest's ``validity`` record for ``rows`` under ``config``'s unit, or None when it names none.
+
+    ``contexts`` is ``schedule(config, run_secret)``: every denominator comes from it. A ledger row counts for the
+    scheduled game with its ``game_index``; rows outside the schedule count for nothing (the validator reports
+    them). ``run_label`` names the run in a failing run's exclusion record.
+    """
+    if config.validity is None:
+        return None
+    games = _scheduled(contexts, rows, block=lambda context: context.matchup_index,
+                       ref=lambda context: context.game_index)
+    indexes = sorted({game.block for game in games})
+    record = _judge(config, games, {index: {"matchup_index": index} for index in indexes},
+                    {index: f"block {index}" for index in indexes})
+    record["exclusion"] = None
+    if record["failures"]:
+        record["exclusion"] = {"run": run_label, "reason": exclusion_reason(record["failures"])}
     return record
 
 
+def evaluate_composition(
+    config: TournamentConfig, parts: Sequence[tuple[str, Sequence[GameContext], Sequence[LedgerRow]]]
+) -> dict[str, Any] | None:
+    """The validity record of a rating composed from blocks of several runs, or None when ``config`` names no unit.
+
+    Each part is one selected block: its run's label, that block's scheduled games (from the run's own schedule)
+    and the run's ledger rows. Every run passed the unit by itself, but the thresholds hold for the sample a
+    rating is fitted from: one lost game of the same deck pairing in each of several small runs passes each run
+    and can still fail the pairing over the whole. A snapshot is published only when this record passes.
+    """
+    if config.validity is None:
+        return None
+    games: list[_Game] = []
+    blocks: dict[Any, dict[str, Any]] = {}
+    labels: dict[Any, str] = {}
+    for label, contexts, rows in parts:
+        for context in contexts:
+            key = (label, context.matchup_index)
+            blocks.setdefault(key, {"run": label, "matchup_index": context.matchup_index})
+            labels.setdefault(key, f"run {label} block {context.matchup_index}")
+        games += _scheduled(contexts, rows, block=lambda context, label=label: (label, context.matchup_index),
+                            ref=lambda context, label=label: [label, context.game_index])
+    return _judge(config, games, blocks, labels)
+
+
+# The failed thresholds an exclusion reason spells out; the record's ``failures`` lists every one.
+REASON_LINES = 8
+
+
 def exclusion_reason(failures: Sequence[str]) -> str:
-    """The generated reason of a failing run's exclusion record: the unit and every failed threshold."""
-    return f"failed the board's validity unit ({UNIT_V1}): " + "; ".join(failures)
+    """The generated reason of a failing run's exclusion record: the unit and the first failed thresholds."""
+    shown = list(failures[:REASON_LINES])
+    if len(failures) > REASON_LINES:
+        shown.append(f"and {len(failures) - REASON_LINES} more")
+    return f"failed the board's validity unit ({UNIT_V1}): " + "; ".join(shown)
 
 
 def withheld_reason(record: dict[str, Any] | None) -> str | None:
@@ -188,7 +249,7 @@ def run_exclusion(run_dir: Path) -> tuple[str, str] | None:
         manifest = store.read_json(run_dir / store.MANIFEST_NAME)
     except store.StoreError:
         return None
-    record = manifest.get(MANIFEST_KEY)
+    record = manifest.get(MANIFEST_KEY) if isinstance(manifest, dict) else None
     if verdict(record) != "fail":
         return None
     exclusion = record.get("exclusion")

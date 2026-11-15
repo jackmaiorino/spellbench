@@ -358,8 +358,9 @@ def build_leaderboard(
     ``withheld`` is the reason a run publishes no rating (it failed its
     board's validity unit, ``validity.py``): the document then has status
     ``withheld`` and keeps the game counts, each bot's W/D/L and attribution
-    and the matchup records, with no rating, interval, rank, subrating, deck
-    slice or deck grid.
+    and the matchup records (their observed scores and score intervals,
+    which are not ratings), with no rating, rating interval, rank,
+    subrating, deck slice or deck grid.
     """
     if schema not in (LEADERBOARD_SCHEMA_V1, LEADERBOARD_SCHEMA_V2):
         raise ValueError(f"unknown leaderboard schema: {schema!r}")

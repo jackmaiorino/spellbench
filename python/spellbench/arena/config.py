@@ -68,7 +68,8 @@ class TournamentError(Exception):
 
 @dataclass(frozen=True)
 class ValidityUnit:
-    """A board's validity thresholds, in thousandths (``arena/validity.py`` computes the verdict)."""
+    """A board's validity thresholds, in thousandths (``arena/validity.py`` computes the verdict). The pairing
+    threshold always allows one game, at 1000 too."""
 
     block_natural_permille: int
     block_complete_pairs_permille: int
