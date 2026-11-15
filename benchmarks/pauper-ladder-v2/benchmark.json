@@ -320,7 +320,7 @@
         "label": "Basilisk 1 + search (16k, 4 workers)",
         "author": "mipo",
         "url": null,
-        "description": "The Basilisk 1 policy (oh2-r2s1-b512) with root-parallel s4a search: 4 single-threaded trees share 16,000 native transitions per searched decision, under a per-game allowance metered in transitions, never the clock, so reruns are identical on any host. It searches only the information-set payload the engine attaches (x_kernel_infoset_v1), never hidden state, and plays the sampled policy on every refusal, fault or allowance shortfall. The W1 search entrant; its constants are frozen in integrations/mtg_kernel/entrants/oh2-r2s1-b512-s4a-16k-k4.json. Placed on the 3 rungs nearest its unrated soak against b512 (61-67, provisional 1503)."
+        "description": "The Basilisk 1 policy (oh2-r2s1-b512) with root-parallel s4a search: 4 single-threaded trees share 16,000 native transitions per searched decision, under a per-game allowance metered in transitions, never the clock, so reruns are identical on any host. It searches only the information-set payload the engine attaches (x_kernel_infoset_v1), never hidden state, and plays the sampled policy on every refusal, fault or allowance shortfall. The W1 search entrant; its constants are frozen in integrations/mtg_kernel/entrants/oh2-r2s1-b512-s4a-16k-k4.json. Placed on the 3 rungs nearest its unrated soak against b512 (61-67, provisional 1503). Its 2.0.0 placement is a record of that version; on 2.1.0 it is pending until its own entrant-only re-rate."
       },
       "evaluation_identity": "0b0fea989fd6ec03b84ac620f574cb37f9c71626b88ec940a24dd23b92de0122"
     },
