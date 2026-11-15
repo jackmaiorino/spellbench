@@ -66,7 +66,16 @@ identity from `bench prepare` in a clean checkout before committing.
 runs the adapter bytes of main at bb20077 (`kernel_history_v2.py` b41e376a
 and `kernel_observation_v2.py` 3bfc00de from spellbench d4dcb42; the other
 files are unchanged since 0c486ed), so resolve its engine placeholders to an
-export of that commit. Its rule for a committed definition: `spellbench
+export of that commit. Its engine command is the plain adapter
+`kernel_engine_v2.py` (placeholder `MTG_KERNEL_V2_ENGINE`), without
+`x_kernel_infoset_v1`: on this bridge the information-set exporter halts
+when a token sits in a hand (I1, mtg-kernel#713), which off-mirror Faeries
+games reach. A bot that needs the export joins later through a per-block
+opt-in under a new evaluation version, with the exporter fixed first;
+nothing in this definition's schema stands in the way (the extensions are a
+field of the definition and of the snapshot contract, which a new
+evaluation version replaces).
+Its rule for a committed definition: `spellbench
 bench prepare benchmarks/pauper-ladder-v3 --check`, run from a clean
 checkout of the default branch with the pinned `python.exe` and with every
 placeholder resolved from `benchmarks/local.json`, must print OK before

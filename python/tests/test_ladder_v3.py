@@ -37,6 +37,9 @@ RUNGS = ["uniform", "heuristic", "c12", "gorge-ar8", "g115", "oh2-r2s1-b512", "o
 def test_the_board_plays_every_ordered_pairing_in_every_block() -> None:
     benchmark = definition.load_benchmark(BOARD)
     assert benchmark.pairing == "all_pairs" and list(benchmark.opponent_panel) == RUNGS
+    # The plain adapter: the information-set exporter halts on a token in a hand, which off-mirror games reach.
+    assert benchmark.extensions == ("x_kernel_flat_v4", "x_public_history_v1")
+    assert benchmark.engine_command[1] == "${MTG_KERNEL_V2_ENGINE}"
     assert len(benchmark.deck_pool) == 8 and benchmark.evaluation_version == "pauper-ladder-v3.0.0"
     config = TournamentConfig.from_json(benchmark.tournament_config("runs/check"))
     games = schedule(config, TEST_RUN_SECRET)

@@ -252,7 +252,12 @@ validity unit, and v3 publishes no per-deck ratings, since one pair per deck
 pairing and matchup is too few. It has no rated run yet. Not in v3: the
 Terror deck and mulligans (a later version). The rated game still asks a
 player to order cards that reach the graveyard together, which training
-does not ask.
+does not ask. Evaluation 3.0.0 runs without the information-set export
+(`x_kernel_infoset_v1`): the exporter halts when a token is returned to its
+owner's hand (mtg-kernel#713; 18 of 336 Faeries games against the token
+decks in an unrated sweep, none without the export), and no scheduled bot
+reads it. A bot that needs it, the search entrant, joins later through a
+per-block opt-in under a new evaluation version, once the exporter is fixed.
 
 `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
 decks, not only mirrors, and adds a deck matchup matrix, deck Elo and each

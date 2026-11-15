@@ -10,8 +10,8 @@
    "mtg-kernel#476",
    "mtg-kernel#614 (its three commits, as mtg-kernel#705 into release/ladder-v2-4fccd3ebc)"
   ],
-  "later_pull_requests": "4fccd3ebc is the frozen W1 engine; d11d986d9 is 4fccd3ebc plus mtg-kernel#614 (a paid ninjutsu source no longer takes the turn-use stamp while it waits in hand, so the opponent infoset export does not halt on it; mtg-kernel#612) and nothing else. The board now enables x_kernel_infoset_v1 (mtg-kernel#466, #488, #489, #496, #497, #505 and the W1 export repairs through #541) through integrations/mtg_kernel/kernel_engine_infoset_v2.py; mtg-kernel#540 changes the order of equipment effects in the observation (public battlefield order, not arena ids)",
-  "adapter": "integrations/mtg_kernel/kernel_engine_infoset_v2.py (placeholder MTG_KERNEL_V2_INFOSET_ENGINE), which imports kernel_engine_v2.py and kernel_g6_digest.py; both are evaluation_engine_inputs. The adapter bytes are those of spellbench bb20077: kernel_history_v2.py and kernel_observation_v2.py carry spellbench d4dcb42 (the repair of the grid board's ProjectionError halts, issue 288), which the pauper-ladder-v2 pin did not; the other files are unchanged since 0c486ed",
+  "later_pull_requests": "4fccd3ebc is the frozen W1 engine; d11d986d9 is 4fccd3ebc plus mtg-kernel#614 (a paid ninjutsu source no longer takes the turn-use stamp while it waits in hand, so the opponent infoset export does not halt on it; mtg-kernel#612) and nothing else. This board does not enable x_kernel_infoset_v1 (board.infoset_off); mtg-kernel#540 changes the order of equipment effects in the observation (public battlefield order, not arena ids)",
+  "adapter": "integrations/mtg_kernel/kernel_engine_v2.py (placeholder MTG_KERNEL_V2_ENGINE), the plain adapter: the information-set extension is off in this evaluation (board.infoset_off). The adapter bytes are those of spellbench bb20077: kernel_history_v2.py and kernel_observation_v2.py carry spellbench d4dcb42 (the repair of the grid board's ProjectionError halts, issue 288), which the pauper-ladder-v2 pin did not; the other files are unchanged since 0c486ed",
   "build": "cargo build --release --locked -p mtg-kernel --bin agent_bridge_v1 --bin spellbench_qualify_v1 with CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=64, CARGO_PROFILE_RELEASE_INCREMENTAL=false, rust-lld (Windows x86_64 MSVC, rust 1.94.1), one invocation from the d11d986d9 checkout, pinned by sha256 in the build host's pinned-binaries store",
   "qualify_build": "spellbench_qualify_v1.exe built in the same invocation as agent_bridge_v1.exe",
   "host": "Windows build host (Windows 11, 24 logical CPUs), under a 4-core slot claim",
@@ -41,14 +41,12 @@
  "engine_bytes": {
   "rule": "The board pins the engine inputs by sha256 (evaluation_engine_inputs and the files named by the engine command). The placeholders resolve to an export of spellbench bb20077 for the adapter files, the pinned python.exe, the pinned catalog and the pinned bridge. Before `bench commit`, run `spellbench bench prepare benchmarks/pauper-ladder-v3 --check` from a clean checkout of the default branch, with the pinned python.exe and with every placeholder resolved from benchmarks/local.json: it must print OK. The check prepares the definition again and compares the bytes, so the engine identity, the nine bot identities and the 18 matchups are the committed ones; it refuses any placeholder of the definition that is also set in the process environment (usually MTG_KERNEL_V2_BRIDGE and MTG_KERNEL_PUBLIC_CATALOG; remove MTG_KERNEL_V2_SOURCE too), and the builtin bot identities hash the interpreter and the checkout's builtin bot sources. Drive `bench commit` and `bench run` the same way. A commitment cannot be redone.",
   "prepare_check": "`bench prepare --check` on this definition, 2026-11-15, in a scratch copy with the pinned python.exe and the bridge, catalog and source variables removed from the process: OK (the committed bytes are the prepared bytes). With the bridge and catalog variables set it refused; under another interpreter it reported the two builtin bot identities as different. Rerun it from a clean checkout of the default branch before `bench commit`.",
-  "evaluation_engine_identity": "c6c703936ed653d0953a03a2eedd5f0adfa3e210585c47e1a6e128813ea77e10",
+  "evaluation_engine_identity": "afbc4836322ef52011594819a5de0b87a2a8a39350b8a9cd1762020c5ab424ad",
   "inputs_sha256": {
    "agent_bridge_v1.exe": "f8bae9fd2e03214cd98d5d9259d32af569864f5885f8ed58d2c6bb982033bc28",
    "pauper-v2-catalog.json": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e",
    "python.exe": "623f669041a962346e6a377408193e628bfc409d12e5851042a727685980813e",
-   "kernel_engine_infoset_v2.py": "84b72bbc63e99a290f9e09d7e03485bdc094581cad80077a18191ca84f3ac137",
    "kernel_engine_v2.py": "163aaf2fa222efa1cb13bacc19d54094305ffbf59932e1198cb23f623c0dd0d5",
-   "kernel_g6_digest.py": "e524e60feb041b93eaa8542e07df36bc268e1ef3460389ddfe6efa45fe146d11",
    "kernel_observation_v2.py": "3bfc00deeba9eb30174dcb6ec8d84dc2b750d33843858c422e298bcb884a1ba5",
    "kernel_semantics_v2.py": "30c1ec14ccb11f4d5a484846f684125b0b16c6158f849adb445952f14f9d00bf",
    "kernel_combat_v2.py": "a3c1b6d040cd1e1de1f94bf81954faf6bd83abed2832b4ef39c0f2f124ff830a",
@@ -57,13 +55,25 @@
    "kernel_order_v2.py": "aaa22d362d42ba4f251923deb6c494fa60b69b7fb34fdd191add37271ccf309b",
    "kernel_history_v2.py": "b41e376aaa967a7040414f545ea7ec8aea87697961c7b64d65c6dbbdf8b80279"
   },
-  "against_pauper-ladder-v2_2.1.0": "Only kernel_history_v2.py and kernel_observation_v2.py differ from that board's engine files (spellbench d4dcb42). The bridge, the scorer, the catalog, python.exe and the other eight adapter files are byte for byte the same, and all nine bot identities are equal to that board's."
+  "against_pauper-ladder-v2_2.1.0": "Only kernel_history_v2.py and kernel_observation_v2.py differ from that board's engine files (spellbench d4dcb42). The bridge, the scorer, the catalog, python.exe and the other adapter files are byte for byte the same, and all nine bot identities are equal to that board's. This board's engine command is kernel_engine_v2.py, so kernel_engine_infoset_v2.py and kernel_g6_digest.py are not engine inputs here."
  },
  "board": {
   "games": "15 rung matchups (7 rungs, band 3) plus 3 entrant matchups of chains-a-c4-u1048576 (Basilisk 2) against g115, oh2-r2s1-b512 and oh2-r2s1-b512-argmax: 18 blocks of 64 seat-swapped pairs, one pair per ordered pairing of the eight decks, 128 games a block, 2,304 games",
   "deferred": "oh2-r2s1-b512-s4a-16k-k4 is in deferred_entrants: it stays in the roster, bench prepare schedules none of its blocks, and the board lists it as pending until its own entrant-only run. Its placement on pauper-ladder-v2 is a record of that board and not a rating here.",
   "validity": "Enforced by code (unit spellbench-validity/v1 in benchmark.json, docs/design/2026-11-15-validity-unit.md). Every denominator is the scheduled count. Per block: at least 125 of 128 games natural and at least 63 of 64 pairs complete. Per bot: at least 97% of its scheduled games natural. Per ordered deck pairing over the run: at least 33 of 36 games natural (90%, one game always allowed). Forfeits of any cause, halts, truncations and games not played count against natural. `bench run` writes the verdict and the tables into the manifest. A failing run is published in full and revealed, is not rated, shows no rating, is excluded by its own record, and is never topped up or replaced: bench prepare does not schedule its matchups again under this evaluation. `bench compose` applies the unit again to the blocks it combines.",
   "number": "A rating is Elo against the reference bots over every ordered pairing of the eight decks. Unequal decks pull scores toward even, so the scale is this board's own: no v3 number is compared with a pauper-ladder-v2 or pauper-grid-v1 number. Per-deck ratings are not published (deck_slices false).",
+  "infoset_off": {
+   "ruling": "Evaluation 3.0.0 runs without x_kernel_infoset_v1. The exporter halts with engine_fault:infoset:I1 when a token is returned to its owner's hand and a decision is posed before it ceases to exist (Snap on an opposing token; mtg-kernel#713). Mirror matches never reach it. No scheduled bot reads the export. A bot that needs it (the search entrant) joins later through a per-block opt-in under a new evaluation version, with the exporter fixed first; the extensions are a field of the definition and of the snapshot contract, so nothing in this evaluation's schema stands in the way.",
+   "play_is_unchanged": {
+    "what": "The same scheduled games (same config, run secret, game secrets and bot seeds) played with the extension and without it, the engine traffic recorded by a line tap. Sample 1: the sweep run above with the extension, its 18 halted games and 25 natural Faeries off-mirror games. Sample 2: this board's 18 blocks under a fresh secret, 3 off-mirror pairs in each block: 108 games, 54 ordered deck pairings, every deck on the play and on the draw, every scheduled bot.",
+    "natural_in_both": 133,
+    "natural_games_result": "every ledger field equal except game_digest, which chains the engine traffic and so names the enabled extensions; the traffic is identical message for message once the extension's own payload and name are removed, with the one field the information-set path adds to the x_kernel_flat_v4 payload (known_hand_masked_observation_sha256, read only by the search bot)",
+    "halted_with_the_extension": 18,
+    "halted_games_result": "each matches the game without the extension message for message up to the request the halt answered, and ends naturally without it",
+    "messages_compared": 46042,
+    "differences": 0
+   }
+  },
   "not_in_this_board": "The Terror deck and mulligans (a later version). The rated game still asks a player to order cards that reach the graveyard together; the pinned bridge has no option to remove that prompt, and training does not ask it."
  },
  "audits": {
@@ -148,7 +158,55 @@
   "paid_ninjutsu_repair": {
    "carried": "see benchmarks/pauper-ladder-v2/ENGINE-AUDITS.json: the bridge is the same binary"
   },
-  "faeries_sweep": "pending: played after this definition merges and recorded here before any commitment",
+  "faeries_sweep": {
+   "what": "Unrated, on the pinned bridge and this board's adapter bytes, judged by the board's validity unit: every ordered pairing of Faeries, Rally and CawGates (the grid board's halts sat in Faeries cells against those two decks); a round robin of uniform, heuristic, gorge-ar8, g115, oh2-r2s1-b512, oh2-r2s1-b512-argmax and chains-a-c4-u1048576; 18 pairs a matchup, 21 matchups, 756 games, 336 of them Faeries against Rally or CawGates. Played twice, each run under its own secret.",
+   "result": "pass on this board's engine command; fail with the information-set extension",
+   "this_board": {
+    "engine_command": "kernel_engine_v2.py without x_kernel_infoset_v1 (this board's command)",
+    "games": 756,
+    "natural": 756,
+    "halted": 0,
+    "truncated": 0,
+    "forfeit": 0,
+    "faeries_off_mirror": "336 of 336 natural",
+    "validity_verdict": "pass",
+    "not_natural_by_ordered_pairing": {},
+    "halt_reasons": {},
+    "timing": {
+     "workers": 8,
+     "one_worker_seconds_per_game": 2.73,
+     "play_wall_seconds": 506,
+     "games_per_hour": 5379
+    }
+   },
+   "with_the_information_set_extension": {
+    "engine_command": "kernel_engine_infoset_v2.py with x_kernel_infoset_v1 (the pauper-ladder-v2 command)",
+    "games": 756,
+    "natural": 738,
+    "halted": 18,
+    "truncated": 0,
+    "forfeit": 0,
+    "faeries_off_mirror": "318 of 336 natural",
+    "validity_verdict": "fail",
+    "not_natural_by_ordered_pairing": {
+     "Faeries then Rally": 8,
+     "Rally then Faeries": 2,
+     "Faeries then CawGates": 1,
+     "CawGates then Faeries": 7
+    },
+    "halt_reasons": {
+     "engine_fault:infoset:I1": 18
+    },
+    "timing": {
+     "workers": 8,
+     "one_worker_seconds_per_game": 3.31,
+     "play_wall_seconds": 699,
+     "games_per_hour": 3894
+    },
+    "validity_failures": "18 lines: 11 of 21 blocks, 3 bots"
+   },
+   "date": "2026-11-15"
+  },
   "unrated_board_pass": "pending: played after this definition merges and recorded here before any commitment"
  },
  "rule": "Rerun every audit above on the pinned binaries, and replace this receipt, whenever the engine behind this board changes. The board rates no games on an engine without a passing receipt."
