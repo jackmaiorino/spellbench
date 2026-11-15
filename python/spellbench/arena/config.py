@@ -449,6 +449,7 @@ class TournamentConfig:
     ladder: Ladder | None = None
     deck_pairing: str = "mirror"
     validity: ValidityUnit | None = None  # the board's validity unit; None for boards that name none
+    deck_slices: bool = True  # False: the leaderboard publishes no per-deck ratings (too few pairs per deck)
 
     def deck_cycle(self) -> tuple[tuple[DeckSpec, DeckSpec], ...]:
         """The (p0, p1) deck pairings that pairs cycle through, in schedule order.
@@ -581,6 +582,8 @@ class TournamentConfig:
             doc["ladder"] = self.ladder.to_json()
         if self.validity is not None:  # written only when the board names a unit, so earlier configs keep their bytes
             doc["validity"] = self.validity.to_json()
+        if not self.deck_slices:  # likewise
+            doc["deck_slices"] = False
         return doc
 
     @classmethod
@@ -624,6 +627,7 @@ class TournamentConfig:
             "ladder",
             "deck_pairing",
             "validity",
+            "deck_slices",
         }
         required = {
             "schema",
@@ -746,6 +750,9 @@ class TournamentConfig:
             if not {frozenset(pair) for pair in matchups} <= ladder_pairs(tuple(panel), ladder):
                 raise TournamentError("config.matchups: a ladder config plays only ladder matchups")
         validity = ValidityUnit.from_json(value["validity"], f"{context}.validity") if "validity" in value else None
+        deck_slices = value.get("deck_slices", True)
+        if type(deck_slices) is not bool:
+            raise TournamentError(f"{context}.deck_slices: must be true or false")
         stats_seed = _req_uint(value["stats_seed"], f"{context}.stats_seed")
         rules = RulesSpec.from_json(value["rules"], f"{context}.rules") if "rules" in value else RulesSpec()
         raw_extensions = value.get("extensions", [])
@@ -846,4 +853,5 @@ class TournamentConfig:
             ladder=ladder,
             deck_pairing=deck_pairing,
             validity=validity,
+            deck_slices=deck_slices,
         )

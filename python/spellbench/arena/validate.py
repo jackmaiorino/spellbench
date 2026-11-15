@@ -735,7 +735,7 @@ def _check_leaderboard(
         document, markdown = leaderboard.build_leaderboard(
             rows, [entries[spec.name] for spec in config.bots], anchor_bot_id=entries[config.rating_anchor].bot_id,
             base_seed=config.stats_seed, bootstrap_replicates=config.bootstrap_replicates, format=config.format,
-            schema=leaderboard.LEADERBOARD_SCHEMA_V2, withheld=withheld,
+            schema=leaderboard.LEADERBOARD_SCHEMA_V2, withheld=withheld, deck_slices=config.deck_slices,
         )
     except Exception as exc:  # noqa: BLE001 - fail closed
         failures.append(f"the leaderboard cannot be recomputed from {store.LEDGER_NAME}: {exc}")

@@ -62,6 +62,39 @@ pinned ones (`engine_bytes` in `ENGINE-AUDITS.json`). The engine and builtin bot
 removed from the launch process environment (including any user-level value it inherits), and check the printed engine
 identity from `bench prepare` in a clean checkout before committing.
 
+`pauper-ladder-v3` keeps that bridge, scorer, catalog and interpreter and
+runs the adapter bytes of main at bb20077 (`kernel_history_v2.py` b41e376a
+and `kernel_observation_v2.py` 3bfc00de from spellbench d4dcb42; the other
+files are unchanged since 0c486ed), so resolve its engine placeholders to an
+export of that commit. Its engine command is the plain adapter
+`kernel_engine_v2.py` (placeholder `MTG_KERNEL_V2_ENGINE`), without
+`x_kernel_infoset_v1`: on this bridge the information-set exporter halts
+when a token sits in a hand (I1, mtg-kernel#713), which off-mirror Faeries
+games reach. A bot that needs the export joins later through a per-block
+opt-in under a new evaluation version, with the exporter fixed first.
+Evaluation 3.0.0 does not offer per-block extensions and does not forbid
+them: the extensions are a field of the definition and of the snapshot
+contract, and a later evaluation version defines the opt-in.
+Its rule for a committed definition: `spellbench
+bench prepare benchmarks/pauper-ladder-v3 --check`, run from a clean
+checkout of the default branch with the pinned `python.exe` and with every
+placeholder resolved from `benchmarks/local.json`, must print OK before
+`bench commit`. The check prepares the definition again and compares the
+bytes, so the engine identity, every bot identity and the schedule are the
+committed ones. It refuses any placeholder of the definition that is also
+set in the process environment (`MTG_KERNEL_V2_BRIDGE` and
+`MTG_KERNEL_PUBLIC_CATALOG` are the usual ones; also remove
+`MTG_KERNEL_V2_SOURCE`, which earlier definitions read), because a set
+variable wins over the local values. The builtin bot identities hash the
+interpreter and the checkout's own builtin bot sources, so the check
+reports them as different under another interpreter or a changed checkout.
+The search entrant is listed in `deferred_entrants`, so the prepared file
+needs no hand edit. CI has no pinned binaries: with them, set
+`SPELLBENCH_PINNED_LOCAL` to the local values file and
+`SPELLBENCH_PINNED_PYTHON` to the pinned interpreter, and
+`pytest python/tests/test_ladder_v3.py -k pinned` makes the same check as
+a test.
+
 Every engine change behind a board needs fresh audits on the pinned binary
 before that board rates games: the history two-world audit, the
 `check_engine_v2` and `check_private_preview_v2` checks here, the gorge-ar8

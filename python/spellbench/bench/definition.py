@@ -46,6 +46,14 @@ pairing. It is part of every run's config, so changing it is a new
 evaluation. A run of such a board publishes the verdict and its tables in
 its manifest; a failing run stays published, is not rated, and is excluded
 by its own record (:func:`excluded_runs`), with no hand-typed entry.
+
+``deck_slices: false`` publishes no per-deck ratings (the leaderboard's
+``slices.deck``); the default publishes them.
+
+``deferred_entrants`` lists ladder entrants that stay in the roster while
+``bench prepare`` schedules none of their blocks: the board shows each as
+pending until a later definition takes it off the list. The file that
+``bench prepare`` writes is then the committed file, with no hand edit.
 """
 
 from __future__ import annotations
@@ -121,6 +129,8 @@ _OPTIONAL_FIELDS = (
     "ladder",
     "pairing",
     "validity",
+    "deck_slices",
+    "deferred_entrants",
     "extensions",
     "native_id_audits",
     "time_control",
@@ -210,6 +220,8 @@ class Benchmark:
     excluded_runs: tuple[tuple[str, str], ...] = ()  # (run name, reason)
     pairing: str = _ROTATING_POOL  # rotating_pool plays pool mirrors; all_pairs plays every pool deck pairing
     validity: ValidityUnit | None = None  # the board's validity unit (arena/validity.py); None names none
+    deck_slices: bool = True  # False publishes no per-deck ratings
+    deferred_entrants: tuple[str, ...] = ()  # ladder entrants bench prepare does not schedule yet
 
     def qualification_rules(self):
         from ..arena.qualification import current_rules
@@ -257,6 +269,8 @@ class Benchmark:
             document["deck_pairing"] = _ALL_PAIRS
         if self.validity is not None:
             document["validity"] = self.validity.to_json()
+        if not self.deck_slices:
+            document["deck_slices"] = False
         if self.opponent_panel:
             targets = {bot.name for bot in self.bots} if self.evaluation_targets is None else set(self.evaluation_targets)
             active = set(self.opponent_panel) | targets | {ANCHOR_BOT}
@@ -643,6 +657,15 @@ def parse_benchmark(value: Any) -> Benchmark:
             unit = ValidityUnit.from_json(document["validity"], "benchmark.validity")
         except TournamentError as exc:
             raise BenchmarkError(str(exc)) from exc
+    if type(document.get("deck_slices", True)) is not bool:
+        raise BenchmarkError("benchmark.deck_slices: must be true or false")
+    deferred = document.get("deferred_entrants", [])
+    if "deferred_entrants" in document and (
+        ladder is None or not isinstance(deferred, list) or not deferred
+        or any(type(name) is not str or name not in ladder.entrants for name in deferred)
+        or len(set(deferred)) != len(deferred)
+    ):
+        raise BenchmarkError("benchmark.deferred_entrants: must list distinct entrants of the ladder")
     identity = document.get("evaluation_engine_identity")
     if "evaluation_engine_identity" in document and (
         type(identity) is not str or not re.fullmatch(r"[0-9a-f]{64}", identity)
@@ -691,6 +714,8 @@ def parse_benchmark(value: Any) -> Benchmark:
         excluded_runs=tuple((item["run"], item["reason"]) for item in excluded),
         pairing=document.get("pairing", _ROTATING_POOL),
         validity=unit,
+        deck_slices=document.get("deck_slices", True),
+        deferred_entrants=tuple(deferred),
     )
     if benchmark.pairing == _ALL_PAIRS and benchmark.pairs_per_deck % len(benchmark.deck_pool):
         raise BenchmarkError(

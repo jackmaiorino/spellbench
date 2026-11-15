@@ -111,12 +111,58 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
     if pending:
         raise definition.BenchmarkError("pending committed runs freeze the definition; finish or reveal before "
                                         "bench prepare: " + ", ".join(pending))
+    data, targets = _prepared(directory, unrated=unrated, environ=os.environ if environ is None else environ)
+    # The definition, not a hidden runtime choice, fixes the next formal schedule.
+    store.write_bytes_atomic(directory / definition.BENCHMARK_FILE, data)
+    return targets
+
+
+def check_prepared(directory: Path, *, unrated: bool = False,
+                   environ: Mapping[str, str] | None = None) -> list[str]:
+    """Why the ``benchmark.json`` in ``directory`` is not the file ``bench prepare`` writes here; empty when it is.
+
+    The rule of a committed definition: prepared again, from a clean checkout, with the pinned interpreter and
+    with every placeholder resolved from ``benchmarks/local.json``, it reproduces the committed bytes, so the
+    engine identity, every bot identity and the schedule are the ones that were reviewed. A placeholder that is
+    also set in the process environment is refused: a set variable wins over the local values, and the identities
+    checked would then not be the committed ones. The builtin bot identities hash the interpreter, so a check
+    under another Python reports them as different. Nothing is written and no process starts.
+    """
+    directory = directory.resolve()
+    environ = os.environ if environ is None else environ
+    benchmark = definition.load_benchmark(directory)
+    whole = replace(benchmark, evaluation_targets=None, evaluation_matchups=None)
+    in_environment = sorted(name for name in definition.placeholder_names(whole) if environ.get(name))
+    if in_environment:
+        return ["set in the process environment: " + ", ".join(in_environment) + "; a set variable wins over "
+                "benchmarks/local.json, so unset them and check again"]
+    committed = (directory / definition.BENCHMARK_FILE).read_bytes()
+    data, _ = _prepared(directory, unrated=unrated, environ=environ)
+    if data == committed:
+        return []
+    before, after = json.loads(committed), json.loads(data)
+    problems = []
+    for key in sorted(before.keys() | after.keys()):
+        if key == "bots" or before.get(key) == after.get(key):
+            continue
+        problems.append(f"{key}: the committed value differs from the prepared one")
+    prepared_bots = {bot["name"]: bot for bot in after.get("bots", [])}
+    for bot in before.get("bots", []):
+        if prepared_bots.get(bot["name"]) != bot:
+            problems.append(f"bots: {bot['name']}: the committed entry differs from the prepared one "
+                            f"(evaluation_identity {prepared_bots.get(bot['name'], {}).get('evaluation_identity')})")
+    return problems or ["the committed bytes differ from the prepared ones in formatting only: commit the file "
+                        "bench prepare writes"]
+
+
+def _prepared(directory: Path, *, unrated: bool, environ: Mapping[str, str]) -> tuple[bytes, tuple[str, ...]]:
+    """The ``benchmark.json`` bytes ``bench prepare`` writes for ``directory`` and its evaluation targets."""
     benchmark = definition.load_benchmark(directory)
     if not benchmark.opponent_panel:
         raise definition.BenchmarkError("bench prepare requires opponent_panel and evaluation_version in benchmark.json")
     config = full_config(benchmark)
     values = definition.placeholder_values(definition.placeholder_names(replace(benchmark, evaluation_targets=None, evaluation_matchups=None)),
-        definition.load_local_values(directory.parent), os.environ if environ is None else environ)
+        definition.load_local_values(directory.parent), environ)
     # The whole definition, not the previous shard: a new entrant's command is checked before any commitment.
     definition.check_ladder_arguments(replace(benchmark, evaluation_targets=None, evaluation_matchups=None), values)
     executed = runner.executed_config(config, lambda text: definition.substitute(text, values))
@@ -139,6 +185,8 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
     failed = failed_attempts(directory, desired)
     selected = snapshot.select_blocks(desired, found, rated_only=not unrated, barred=failed)
     missing = set(snapshot.required_matchups(desired)) - selected.keys()
+    # A deferred entrant stays in the roster and is listed as pending; none of its blocks is scheduled yet.
+    missing = {pair for pair in missing if not set(pair) & set(updated.deferred_entrants)}
     again = sorted(pair for pair in missing if pair in failed)
     if again and not unrated:
         raise definition.BenchmarkError(_replay_refusal(again, failed))
@@ -153,10 +201,7 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
         pending.update(panel)
     raw["evaluation_targets"] = sorted(pending)
     definition.parse_benchmark(raw)
-    # The definition, not a hidden runtime choice, fixes the next formal schedule.
-    store.write_bytes_atomic(directory / definition.BENCHMARK_FILE,
-                             (json.dumps(raw, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
-    return tuple(raw["evaluation_targets"])
+    return (json.dumps(raw, ensure_ascii=False, indent=2) + "\n").encode("utf-8"), tuple(raw["evaluation_targets"])
 
 
 def published_snapshots(directory: Path) -> list[Path]:

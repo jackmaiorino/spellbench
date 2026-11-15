@@ -810,6 +810,7 @@ def _benchmark_view(benchmark: definition.Benchmark, run: _Run, stale: frozenset
         "style_tables": [{"tag": tag, "rows": [row for row in overall if tag in row["tags"]]} for tag in tags],
         "grid": _grid(board["rows"], board["matchups"], display),
         "deck_pairing": run.config.deck_pairing if run.config is not None else "mirror",
+        "deck_slices": run.config.deck_slices if run.config is not None else True,
         "deck_grid": _deck_grid(board.get("deck_grid"), display),
     }
 
