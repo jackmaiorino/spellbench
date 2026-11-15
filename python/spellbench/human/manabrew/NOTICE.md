@@ -18,5 +18,13 @@ by acting as a room host on a Manabrew relay. It contains no code from the Manab
   commit plus one local patch (a side panel that lists the engine's game-log messages, which the stock client
   receives but does not display); `-Stock` serves the unmodified build instead. The patch keeps their license
   headers, stays on that machine, and is not part of this repository or offered upstream.
-- `cards.json` (rules text for the Pauper pool) is built by `build_cards.py` from the XMage card data file in our
-  mage repository; token text is written by hand.
+- `cards.json` (rules text, costs and type lines of the nine training decks and the tokens they make) is built by
+  `build_cards.py` from Oracle card data served by the Scryfall API (https://scryfall.com/docs/api), used under
+  Scryfall's API guidelines: a descriptive User-Agent and Accept header, requests spaced 200 ms apart, replies kept
+  rather than asked for again, no paid or paywalled use. The text of the cards is Wizards of the Coast's; Spellbench
+  is not affiliated with Wizards of the Coast, Scryfall or the Manabrew project. Four legacy token entries
+  (Goblin, Elf Warrior, Bird, Spirit) are written by hand.
+- Mana and tap symbols: the client asks its own server for `/scryfall-symbols/<name>.svg`. `serve_client.py` answers
+  from a folder on the player's machine, filling it on first use from https://svgs.scryfall.io/card-symbols/ (one
+  request at a time, 100 ms apart, never again for a file already kept). The symbol files are not part of this
+  repository. Card pictures are fetched by the client itself from Scryfall, as it does without Spellbench.

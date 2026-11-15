@@ -466,7 +466,7 @@ class Hub:
         if stack:
             if self.exhaust_stack:
                 return False  # still the stack "end turn" was pressed on (``_begin`` ends this at anything new)
-            top_mine = stack[-1].get("controller_seat") == me
+            top_mine = text.stack_top(stack).get("controller_seat") == me
             if top_mine:
                 asked = (self.stops.get("own_stack", False) or real) and skip is None
             else:
@@ -601,7 +601,7 @@ class Hub:
         shown = "; ".join(options[:6]) + (f"; and {len(options) - 6} more" if len(options) > 6 else "")
         why = f"Your priority in {text.where(observation, me)}"
         if stack:
-            top = stack[-1]
+            top = text.stack_top(stack)
             why += f", {text.seat_name(top.get('controller_seat'), me)}: {text.card(top)} on the stack"
         self._note("game", f"{why}. You can: {shown}", depth=1)
 

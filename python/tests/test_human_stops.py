@@ -370,3 +370,108 @@ def test_the_new_rule_replayed_over_the_recorded_games_asks_exactly_where_it_was
             counts[(line["how"], now)] += 1
         assert ("human", "auto_pass") not in counts  # nothing the person was asked is passed now
         assert counts[("auto_pass", "human")] == len(hidden_windows(game))
+
+
+# -- a stack of two objects: the TOP object decides ----------------------------------------------------------------------
+# A recorded stack (the Spellstutter game, turn 3, the human at seat p0, engine order: index 0 is the top): the human's
+# Spellstutter Sprite trigger sits on the opponent's Grab the Prize. Seen from p0 the top is ours and the bottom is the
+# opponent's; seen from p1 (the same stack, the other seat) the top is the opponent's and the bottom is ours.
+
+SPRITE_TRIGGER = {"object_id": "f63706a41e38131ccaf5916043ef8006", "card_name": "Spellstutter Sprite",
+                  "owner_seat": "p0", "controller_seat": "p0", "zone": "stack", "stack_kind": "triggered_ability",
+                  "source": ref("b18d7e0911f82de926d1ab1ffe8c8cf3", "Spellstutter Sprite"),
+                  "targets": [{"object": ref("abb46ced1c15074998629d1e6f693dca", "Grab the Prize", OPP, "stack")}]}
+GRAB_THE_PRIZE = {"object_id": "abb46ced1c15074998629d1e6f693dca", "card_name": "Grab the Prize", "owner_seat": "p1",
+                  "controller_seat": "p1", "zone": "stack", "stack_kind": "spell", "source": None, "targets": []}
+RECORDED_STACK = [SPRITE_TRIGGER, GRAB_THE_PRIZE]  # top first, as the engine lists it
+ELDER = {"kind": "cast_spell", "source": ref("a642e2fe240c7902ca64326187f8cab1", "Humbling Elder", zone="hand"),
+         "method": None}
+
+
+def two_object(me: str, *, skip: str | None = None, real: bool = True, exhaust: bool = False) -> tuple[Hub, dict]:
+    """A hub for seat ``me`` and the recorded priority (a real action, the stack above) with an End turn of the given
+    kind ("soft": End turn, "hard": Next turn) in effect for this turn, or an exhaust request."""
+    hub = Hub(real_action_stops=real)
+    hub.game_start({"game_id": "g-1", "seat": me, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    request = decision([PASS, MANA, ELDER], phase="precombat_main", active=OPP, stack=RECORDED_STACK)
+    request["acting_seat"] = me
+    request["observation"].update(viewer=me, priority_seat=me)
+    hub._absorb(request, {})
+    if skip is not None:
+        hub.skip = {"turn": request["observation"]["turn"], "active": OPP, "hard": skip == "hard"}
+    hub.exhaust_stack = exhaust
+    return hub, request
+
+
+def test_the_recorded_stack_is_top_first_and_has_one_object_of_each_seat() -> None:
+    assert [e["controller_seat"] for e in RECORDED_STACK] == ["p0", "p1"]
+    assert text.stack_top(RECORDED_STACK) is SPRITE_TRIGGER
+    assert text.stack_bottom_first(RECORDED_STACK) == [GRAB_THE_PRIZE, SPRITE_TRIGGER]
+
+
+@pytest.mark.parametrize("real", [False, True])
+def test_the_play_pages_own_stack_and_opponent_stack_stops_follow_the_top_object(real: bool) -> None:
+    """Stops table only (no End turn). Top ours (seat p0): the own-stack stop, off by default, does not ask; top the
+    opponent's (seat p1): the opponent-stack stop, on by default, asks. With the Manabrew option every stack with a real
+    action asks, whoever's object is on top."""
+    mine, request = two_object(ME, real=real)
+    assert mine._automatic(request)[0] == ("human" if real else "auto_pass")
+    theirs, request = two_object(OPP, real=real)
+    assert theirs._automatic(request)[0] == "human"
+    stops_off, request = two_object(OPP, real=real)
+    stops_off.stops.update(opp_stack=False)
+    assert stops_off._automatic(request)[0] == ("human" if real else "auto_pass")
+    stops_on, request = two_object(ME, real=real)
+    stops_on.stops.update(own_stack=True)
+    assert stops_on._automatic(request)[0] == "human"
+
+
+def test_end_turn_passes_our_own_object_on_top_but_still_asks_about_the_opponents() -> None:
+    """The soft End turn (the person's own button) passes their own object on top and stops for the opponent's, whatever
+    lies underneath; the hard skip (Next turn) passes both."""
+    mine, request = two_object(ME, skip="soft")
+    assert mine._automatic(request)[0] == "auto_pass"  # our trigger on top of the opponent's spell
+    theirs, request = two_object(OPP, skip="soft")
+    assert theirs._automatic(request)[0] == "human"  # the opponent's trigger on top of our spell
+    for me in (ME, OPP):
+        hub, request = two_object(me, skip="hard")
+        assert hub._automatic(request)[0] == "auto_pass"
+
+
+@pytest.mark.parametrize("me", [ME, OPP])
+def test_exhaust_passes_the_whole_stack_whoever_is_on_top(me: str) -> None:
+    hub, request = two_object(me, exhaust=True)
+    assert hub._automatic(request)[0] == "auto_pass"
+    hub.exhaust_stack = False
+    assert hub._automatic(request)[0] == "human"
+
+
+def test_the_prompt_and_the_log_note_name_the_top_object_of_the_two() -> None:
+    hub, request = two_object(ME)
+    assert text.prompt(request, ME) == "You: Spellstutter Sprite on the stack. Respond?"
+    assert text.prompt(request, OPP) == "Opp: Spellstutter Sprite on the stack. Respond?"
+    hub._priority_note(request)
+    assert "You: Spellstutter Sprite" in hub.log[-1]["text"] and "Grab the Prize" not in hub.log[-1]["text"]
+    hub, request = two_object(OPP)
+    hub._priority_note(request)
+    assert "Opp: Spellstutter Sprite" in hub.log[-1]["text"]
+
+
+RECORDS = sorted(Path(os.environ.get(
+    "SPELLBENCH_HUMAN_RECORDS", "E:/artifacts/chains-20261107-human-interim/engine-records/cold")).glob("game-*/engine.jsonl.gz"))
+
+
+@pytest.mark.skipif(not RECORDS, reason="the recorded human games are not on this machine")
+def test_the_embedded_stack_is_the_recorded_one() -> None:
+    from spellbench.human import replay
+    wanted = [e["object_id"] for e in RECORDED_STACK]
+    for path in RECORDS:
+        for sd in replay.decisions(replay.read_record(path)):
+            stack = sd["observation"]["stack"]
+            if [e["object_id"] for e in stack] == wanted:
+                for recorded_entry, embedded in zip(stack, RECORDED_STACK):
+                    # the trigger's target is chosen at a later decision than the first one that shows it on the stack
+                    keys = [k for k in embedded if k != "targets"]
+                    assert {k: recorded_entry.get(k) for k in keys} == {k: embedded[k] for k in keys}
+                return
+    pytest.skip("the game with this stack is not among the records here")
