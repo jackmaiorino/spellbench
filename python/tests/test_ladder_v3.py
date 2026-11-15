@@ -90,7 +90,7 @@ def test_the_board_text_follows_the_wording_rules() -> None:
     assert "mulligan_mode" not in json.dumps(raw) and "Terror" not in raw["deck_pool"]
     assert json.loads(receipt)["engine_bytes"]["evaluation_engine_identity"] == raw["evaluation_engine_identity"]
     text = json.dumps(raw, ensure_ascii=False) + receipt + about_v3
-    assert chr(0x2014) not in text and "cancels exactly" not in text and "cancel exactly" not in text
+    assert chr(0x2014) not in text and chr(0x2013) not in text and "cancels exactly" not in text and "cancel exactly" not in text
     assert "not comparable with pauper-ladder-v2" in raw["summary"]
     assert "per-deck ratings are not published" in raw["summary"]
 

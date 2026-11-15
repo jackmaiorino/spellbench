@@ -238,8 +238,8 @@ that number is not a 2.1.0 rating. On 2.0.0, rung admission
 required 1594.3 Elo because no adjacent rung gap exceeded 200 Elo.
 [Rated snapshot, evaluation 2.0.0, engine 4fccd3ebc](benchmarks/pauper-ladder-v2/snapshots/2026-11-09-2/LEADERBOARD.md)
 
-`pauper-ladder-v3` plays the v2 rungs, decks and engine pin on every ordered
-pairing of the eight decks, where v2 plays mirrors only: each matchup plays
+`pauper-ladder-v3` plays the v2 rungs and decks, on the v2 bridge, on every
+ordered pairing of the eight decks, where v2 plays mirrors only: each matchup plays
 one seat-swapped pair per ordered pairing (64 pairs, 128 games). A v3 rating
 is Elo against the reference bots over that fixed set of deck pairings, the
 kind of matchup the current models train on. Unequal decks pull scores

@@ -71,10 +71,10 @@ export of that commit. Its engine command is the plain adapter
 `x_kernel_infoset_v1`: on this bridge the information-set exporter halts
 when a token sits in a hand (I1, mtg-kernel#713), which off-mirror Faeries
 games reach. A bot that needs the export joins later through a per-block
-opt-in under a new evaluation version, with the exporter fixed first;
-nothing in this definition's schema stands in the way (the extensions are a
-field of the definition and of the snapshot contract, which a new
-evaluation version replaces).
+opt-in under a new evaluation version, with the exporter fixed first.
+Evaluation 3.0.0 does not offer per-block extensions and does not forbid
+them: the extensions are a field of the definition and of the snapshot
+contract, and a later evaluation version defines the opt-in.
 Its rule for a committed definition: `spellbench
 bench prepare benchmarks/pauper-ladder-v3 --check`, run from a clean
 checkout of the default branch with the pinned `python.exe` and with every
