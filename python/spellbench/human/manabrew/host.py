@@ -157,6 +157,7 @@ class Bridge:
         self.seats: view.Seats | None = None
         self.prompt: dict[str, Any] | None = None  # {"seq", "answer", "type"}
         self.sent_log = 0
+        self.sent_advice: tuple[Any, ...] | None = None  # the advisor read last sent (``_send_advice``)
         self.sent_frames = 0  # the hub's stack-changing positions already drawn (Hub.frames_total) ...
         self.sent_frames_game: Any = None  # ... of this game of the hub's (its frame count restarts with each game)
         self.rejoins = 0  # times the person's client came back in this game (see _view_game_id)
@@ -412,6 +413,7 @@ class Bridge:
             self.seats = view.Seats(game.get("seat"), f"player-{human_index}", f"player-{bot_index}", names)
             self._name_base = dict(names)
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
+            self.sent_advice = None
             self.sent_frames, self.sent_frames_game, self.rejoins = 0, None, 0
             self.resent_seq = None
             self._bank_warned = set()
@@ -444,6 +446,7 @@ class Bridge:
             pending = None  # answered (or the game ended) while the positions were drawn: the next state says so
         if pending and (self.prompt is None or self.prompt["seq"] != pending["seq"]):
             self._send_prompt(pending, observation or {})
+        self._send_advice(state, bool(over))
         if over and self.game_id and getattr(self, "_ended", None) != game.get("game_id"):
             self._ended = game.get("game_id")
             self._envelope({"kind": "prompt", "forPlayer": self.seats.pid(game.get("seat")),
@@ -469,6 +472,23 @@ class Bridge:
                 "entryType": LOG_TYPES.get(line.get("side"), "info"),
                 "message": ("  " if line.get("depth") else "") + str(line.get("text")),
                 "timestampMs": int(time.time() * 1000)}})
+
+    def _send_advice(self, state: Mapping[str, Any], over: bool) -> None:
+        """Send the advisor's read of the decision in front of the person (a session with ``--advisor``), and again
+        with their answer once they gave it. It travels as a log entry with no message and an ``advisor`` field: the
+        relay passes it on as it is, their client's own log code ignores a line without a message, and the local
+        "Bot's view" panel reads the field. Like the log lines it is held until the client's panels exist
+        (``_send_log``), and sent again after the person's client has come back."""
+        advice = state.get("advice")
+        if not advice or (not over and time.time() < self._log_hold_until):
+            return
+        key = ((state.get("game") or {}).get("game_id"), advice.get("seq"), advice.get("chosen"), self.rejoins)
+        if key == self.sent_advice:
+            return
+        self.sent_advice = key
+        shown = {name: value for name, value in advice.items() if name != "scores"}  # the record's, not the panel's
+        self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
+            "entryType": "info", "message": "", "timestampMs": int(time.time() * 1000), "advisor": shown}})
 
     def _bank(self, state: Mapping[str, Any], over: Any) -> None:
         """Show the person's decision bank: the time left beside their name, and a log line when it falls below
