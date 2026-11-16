@@ -401,10 +401,19 @@ class Hub:
             return {**advice, "unavailable": str(exc)}
         if "unavailable" in read:
             return {**advice, "unavailable": read["unavailable"]}
+        # Choices the person reads as the same line (two copies of a land) are one row with their shares added: the
+        # model splits its weight between them, and the person cannot tell them apart. ``scores`` keeps each
+        # candidate's own share for the record.
         texts = {c["id"]: c["text"] for c in self.pending["candidates"]}
-        rows = [{"id": row["id"], "text": texts.get(row["id"], "?"), "p": round(row["p"], 4)} for row in read["rows"]]
+        merged: dict[str, dict[str, Any]] = {}
+        for row in read["rows"]:
+            line = merged.setdefault(texts.get(row["id"], "?"), {"ids": [], "p": 0.0})
+            line["ids"].append(row["id"])
+            line["p"] += row["p"]
+        rows = [{"ids": line["ids"], "text": label, "p": round(line["p"], 4)} for label, line in merged.items()]
         rows.sort(key=lambda row: -row["p"])  # stable: ties stay in the model's row order
-        return {**advice, "rows": rows, "value": read["value"], "win": read["win"]}
+        return {**advice, "rows": rows, "value": read["value"], "win": read["win"],
+                "scores": [[row["id"], round(row["p"], 6)] for row in read["rows"]]}
 
     def _take_answer(self) -> tuple[int, str, str | None]:
         """The person's answer to the pending decision, which is then no longer pending."""
@@ -429,8 +438,7 @@ class Hub:
                   "turn": (decision.get("observation") or {}).get("turn")}
         if advice is not None:  # what the advisor showed the person at this decision
             record["advisor"] = ({"unavailable": advice["unavailable"]} if "unavailable" in advice else
-                                 {"probabilities": [[row["id"], row["p"]] for row in advice["rows"]],
-                                  "value": advice["value"]})
+                                 {"probabilities": advice["scores"], "value": advice["value"]})
         self._write(record)
         self._bump()
         return candidate_id

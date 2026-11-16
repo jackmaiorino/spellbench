@@ -486,8 +486,9 @@ class Bridge:
         if key == self.sent_advice:
             return
         self.sent_advice = key
+        shown = {name: value for name, value in advice.items() if name != "scores"}  # the record's, not the panel's
         self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
-            "entryType": "info", "message": "", "timestampMs": int(time.time() * 1000), "advisor": advice}})
+            "entryType": "info", "message": "", "timestampMs": int(time.time() * 1000), "advisor": shown}})
 
     def _bank(self, state: Mapping[str, Any], over: Any) -> None:
         """Show the person's decision bank: the time left beside their name, and a log line when it falls below

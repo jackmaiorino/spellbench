@@ -88,7 +88,8 @@ def build_config(*, benchmark_dir: Path, local: dict[str, str], opponent: str, g
     return resolve_local(doc, local)
 
 
-def start_advisor(*, benchmark_dir: Path, local: dict[str, str], name: str, run_dir: Path) -> Advisor:
+def start_advisor(*, benchmark_dir: Path, local: dict[str, str], name: str, run_dir: Path,
+                  label: str | None = None) -> Advisor:
     """The advisor of ``--advisor NAME``: a scorer process of the session's own, loaded with the checkpoint of the
     board's bot NAME (its command names the scorer and its config). It stops the session when NAME is not a kernel
     flat policy of the board or its scorer does not come up: a session asked to advise never plays unadvised
@@ -102,7 +103,7 @@ def start_advisor(*, benchmark_dir: Path, local: dict[str, str], name: str, run_
         argv = scorer_argv(resolve_local({"command": bot["command"]}, local)["command"])
     except ValueError as exc:
         raise SystemExit(f"advisor {name!r}: {exc}; only a kernel flat policy can advise") from exc
-    label = (bot.get("display") or {}).get("label") or name
+    label = label or (bot.get("display") or {}).get("label") or name
     try:
         return Advisor(argv, name=name, label=str(label))
     except AdvisorError as exc:
@@ -380,6 +381,8 @@ def main(argv: list[str] | None = None) -> int:
                              "own decisions in a scorer of the session's own: the Manabrew client's local panel shows "
                              "the probability it gives each choice and its value estimate. Advised play: every game's "
                              "log and record say so")
+    parser.add_argument("--advisor-label", default="",
+                        help="the advisor's name on screen and in the records (default: its board label)")
     args = parser.parse_args(argv)
     if args.exclude_decks:
         from .manabrew import decks as board_decks
@@ -426,7 +429,8 @@ def main(argv: list[str] | None = None) -> int:
 
     advisor = None
     if args.advisor:
-        advisor = start_advisor(benchmark_dir=args.benchmark, local=local, name=args.advisor, run_dir=run_dir)
+        advisor = start_advisor(benchmark_dir=args.benchmark, local=local, name=args.advisor, run_dir=run_dir,
+                                label=args.advisor_label or None)
         print(f"  advisor: {advisor.label} ({args.advisor}) reads your decisions; advised play\n", flush=True)
     games_total = 2 * config_doc["pairs_per_matchup"]
     # Both seats log to one directory as <game_id>.<seat>.jsonl, the layout the misplay review converter reads.

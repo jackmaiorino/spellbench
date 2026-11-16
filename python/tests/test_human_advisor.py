@@ -117,7 +117,7 @@ def test_the_person_sees_the_read_with_their_own_choice_texts_and_the_record_kee
     advice = hub.advice
     texts = {c["id"]: c["text"] for c in hub.pending["candidates"]}
     assert advice["model"] == "Bot A" and advice["seq"] == hub.pending["seq"] and "chosen" not in advice
-    assert [(row["id"], row["text"]) for row in advice["rows"]] == [(1, texts[1]), (0, texts[0])]  # likeliest first
+    assert [(row["ids"], row["text"]) for row in advice["rows"]] == [([1], texts[1]), ([0], texts[0])]  # likeliest first
     assert advice["rows"][0]["p"] == pytest.approx(math.e / (1 + math.e), abs=1e-4)
     assert advice["win"] == 0.5
     # the model input is the advisor's alone: nothing the person's side reads holds it
@@ -130,7 +130,26 @@ def test_the_person_sees_the_read_with_their_own_choice_texts_and_the_record_kee
     assert records[0]["advisor"] == {"name": "bot-a", "label": "Bot A", "model_state_sha256": "0" * 64,
                                      "selection": "argmax-first-v1"}
     assert records[1]["advisor"]["value"] == 0.0
-    assert [cid for cid, _ in records[1]["advisor"]["probabilities"]] == [1, 0]
+    assert [cid for cid, _ in records[1]["advisor"]["probabilities"]] == [0, 1]  # the model's row order
+
+
+def test_choices_the_person_reads_as_the_same_line_are_one_row_with_their_shares_added(advisor, tmp_path) -> None:
+    hub = Hub(log_dir=tmp_path, advisor=advisor("ok"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    decision = mulligan_decision(7, 0)
+    same = decision["candidates"][0]["semantic"]  # a third choice that reads exactly like the first
+    decision["candidates"].append({"candidate_id": 2, "semantic": dict(same), "display_text": None})
+    started = ask(hub, advised(decision, model_input([0, 1, 2])))
+    texts = {c["id"]: c["text"] for c in hub.pending["candidates"]}
+    assert texts[0] == texts[2] != texts[1]
+    rows = hub.advice["rows"]
+    assert [(row["ids"], row["text"]) for row in rows] == [([0, 2], texts[0]), ([1], texts[1])]
+    assert rows[0]["p"] == pytest.approx(2 / 3, abs=1e-4) and rows[1]["p"] == pytest.approx(1 / 3, abs=1e-4)
+    hub.answer_with(hub.pending["seq"], 2)
+    started["thread"].join(timeout=5)
+    hub.game_end({"game_id": "g-1", "terminal": {"winner": ME, "classification": "win", "reason": "win"}})
+    records = [json.loads(line) for line in (tmp_path / f"g-1.{ME}.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [cid for cid, _ in records[1]["advisor"]["probabilities"]] == [0, 1, 2]  # each candidate's own share
 
 
 def test_a_session_without_an_advisor_has_no_read_and_the_same_record(tmp_path) -> None:
@@ -179,6 +198,7 @@ def test_the_client_gets_the_read_once_its_panels_are_up_and_again_with_the_answ
     bridge._push(hub.state())
     sent = advice_sent(bridge)
     assert len(sent) == 1 and len(sent[0]["rows"]) == 2 and "chosen" not in sent[0]  # once per decision
+    assert "scores" not in sent[0]  # the per-candidate shares are the record's
     entry = next(m["state"]["entry"] for m in bridge.host.sent if "advisor" in m["state"].get("entry", {}))
     assert entry["message"] == ""  # their client's own log code ignores a line without a message
     hub.answer_with(hub.pending["seq"], 1)
