@@ -28,7 +28,9 @@ NAME = "human"
 VERSION = "1.0.0"
 URL_ENV = "HUMAN_SEAT_URL"
 TOKEN_ENV = "HUMAN_SEAT_TOKEN"
-# The model's input tensor is large and means nothing to a person; everything else is forwarded unchanged.
+# The model's input tensor is large and means nothing to a person; everything else is forwarded unchanged. A session
+# with an advisor (``advisor.py``) asks for it at hello: its own scorer reads it, and the server takes it out of the
+# decision before anything of the person's view sees it.
 DROPPED_EXTENSIONS = ("x_kernel_flat_v4", "x_kernel_flat_v7")
 
 
@@ -36,6 +38,7 @@ class Relay:
     def __init__(self, url: str, token: str) -> None:
         self._url = url.rstrip("/")
         self._token = token
+        self._keep_model_input = False
 
     def post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
         data = json.dumps(body, separators=(",", ":")).encode("utf-8")
@@ -55,7 +58,7 @@ class Relay:
         raise RuntimeError(f"play server unreachable: {last}")
 
     def wait_ready(self) -> None:
-        self.post("/relay/hello", {})
+        self._keep_model_input = self.post("/relay/hello", {}).get("advisor") is True
 
     def on_game_start(self, game: GameStart) -> None:
         self.post("/relay/game_start", {"request": game.raw})
@@ -64,8 +67,9 @@ class Relay:
         request = dict(decision.raw)
         seat_decision = dict(request.get("decision") or {})
         extensions = dict(seat_decision.get("extensions") or {})
-        for name in DROPPED_EXTENSIONS:
-            extensions.pop(name, None)
+        if not self._keep_model_input:
+            for name in DROPPED_EXTENSIONS:
+                extensions.pop(name, None)
         seat_decision["extensions"] = extensions
         request["decision"] = seat_decision
         answer = self.post("/relay/choose", {"request": request})

@@ -37,6 +37,7 @@ from ..arena.allocation import Allocation
 from ..bench import definition
 from ..run_secret import RunSecret
 from . import relay
+from .advisor import Advisor, AdvisorError, scorer_argv
 from .server import Hub, make_server
 
 REPO = Path(__file__).resolve().parents[3]
@@ -85,6 +86,27 @@ def build_config(*, benchmark_dir: Path, local: dict[str, str], opponent: str, g
     doc["time_control"] = {**doc["time_control"], "startup_ms": 4 * 3_600_000, "bank_ms": bank,
                            "max_decision_ms": bank}
     return resolve_local(doc, local)
+
+
+def start_advisor(*, benchmark_dir: Path, local: dict[str, str], name: str, run_dir: Path) -> Advisor:
+    """The advisor of ``--advisor NAME``: a scorer process of the session's own, loaded with the checkpoint of the
+    board's bot NAME (its command names the scorer and its config). It stops the session when NAME is not a kernel
+    flat policy of the board or its scorer does not come up: a session asked to advise never plays unadvised
+    without saying so."""
+    doc = definition.load_benchmark(benchmark_dir).tournament_config(str(run_dir))
+    bot = next((bot for bot in doc["bots"] if bot["name"] == name), None)
+    if bot is None:
+        raise SystemExit(f"advisor {name!r} is not a bot of {benchmark_dir.name}: "
+                         f"{sorted(bot['name'] for bot in doc['bots'])}")
+    try:
+        argv = scorer_argv(resolve_local({"command": bot["command"]}, local)["command"])
+    except ValueError as exc:
+        raise SystemExit(f"advisor {name!r}: {exc}; only a kernel flat policy can advise") from exc
+    label = (bot.get("display") or {}).get("label") or name
+    try:
+        return Advisor(argv, name=name, label=str(label))
+    except AdvisorError as exc:
+        raise SystemExit(f"advisor {name!r}: {exc}") from exc
 
 
 def resolve_local(doc: dict[str, Any], local: dict[str, str]) -> dict[str, Any]:
@@ -353,6 +375,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--game-banner", default="",
                         help="a line shown first in every game's log and written in each game's record header (for "
                              "a session whose conditions the person should always see)")
+    parser.add_argument("--advisor", default="",
+                        help="a kernel flat bot of the board (the opponent or another) whose model reads the person's "
+                             "own decisions in a scorer of the session's own: the Manabrew client's local panel shows "
+                             "the probability it gives each choice and its value estimate. Advised play: every game's "
+                             "log and record say so")
     args = parser.parse_args(argv)
     if args.exclude_decks:
         from .manabrew import decks as board_decks
@@ -397,6 +424,10 @@ def main(argv: list[str] | None = None) -> int:
         os.environ.pop(engine_records.CONFIG_ENV, None)
         os.environ.pop(engine_records.HASH_ENV, None)
 
+    advisor = None
+    if args.advisor:
+        advisor = start_advisor(benchmark_dir=args.benchmark, local=local, name=args.advisor, run_dir=run_dir)
+        print(f"  advisor: {advisor.label} ({args.advisor}) reads your decisions; advised play\n", flush=True)
     games_total = 2 * config_doc["pairs_per_matchup"]
     # Both seats log to one directory as <game_id>.<seat>.jsonl, the layout the misplay review converter reads.
     shown = next(((bot.get("display") or {}).get("label") for bot in config_doc["bots"] if bot["name"] == args.opponent),
@@ -404,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
     hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=shown, banner=args.game_banner or None,
               label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank",
               record_root=None if args.no_record else out / "engine-records" / "hot",
-              real_action_stops=args.client == "manabrew")
+              real_action_stops=args.client == "manabrew", advisor=advisor)
     server = make_server(hub, port=args.port)
     host, port = server.server_address[:2]
     os.environ[relay.URL_ENV] = f"http://{host}:{port}"

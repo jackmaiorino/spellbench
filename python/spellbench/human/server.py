@@ -29,6 +29,7 @@ from typing import Any, Mapping
 from urllib.parse import parse_qs, urlparse
 
 from . import narrate, text
+from .advisor import FLAT_EXTENSIONS, Advisor, AdvisorError
 
 LOG_SCHEMA = "spellbench-human-log/v1"
 PAGE = Path(__file__).with_name("page.html")
@@ -113,6 +114,9 @@ class Conceded(RuntimeError):
 # Said at the put-back prompt (in the log, and in the description of the plain selection used when the Manabrew prompt
 # cannot be built): the engine puts the cards back right after the new seven are drawn, before the next Keep or
 # Mulligan choice (a real table asks Keep or Mulligan first). It is the order the bots trained on.
+# Said first in every game of a session with an advisor (its identity is in each game's record header).
+ADVISED_NOTE = ("Advisor on: {label} shows how it weighs your choices. This is advised play, not a measure of your "
+                "unassisted play.")
 PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the new seven are drawn, then asks Keep or "
                  "Mulligan on the smaller hand (real tables ask Keep or Mulligan first, then bottom).")
 
@@ -125,8 +129,13 @@ class Hub:
 
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
                  opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False,
-                 banner: str | None = None) -> None:
+                 banner: str | None = None, advisor: Advisor | None = None) -> None:
         self.cond = threading.Condition()
+        # A second scorer that reads the person's own decisions (``advisor.py``). ``advice`` is its read of the
+        # decision in front of the person, then of the one they answered last (with ``chosen``), until the next.
+        self.advisor = advisor
+        self.advisor_identity = advisor.identity() if advisor is not None else None
+        self.advice: dict[str, Any] | None = None
         # True: the person gets every priority at which they have a legal action besides passing and mana abilities,
         # in any step of either turn and on any stack (the Manabrew path, which has no panel for stops). False: only
         # the stops of ``self.stops`` (the play page's S panel).
@@ -238,8 +247,11 @@ class Hub:
                          "rules": request.get("rules") or {}}
             self.log, self.observation, self.clock, self.pending = [], None, None, None
             self.log_total = 0
+            self.advice = None
             if self.banner:
                 self._note("game", self.banner)
+            if self.advisor_identity is not None:
+                self._note("game", ADVISED_NOTE.format(label=self.advisor_identity["label"]))
             self.plan = self.skip = self.game_over = None
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
             self.hold = self.auto_attack_group = self.forced_attack_group = self.passed_at = self.pending_key = None
@@ -260,7 +272,8 @@ class Hub:
                 self._log_file = open(path, "w", encoding="utf-8", newline="\n")
                 self._write({"schema": LOG_SCHEMA, "kind": "header", "game_id": request.get("game_id"), "seat": seat,
                              "bot_name": "Human", "own_deck": own, "opponent_deck": opp, "time_control": request.get("time_control"),
-                             "label": self.label, "banner": self.banner, "stops": self.stops})
+                             "label": self.label, "banner": self.banner, "stops": self.stops,
+                             "advisor": self.advisor_identity})
             self._bump()
 
     def game_end(self, request: Mapping[str, Any]) -> None:
@@ -311,11 +324,22 @@ class Hub:
 
     def choose(self, request: Mapping[str, Any]) -> int:
         decision = request.get("decision") or {}
+        # The model input (kept by the relay only for a session with an advisor) is for the advisor alone: it is
+        # taken out here, so the person's view, the log and the narrator never hold it.
+        model_input = None
+        extensions = decision.get("extensions")
+        if isinstance(extensions, Mapping) and any(name in extensions for name in FLAT_EXTENSIONS):
+            model_input = next(extensions[name] for name in FLAT_EXTENSIONS if name in extensions)
+            decision = {**decision, "extensions": {name: value for name, value in extensions.items()
+                                                   if name not in FLAT_EXTENSIONS}}
         with self.cond:
             started = time.monotonic()
-            how, candidate_id = self._begin(decision, request.get("clock") or {})
+            how, candidate_id = self._begin(decision, request.get("clock") or {}, model_input=model_input,
+                                            game_id=request.get("game_id"))
             chosen_text = None
+            advice = None
             if candidate_id is None:
+                advice = self.advice
                 while self.answer is None or self.pending is None:
                     self.cond.wait()
                     if self.pending is None:  # the game ended underneath (host adjudication, or the person's concession)
@@ -323,9 +347,12 @@ class Hub:
                             raise Conceded("conceded")
                         raise RuntimeError("decision withdrawn")
                 candidate_id, how, chosen_text = self._take_answer()
-            return self._conclude(decision, how, candidate_id, chosen_text, started)
+                if advice is not None and self.advice is advice:
+                    self.advice = advice = {**advice, "chosen": candidate_id}
+            return self._conclude(decision, how, candidate_id, chosen_text, started, advice)
 
-    def _begin(self, decision: Mapping[str, Any], clock: Mapping[str, Any]) -> tuple[str, int | None]:
+    def _begin(self, decision: Mapping[str, Any], clock: Mapping[str, Any], *, model_input: Any = None,
+               game_id: Any = None) -> tuple[str, int | None]:
         """Take in a decision. Returns how it is answered without the person and the candidate, or ``(how, None)``
         with the decision pending for the person (``self.pending``; the answer comes with ``answer_with``,
         ``pass_with`` or ``plan_with``)."""
@@ -351,8 +378,33 @@ class Hub:
                 self._note("game", PUT_BACK_NOTE)
             self.pending_key = position_key(decision)
             self.answer = None
+            self.advice = self._advise(decision, model_input, game_id)
             self._bump()
         return how, candidate_id
+
+    def _advise(self, decision: Mapping[str, Any], model_input: Any, game_id: Any) -> dict[str, Any] | None:
+        """The advisor's read of the decision that is now pending, with the texts the person sees for its choices
+        (most likely first). A decision it cannot read says why; a scorer that fails is dropped for the rest of the
+        session, with a log line, and the game goes on."""
+        if self.advisor_identity is None:
+            return None
+        advice: dict[str, Any] = {"seq": self.seq, "model": self.advisor_identity["label"],
+                                  "prompt": self.pending["prompt"]}
+        if self.advisor is None:
+            return {**advice, "unavailable": "the advisor stopped earlier in this session"}
+        try:
+            read = self.advisor.read(str(game_id or (self.game or {}).get("game_id") or "game"), decision, model_input)
+        except AdvisorError as exc:
+            self._note("game", f"The advisor stopped: {exc}. The game goes on without it.")
+            advisor, self.advisor = self.advisor, None
+            threading.Thread(target=advisor.close, daemon=True).start()
+            return {**advice, "unavailable": str(exc)}
+        if "unavailable" in read:
+            return {**advice, "unavailable": read["unavailable"]}
+        texts = {c["id"]: c["text"] for c in self.pending["candidates"]}
+        rows = [{"id": row["id"], "text": texts.get(row["id"], "?"), "p": round(row["p"], 4)} for row in read["rows"]]
+        rows.sort(key=lambda row: -row["p"])  # stable: ties stay in the model's row order
+        return {**advice, "rows": rows, "value": read["value"], "win": read["win"]}
 
     def _take_answer(self) -> tuple[int, str, str | None]:
         """The person's answer to the pending decision, which is then no longer pending."""
@@ -363,18 +415,23 @@ class Hub:
         return candidate_id, how, chosen_text
 
     def _conclude(self, decision: Mapping[str, Any], how: str, candidate_id: int, chosen_text: str | None,
-                  started: float) -> int:
+                  started: float, advice: Mapping[str, Any] | None = None) -> int:
         chosen = next(c for c in decision["candidates"] if c["candidate_id"] == candidate_id)
         semantic = chosen.get("semantic") or {}
         me = (self.game or {}).get("seat")
         if semantic.get("kind") not in NARRATED_KINDS and how != "plan" and len(decision["candidates"]) > 1:
             label = chosen_text or text.candidate(semantic, me)
             self._note("you", f"You choose: {label}", depth=1, facts=[("choice", me)])
-        self._write({"kind": "decision", "step": decision.get("seat_step"), "candidate_id": candidate_id,
-                     "how": how, "elapsed_ms": int((time.monotonic() - started) * 1000),
-                     "candidate_count": len(decision["candidates"]), "semantic": semantic,
-                     "phase_step": (decision.get("observation") or {}).get("phase_step"),
-                     "turn": (decision.get("observation") or {}).get("turn")})
+        record = {"kind": "decision", "step": decision.get("seat_step"), "candidate_id": candidate_id,
+                  "how": how, "elapsed_ms": int((time.monotonic() - started) * 1000),
+                  "candidate_count": len(decision["candidates"]), "semantic": semantic,
+                  "phase_step": (decision.get("observation") or {}).get("phase_step"),
+                  "turn": (decision.get("observation") or {}).get("turn")}
+        if advice is not None:  # what the advisor showed the person at this decision
+            record["advisor"] = ({"unavailable": advice["unavailable"]} if "unavailable" in advice else
+                                 {"probabilities": [[row["id"], row["p"]] for row in advice["rows"]],
+                                  "value": advice["value"]})
+        self._write(record)
         self._bump()
         return candidate_id
 
@@ -724,7 +781,7 @@ class Hub:
                 "results": self.results, "wins": wins, "losses": losses, "draws": len(self.results) - wins - losses,
                 "hello_waiting": self.hello_waiting, "ready": self.ready, "game": self.game,
                 "observation": self.observation, "clock": self.clock, "pending": self.pending, "log": self.log,
-                "log_total": self.log_total,
+                "log_total": self.log_total, "advisor": self.advisor_identity, "advice": self.advice,
                 "game_over": self.game_over, "stops": self.stops, "skip": self.skip, "now": _ms(),
                 "phases": list(PHASE_STEPS)}
 
@@ -950,7 +1007,8 @@ def make_server(hub: Hub, host: str = "127.0.0.1", port: int = 0, token: str | N
             try:
                 if path == "/relay/hello":
                     hub.wait_ready()
-                    self._json({"ok": True})
+                    # a session with an advisor asks the relay to keep the model input of the person's decisions
+                    self._json({"ok": True, "advisor": hub.advisor is not None})
                 elif path == "/relay/game_start":
                     hub.game_start(body["request"])
                     self._json({"ok": True})
