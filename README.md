@@ -249,16 +249,15 @@ engine the same two models sat 508 and 387 Elo above the anchor on the
 mirror ladder and 445 and 343 on the grid, about 0.88 of the gap). The scale is v3's own: never
 compare a v3 number with a v2 or grid number. The v2 numbers stay published
 as mirror-only records. A v3 run is rated only if it passes the board's
-validity unit, and v3 publishes no per-deck ratings, since one pair per deck
-pairing and matchup is too few; the snapshot shows win rates by deck as
-description. Its first rated run is 2026-11-15 (snapshot 2026-11-15): 2,304
+validity unit, and v3 publishes no per-deck bot ratings, since one pair per
+deck pairing and matchup is too few to rate a bot's games with one deck; the
+snapshot shows win rates by deck and a rating of the decks as description. Its first rated run is 2026-11-15 (snapshot 2026-11-15): 2,304
 games (the 15 rung blocks and Basilisk 2 against g115, oh2-r2s1-b512 and its
 argmax version, 18 blocks of 128), every game ended naturally, and the run
 passed the validity unit on every block, bot and deck pairing. The search
 entrant `oh2-r2s1-b512-s4a-16k-k4` is pending on v3. Not in v3: the
-Terror deck and mulligans (a later version). The rated game still asks a
-player to order cards that reach the graveyard together, which training
-does not ask. Evaluation 3.0.0 runs without the information-set export
+Terror deck and mulligans (a later version). Rated play still asks
+graveyard order one card at a time, which training does not ask. Evaluation 3.0.0 runs without the information-set export
 (`x_kernel_infoset_v1`): the exporter halts when a token is returned to its
 owner's hand (mtg-kernel#713; 18 of 336 Faeries games against the token
 decks in an unrated sweep, none without the export), and no scheduled bot

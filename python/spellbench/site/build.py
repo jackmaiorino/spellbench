@@ -618,7 +618,6 @@ def _hero_row(
                 "margin": chip.margin,
                 "bound": chip.bound,
                 "legacy": runs[chip.benchmark_id].legacy,
-                "deck_pairing": _deck_pairing(runs[chip.benchmark_id]),
                 "reference_panel": bool(runs[chip.benchmark_id].config and runs[chip.benchmark_id].config.opponent_panel),
             }
             for chip in row.chips

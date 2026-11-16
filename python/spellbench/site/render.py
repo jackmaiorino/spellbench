@@ -93,8 +93,7 @@ _HERO_SUBTITLE = (
     "The score compares skill above random across formats, not head-to-head results."
 )
 
-# How a benchmark pairs the decks of its pool, as a Hero chip and the Hero note say it.
-_PAIRING_LABELS = {"mirror": "mirror-only", "all_pairs": "all deck pairs"}
+# How a benchmark pairs the decks of its pool, as the Hero note says it.
 _PAIRING_NOTES = {"mirror": "Mirror-only (both seats play the same deck)", "all_pairs": "Every ordered deck pairing"}
 
 _JOIN_INTRO = (
@@ -995,7 +994,6 @@ def _hero_row(row: Mapping[str, Any], scale: tuple[float, float], ticks: Sequenc
     chips = " ".join(
         f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}'
         f'{" " + _LEGACY_LABEL if _legacy(chip) else ""}'
-        f'{" (" + _PAIRING_LABELS[chip["deck_pairing"]] + ")" if chip.get("deck_pairing") in _PAIRING_LABELS else ""}'
         f'{" (reference panel)" if chip.get("reference_panel") else ""}</span>'
         for chip in row["chips"]
     )
@@ -1318,7 +1316,7 @@ def _leaderboards(view: Mapping[str, Any]) -> str:
             by_deck.append(_note(f"Each deck is rated on its own games ({pairs} per matchup), still anchored on the random bot."))
         by_deck += [_deck_section(table) for table in view["deck_tables"]]
     elif view.get("deck_slices") is False:
-        by_deck.append(_note("This board publishes no per-deck ratings: its matchups play too few pairs of one "
+        by_deck.append(_note("This board publishes no per-deck bot ratings: its matchups play too few pairs of one "
                              "deck pairing to rate a deck's games on their own. Scores by deck are under Deck "
                              "matchups."))
     else:

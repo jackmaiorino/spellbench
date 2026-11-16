@@ -86,7 +86,7 @@ def test_the_board_text_follows_the_wording_rules() -> None:
     readme = (REPO / "README.md").read_text(encoding="utf-8")
     about_v3 = readme[readme.index("`pauper-ladder-v3` plays"):readme.index("`pauper-grid-v1` plays")]
     assert "never\ncompare a v3 number with a v2 or grid number" in about_v3 and "mirror-only records" in about_v3
-    assert "no per-deck ratings" in about_v3 and "narrower" not in about_v3
+    assert "no per-deck bot ratings" in about_v3 and "narrower" not in about_v3
     assert "mulligan_mode" not in json.dumps(raw) and "Terror" not in raw["deck_pool"]
     assert json.loads(receipt)["engine_bytes"]["evaluation_engine_identity"] == raw["evaluation_engine_identity"]
     text = json.dumps(raw, ensure_ascii=False) + receipt + about_v3
@@ -123,7 +123,7 @@ def test_a_board_can_publish_no_per_deck_ratings(tmp_path: Path, monkeypatch: An
 
 def test_the_page_says_why_a_board_has_no_deck_tables() -> None:
     page = render.render_benchmark({**BENCH, "deck_tables": [], "deck_pairing": "all_pairs", "deck_slices": False})
-    assert "This board publishes no per-deck ratings" in page
+    assert "This board publishes no per-deck bot ratings" in page
     for view in ({**BENCH, "deck_tables": []}, {**BENCH, "deck_tables": [], "deck_pairing": "all_pairs"}):
         assert "This benchmark uses one deck pairing" in render.render_benchmark(view)
 

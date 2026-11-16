@@ -401,27 +401,25 @@ def test_a_legacy_hero_chip_is_labelled() -> None:
     assert "(protocol" not in render.render_home(HOME)
 
 
-def test_hero_chips_and_note_say_how_each_benchmark_pairs_its_decks() -> None:
-    """Benchmarks differ in engine, pairings and scale: the chart says so, and names the mirror-only ones."""
+def test_the_hero_note_says_how_each_benchmark_pairs_its_decks() -> None:
+    """Benchmarks differ in engine, pairings and scale: the chart's note says so, and names the mirror-only ones."""
     home = copy.deepcopy(HOME)
     home["hero"]["rows"][0]["chips"] = [
-        {"benchmark_id": "ladder-a", "margin": 101.4, "bound": None, "legacy": False, "deck_pairing": "mirror"},
-        {"benchmark_id": "ladder-b", "margin": 90.0, "bound": None, "legacy": False, "deck_pairing": "all_pairs"},
-        {"benchmark_id": "fixed", "margin": 80.0, "bound": None, "legacy": False, "deck_pairing": None},
+        {"benchmark_id": "ladder-a", "margin": 101.4, "bound": None, "legacy": False},
+        {"benchmark_id": "ladder-b", "margin": 90.0, "bound": None, "legacy": False},
+        {"benchmark_id": "fixed", "margin": 80.0, "bound": None, "legacy": False},
     ]
     home["hero"].update(benchmark_count=3, deck_pairings={"fixed": None, "ladder-a": "mirror", "ladder-b": "all_pairs"})
     page = render.render_home(home)
     row = _html(page, "li", "data-bot", "heuristic")
-    assert '<span class="chip">ladder-a +101 (mirror-only)</span>' in row
-    assert '<span class="chip">ladder-b +90 (all deck pairs)</span>' in row
-    assert '<span class="chip">fixed +80</span>' in row
+    for chip in ("ladder-a +101", "ladder-b +90", "fixed +80"):  # the chips themselves are unchanged
+        assert f'<span class="chip">{chip}</span>' in row
     note = _html(page, "section", "id", "hero")
     assert "a bot's margins on different benchmarks are not comparable with each other." in note
     assert "Mirror-only (both seats play the same deck): ladder-a." in note
     assert "Every ordered deck pairing: ladder-b." in note
-    one = render.render_home(HOME)  # one benchmark: nothing to compare, and chips without the key stay bare
+    one = render.render_home(HOME)  # one benchmark: nothing to compare
     assert "not comparable" not in one and "Mirror-only" not in one
-    assert '<span class="chip">pauper-kernel +101</span>' in _html(one, "li", "data-bot", "heuristic")
 
 
 def test_a_models_rating_from_a_v1_run_says_so_after_the_benchmark() -> None:

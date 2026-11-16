@@ -937,8 +937,7 @@ def test_every_number_on_the_site_matches_the_leaderboard(checked: tuple[Path, d
         margin, bound = (row["elo_milli"] - 1_000_000) / 1000, _bound(row, board)
         value = {"lower": GE + NBSP, "upper": LE + NBSP}.get(bound, "") + render.format_margin(margin)
         assert f'<span class="value">{value}</span>' in item, row["name"]
-        # a v2 run: no protocol v1 label; its deck pool plays mirrors, and the chip says so
-        assert f'<span class="chip">gamma {value} (mirror-only)</span>' in item, row["name"]
+        assert f'<span class="chip">gamma {value}</span>' in item, row["name"]  # a v2 run: no protocol v1 label
         if bound is None:
             low, high = ((end - 1_000_000) / 1000 for end in row["ci95_elo_milli"])
             detail = f"95% interval {render.format_margin(low)} to {render.format_margin(high)}"
@@ -1115,7 +1114,6 @@ def test_the_views_carry_every_protocol_key_of_a_v2_run(tree: Path, tmp_path: Pa
     assert chips and all(chip["legacy"] is False for chip in chips)
     pairings = home["hero"]["deck_pairings"]  # each charted benchmark's deck pairing, as its config records it
     assert pairings and {chip["benchmark_id"] for chip in chips} == set(pairings)
-    assert all(chip["deck_pairing"] == pairings[chip["benchmark_id"]] for chip in chips)
     assert set(pairings.values()) <= {"mirror", "all_pairs", None}
     [models] = views["render_models"]
     ratings = [row for model in models["models"] for row in model["benchmarks"]]
