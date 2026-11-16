@@ -571,6 +571,151 @@ def test_an_unanchored_run_is_left_out_of_the_hero_chart(copy_tree: Path, tmp_pa
     assert "delta" not in hero and "alpha" in hero
 
 
+def _headline(root: Path, value: Any) -> None:
+    text = value if isinstance(value, str) else json.dumps(value)
+    (root / build.HEADLINE_FILE).write_text(text, encoding="utf-8", newline="\n")
+
+
+def test_the_top_table_shows_only_the_headline_benchmark(copy_tree: Path, tmp_path: Path) -> None:
+    """With headline.json the table is that board's leaderboard: its bots, its order, its intervals, no mean."""
+    build_site(copy_tree, tmp_path / "all")
+    _headline(copy_tree, {"schema": build.HEADLINE_SCHEMA, "benchmark": "alpha"})
+    warnings = build_site(copy_tree, tmp_path / "one")
+    assert not any("Hero chart" in warning for warning in warnings)
+    home = (tmp_path / "one/index.html").read_text(encoding="utf-8")
+    hero = home[home.index('id="hero"'):home.index('id="benchmarks"')]
+    board = json.loads((copy_tree / "alpha/runs/2026-09-26/leaderboard.json").read_text(encoding="utf-8"))
+    rated = [row for row in board["rows"] if row["rated"]]
+    # exactly the board's rated bots, in the leaderboard's own order
+    assert re.findall(r'<li data-bot="([^"]+)"', hero) == [row["name"] for row in rated]
+    for row in rated:
+        item = _html(home, "li", "data-bot", row["name"])
+        assert "beta" not in item  # one chip, the headline board's
+        if row["bot_id"] == board["anchor"]["bot_id"]:
+            continue
+        margin, bound = (row["elo_milli"] - 1_000_000) / 1000, _bound(row, board)
+        value = {"lower": GE + NBSP, "upper": LE + NBSP}.get(bound, "") + render.format_margin(margin)
+        assert f'<span class="value">{value}</span>' in item, row["name"]  # the board's own margin, not a mean
+        if bound is None:
+            low, high = ((end - 1_000_000) / 1000 for end in row["ci95_elo_milli"])
+            assert f"95% interval {render.format_margin(low)} to {render.format_margin(high)}" in _aria_label(item)
+    assert '<a href="b/alpha/index.html">Bench alpha</a>, the current rated board' in hero
+    assert "This table shows alpha only." in hero and "has its own page and its own scale" in hero
+    assert "approximate" not in hero and "in the chart" not in hero and "not comparable" not in hero
+    # every board keeps its card and its page, byte for byte
+    assert 'href="b/beta/index.html"' in home[home.index('id="benchmarks"'):]
+    one, every = _files(tmp_path / "one"), _files(tmp_path / "all")
+    assert set(one) == set(every)
+    assert {name for name in one if one[name] != every[name]} == {"index.html"}
+
+
+def test_a_headline_benchmark_without_a_rated_run_leaves_the_table_empty(copy_tree: Path, tmp_path: Path) -> None:
+    _write_definition(copy_tree / "gamma", _definition("gamma"))
+    _headline(copy_tree, {"schema": build.HEADLINE_SCHEMA, "benchmark": "gamma"})
+    build_site(copy_tree, tmp_path / "site")
+    home = (tmp_path / "site/index.html").read_text(encoding="utf-8")
+    hero = home[home.index('id="hero"'):home.index('id="benchmarks"')]
+    assert "gamma has no rated run yet." in hero and "<li data-bot" not in hero
+    assert "Bench gamma, the current rated board" in hero and "b/gamma/" not in hero  # no page to link yet
+    assert "This table shows gamma only." in hero
+    assert (tmp_path / "site/b/alpha/index.html").is_file()
+
+
+def test_a_headline_board_the_chart_leaves_out_points_to_its_page(copy_tree: Path, tmp_path: Path) -> None:
+    """A published board with another anchor is not charted: the table says so and links the page that has it."""
+    _add_benchmark(copy_tree, "delta", anchor="heuristic")
+    _headline(copy_tree, {"schema": build.HEADLINE_SCHEMA, "benchmark": "delta"})
+    warnings = build_site(copy_tree, tmp_path / "site")
+    assert any("delta" in warning and "left out of the Hero chart" in warning for warning in warnings)
+    home = (tmp_path / "site/index.html").read_text(encoding="utf-8")
+    hero = home[home.index('id="hero"'):home.index('id="benchmarks"')]
+    assert "<li data-bot" not in hero and "no rated run yet" not in hero
+    assert 'The rated results of delta cannot be charted here; they are on <a href="b/delta/index.html">its page</a>.' in hero
+    assert (tmp_path / "site/b/delta/index.html").is_file()
+
+
+def test_a_headline_row_takes_its_text_from_the_headline_benchmark(tmp_path: Path) -> None:
+    root = tmp_path / "benchmarks"
+    _add_benchmark(root, "alpha", labels={"heuristic": "Alpha name"})
+    _add_benchmark(root, "beta", labels={"heuristic": "Beta name"})
+    build_site(root, tmp_path / "all")
+    assert "Alpha name" in _html((tmp_path / "all/index.html").read_text(encoding="utf-8"), "li", "data-bot", "heuristic")
+    _headline(root, {"schema": build.HEADLINE_SCHEMA, "benchmark": "beta"})
+    build_site(root, tmp_path / "one")
+    row = _html((tmp_path / "one/index.html").read_text(encoding="utf-8"), "li", "data-bot", "heuristic")
+    assert "Beta name" in row and "Alpha name" not in row
+
+
+def test_a_headline_table_keeps_the_leaderboards_order_when_displayed_ratings_tie() -> None:
+    from types import SimpleNamespace as Fake
+
+    def row(name: str, elo_milli: int) -> dict[str, Any]:
+        return {"name": name, "rated": True, "elo_milli": elo_milli, "ci95_elo_milli": [elo_milli - 5000, elo_milli + 5000],
+                "wins": 3, "losses": 2, "draws": 0, "games": 5}
+
+    # the board ranks zed above abe (its rating is higher below the displayed precision); the Hero sort alone
+    # would put abe first by name
+    board = {"anchor": {"name": "uniform"}, "status": "ok",
+             "rows": [row("zed", 1_200_000), row("abe", 1_200_000), row("uniform", 1_000_000), row("low", 900_000)]}
+    other = {"anchor": {"name": "uniform"}, "status": "ok", "rows": [row("abe", 1_900_000), row("uniform", 1_000_000)]}
+    runs = {"main": Fake(board=board), "other": Fake(board=other)}
+    table = build._top_table(runs, "main")
+    assert [item.name for item in table.rows] == ["zed", "abe", "uniform", "low"]
+    assert table.benchmark_ids == ("main",) and all(len(item.chips) == 1 and not item.approximate for item in table.rows)
+    assert [item.name for item in build._top_table(runs, None).rows] == ["abe", "zed", "uniform", "low"]  # the mean
+
+
+@pytest.mark.parametrize("value, message", [
+    ({"schema": build.HEADLINE_SCHEMA, "benchmark": "nowhere"}, "has no definition"),
+    ({"schema": "other", "benchmark": "alpha"}, "must be {schema"),
+    ({"schema": build.HEADLINE_SCHEMA, "benchmark": "alpha", "extra": 1}, "must be {schema"),
+    ({"schema": build.HEADLINE_SCHEMA, "benchmark": ["alpha"]}, "must be {schema"),
+    ("[]", "headline.json"),
+    ("{", "headline.json"),
+    ('{"schema": 1, "schema": 2}', "headline.json"),
+])
+def test_a_bad_headline_file_is_refused_and_nothing_is_written(copy_tree: Path, tmp_path: Path, value: Any, message: str) -> None:
+    _headline(copy_tree, value)
+    with pytest.raises(SiteError, match=re.escape(message)):
+        build_site(copy_tree, tmp_path / "site")
+    assert not (tmp_path / "site").exists()
+
+
+def test_the_headline_view_lists_the_snapshots_pending_bots() -> None:
+    from types import SimpleNamespace as Fake
+    benchmarks = [Fake(id="alpha", title="Bench alpha"), Fake(id="beta", title="Bench beta")]
+    runs = {"alpha": Fake(manifest={"pending": ["searcher"]}), "beta": Fake(manifest=None)}
+    assert build._headline_view("alpha", benchmarks, runs, True) == {
+        "id": "alpha", "title": "Bench alpha", "href": "b/alpha/index.html", "charted": True, "pending": ["searcher"]}
+    assert build._headline_view("beta", benchmarks, runs, False)["pending"] == []  # a v1 run has no manifest
+    assert build._headline_view("alpha", benchmarks, {}, False) == {
+        "id": "alpha", "title": "Bench alpha", "href": None, "charted": False, "pending": []}
+
+
+def test_this_repositorys_top_table_is_its_headline_boards_latest_rated_snapshot() -> None:
+    """The published headline, read the way the build reads it: the table is the board run of the benchmark
+    headline.json names, its rated bots in the leaderboard's order with its margins and intervals, and none of
+    its pending bots."""
+    benchmarks = REPO / "benchmarks"
+    headline = json.loads((benchmarks / build.HEADLINE_FILE).read_text(encoding="utf-8"))["benchmark"]
+    assert (benchmarks / headline / "benchmark.json").is_file()
+    directory = board_run_dir(benchmarks / headline)
+    assert directory is not None and directory.parent.name == "snapshots"
+    run = build._read_snapshot(directory, ())
+    table = build._top_table({headline: run, "another": run}, headline)
+    assert table.benchmark_ids == (headline,) and not table.warnings
+    rated = [row for row in run.board["rows"] if row["rated"]]
+    assert [row.name for row in table.rows] == [row["name"] for row in rated]
+    for row, expected in zip(table.rows, rated):
+        assert not row.approximate and [chip.benchmark_id for chip in row.chips] == [headline]
+        assert round(row.score * 1000) == expected["elo_milli"] - 1_000_000
+        if not row.reference:
+            assert [round(row.lower * 1000), round(row.upper * 1000)] == [
+                end - 1_000_000 for end in expected["ci95_elo_milli"]]
+    pending = build._headline_view(headline, [definition.load_benchmark(benchmarks / headline)], {headline: run}, True)["pending"]
+    assert pending == run.manifest["pending"] and not set(pending) & {row.name for row in table.rows}
+
+
 def test_the_cli_builds_the_site(tree: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     out = tmp_path / "site"
     assert cli.main(["site", str(tree), str(out)]) == 0

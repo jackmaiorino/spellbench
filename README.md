@@ -202,8 +202,8 @@ uv run spellbench site benchmarks site
 ```
 
 This validates each benchmark's board run and newer publications, refuses
-to build if one fails, and writes the static site: the Hero chart (Elo above random,
-averaged over the benchmarks a bot entered), a page per benchmark, and the
+to build if one fails, and writes the static site: the Hero chart (Elo above random on
+the current rated board, which `benchmarks/headline.json` names), a page per benchmark, and the
 method. Pending, aborted and withheld commitments stay visible. A complete
 unrated v2 run does not replace a rated board run. CI checks that published
 runs stay available and that each rated config matches its commitment's
