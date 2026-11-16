@@ -93,6 +93,9 @@ _HERO_SUBTITLE = (
     "The score compares skill above random across formats, not head-to-head results."
 )
 
+# How a benchmark pairs the decks of its pool, as the Hero note says it.
+_PAIRING_NOTES = {"mirror": "Mirror-only (both seats play the same deck)", "all_pairs": "Every ordered deck pairing"}
+
 _JOIN_INTRO = (
     "Spellbench is a small protocol. The arena sends your bot one decision at a time as a line of JSON "
     "listing the legal choices, and your bot answers with the one it picks. Any language works: your bot "
@@ -935,6 +938,16 @@ def _hero(hero: Mapping[str, Any]) -> str:
         note = f"{_count(hero['benchmark_count'], 'benchmark')} in the chart."
         if hero["approximate"]:
             note += " Intervals that combine several benchmarks are approximate."
+        if hero["benchmark_count"] > 1:
+            note += (
+                " Each benchmark has its own engine version, deck pairings and scale:"
+                " a bot's margins on different benchmarks are not comparable with each other."
+            )
+            pairings = hero.get("deck_pairings", {})
+            for kind, text in _PAIRING_NOTES.items():
+                names = [bench_id for bench_id, pairing in pairings.items() if pairing == kind]
+                if names:
+                    note += f" {text}: {_e(', '.join(names))}."
         if any(_hero_bound(row) for row in rows):
             note += (
                 f" A score marked {_BOUND_SIGNS['lower']} or {_BOUND_SIGNS['upper']} is only a bound: "
@@ -1303,7 +1316,7 @@ def _leaderboards(view: Mapping[str, Any]) -> str:
             by_deck.append(_note(f"Each deck is rated on its own games ({pairs} per matchup), still anchored on the random bot."))
         by_deck += [_deck_section(table) for table in view["deck_tables"]]
     elif view.get("deck_slices") is False:
-        by_deck.append(_note("This board publishes no per-deck ratings: its matchups play too few pairs of one "
+        by_deck.append(_note("This board publishes no per-deck bot ratings: its matchups play too few pairs of one "
                              "deck pairing to rate a deck's games on their own. Scores by deck are under Deck "
                              "matchups."))
     else:

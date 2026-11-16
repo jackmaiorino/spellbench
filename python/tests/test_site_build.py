@@ -1112,6 +1112,9 @@ def test_the_views_carry_every_protocol_key_of_a_v2_run(tree: Path, tmp_path: Pa
     [home] = views["render_home"]
     chips = [chip for row in home["hero"]["rows"] for chip in row["chips"]]
     assert chips and all(chip["legacy"] is False for chip in chips)
+    pairings = home["hero"]["deck_pairings"]  # each charted benchmark's deck pairing, as its config records it
+    assert pairings and {chip["benchmark_id"] for chip in chips} == set(pairings)
+    assert set(pairings.values()) <= {"mirror", "all_pairs", None}
     [models] = views["render_models"]
     ratings = [row for model in models["models"] for row in model["benchmarks"]]
     assert ratings and all(row["legacy"] is False for row in ratings)
