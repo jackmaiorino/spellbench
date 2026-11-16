@@ -25,9 +25,9 @@ def rated_board() -> dict:
                       "owner": "owner-x", "display": {"label": "g", "author": "author-x"}}]}
 
 
-def entrant(name: str, keep7: bool = False) -> dict:
+def entrant(name: str, keep7: bool = False, keep6: bool = False) -> dict:
     return {"name": name, "label": name, "scorer_config": f"E:/x/{name}.json", "checkpoint": f"E:/x/{name}.ckpt",
-            "model_state_sha256": "e" * 64, "keep_seven_test": keep7}
+            "model_state_sha256": "e" * 64, "keep_seven_test": keep7, "keep_after_mulligan_rule": keep6}
 
 
 def write(tmp_path: Path, entrants: list[dict]) -> tuple[Path, Path, Path]:
@@ -124,3 +124,37 @@ def test_the_generator_names_nobody_it_copies_the_rated_boards_own_fields(tmp_pa
     board_path.write_text(json.dumps(bare), encoding="utf-8")
     board, _ = make.make(board_path, local_path, registry, "b", "r")
     assert (board["bots"][2]["owner"], board["bots"][2]["display"]["author"]) == (None, None)
+
+
+def test_a_keep_after_mulligan_entrant_carries_its_flag_and_an_honest_derived_label(tmp_path) -> None:
+    rule = dict(entrant("arm-p-keep6", keep6=True), label="arm P at 20,480 updates")
+    board_path, local_path, registry = write(tmp_path, [entrant("chains-a-c4-london-test"), rule])
+    board, _ = make.make(board_path, local_path, registry, "b", "r")
+    learned, ruled = board["bots"][2:]
+    assert "--keep-after-mulligan" not in learned["command"] and "--keep-after-mulligan" in ruled["command"]
+    assert "--test-keep-seven" not in ruled["command"]
+    assert ruled["display"]["label"] == ("arm P at 20,480 updates: mulligan decision at seven from the network "
+                                         "(partly trained, level still unstable); keeps any six by rule")
+    # A label that already carries the note is not doubled; the note is derived, never taken on trust.
+    rule["label"] = ruled["display"]["label"]
+    board_path, local_path, registry = write(tmp_path, [rule])
+    again, _ = make.make(board_path, local_path, registry, "b", "r")
+    assert again["bots"][2]["display"]["label"] == ruled["display"]["label"]
+
+
+@pytest.mark.parametrize("bad", [dict(name="learned-bot", keep6=True), dict(name="learned-keep6-bot", keep6=False)])
+def test_the_keep6_name_rule_holds_in_both_directions_in_the_generator(tmp_path, bad) -> None:
+    board_path, local_path, registry = write(tmp_path, [entrant(bad["name"], keep6=bad["keep6"])])
+    with pytest.raises(SystemExit):
+        make.make(board_path, local_path, registry, "b", "r")
+
+
+def test_the_rule_and_the_keep_seven_test_are_never_one_entrant_and_a_learned_label_cannot_claim_the_rule(tmp_path) -> None:
+    both = entrant("x-keep6-keep7", keep7=True, keep6=True)
+    board_path, local_path, registry = write(tmp_path, [both])
+    with pytest.raises(SystemExit):
+        make.make(board_path, local_path, registry, "b", "r")
+    claiming = dict(entrant("chains-a-c4-london-test"), label="Basilisk 2, keeps any six by rule")
+    board_path, local_path, registry = write(tmp_path, [claiming])
+    with pytest.raises(SystemExit):
+        make.make(board_path, local_path, registry, "b", "r")

@@ -11,6 +11,12 @@ V7 identity and picks a row, and answers with the mapped candidate id. Every
 mulligan and bottom decision is the model's own; there is no mulligan rule and
 no keep lean here. Standard library only.
 
+`--keep-after-mulligan` declares a rule for a bot entry named for it (the name part `keep6`): after the bot's
+first mulligan it keeps whatever hand it has without scoring the question, so it is never asked Keep or Mulligan at six
+cards or fewer. The seven-card decision and every put-back choice stay the model's own. It is a stopgap while mulligan
+training continues, and an entry that uses it says so in its table name, its decision log and its record; a bot started
+without the flag never applies it. The flag and the name part `keep6` go together like the keep-seven pair below.
+
 `--test-keep-seven` is a test mode for a bot entry named for it: the bot keeps
 at every `mulligan` decision without scoring it. It exists to check the human's
 London flow against an ordinary game while the model's own mulligan play is
@@ -55,6 +61,8 @@ READY_SCHEMA = "mtg-kernel-spellbench-scorer-ready/v1"
 LOG_SCHEMA = "spellbench-kernel-bot-log/v1"
 KEEP_SEVEN_NAME_PART = "keep7"
 KEEP_SEVEN_TEST_NOTE = "test-keep-seven: answered keep at a mulligan decision without scoring"
+KEEP_RULE_NAME_PART = "keep6"
+KEEP_RULE_NOTE = "keep-after-mulligan rule: kept at a mulligan decision after a mulligan without scoring"
 FEATURE_CONTRACT_DIGEST = "1f894f0dcaaeb4e5ac0233e3f39d866c0dddca494f1afc8152107bded0551a4d"
 FEATURE_ENCODING_DIGEST = "4c592d136a74240f40b12c638203ab1758ed3cd63748ab7cd2788a60a78850a3"
 SAMPLED = "sampled-wide-v1"
@@ -130,12 +138,20 @@ class KernelFlatBot:
     def __init__(
         self, scorer: ScorerProcess, *, seed: int, decision_log: Path | None, name: str, version: str,
         expect_model_state: str | None = None, test_keep_seven: bool = False, allow_numeric_v4_fill: bool = False,
+        keep_after_mulligan: bool = False,
     ) -> None:
         if test_keep_seven != (KEEP_SEVEN_NAME_PART in name):
             raise BotError(
                 f"the keep-seven test mode and the name part {KEEP_SEVEN_NAME_PART!r} go together: "
                 f"--test-keep-seven is {'on' if test_keep_seven else 'off'} for the bot named {name!r}"
             )
+        if keep_after_mulligan != (KEEP_RULE_NAME_PART in name):
+            raise BotError(
+                f"the keep-after-mulligan rule and the name part {KEEP_RULE_NAME_PART!r} go together: "
+                f"--keep-after-mulligan is {'on' if keep_after_mulligan else 'off'} for the bot named {name!r}"
+            )
+        if keep_after_mulligan and test_keep_seven:
+            raise BotError("--keep-after-mulligan and --test-keep-seven are different bots: not both")
         ready = scorer.ready
         if (ready.get("feature_contract_digest"), ready.get("feature_encoding_digest")) != (
             FEATURE_CONTRACT_DIGEST, FEATURE_ENCODING_DIGEST,
@@ -162,6 +178,7 @@ class KernelFlatBot:
         self._rng: SplitMix64 | None = None
         self._log = None
         self._test_keep_seven = test_keep_seven
+        self._keep_after_mulligan = keep_after_mulligan
         self._allow_numeric_v4_fill = allow_numeric_v4_fill
 
     def on_game_start(self, request: GameStart) -> None:
@@ -181,7 +198,8 @@ class KernelFlatBot:
                 "schema": LOG_SCHEMA, "kind": "header", "game_id": request.game_id, "seat": request.seat,
                 "bot_name": self._identity[0], "bot_version": self._identity[1], "selection": self._selection,
                 "stream_seed": stream_seed, "model_state_sha256": self._state,
-                "test_keep_seven": self._test_keep_seven, "allow_numeric_v4_fill": self._allow_numeric_v4_fill,
+                "test_keep_seven": self._test_keep_seven, "keep_after_mulligan": self._keep_after_mulligan,
+                "allow_numeric_v4_fill": self._allow_numeric_v4_fill,
             })
 
     def choose(self, decision: Decision) -> int:
@@ -193,6 +211,12 @@ class KernelFlatBot:
                 self._write_log({"kind": "decision", "step": decision.seat_step, "candidate_id": keeps[0],
                                  "note": KEEP_SEVEN_TEST_NOTE})
                 return keeps[0]
+        if self._keep_after_mulligan:
+            forced = self._forced_keep(decision)
+            if forced is not None:
+                self._write_log({"kind": "decision", "step": decision.seat_step, "candidate_id": forced,
+                                 "note": KEEP_RULE_NOTE})
+                return forced
         extension = decision.extensions.get(EXTENSION)
         if not isinstance(extension, dict):
             raise self._fail("decision lacks x_kernel_flat_v7; run the bridge with --x-kernel-flat-v7")
@@ -240,6 +264,22 @@ class KernelFlatBot:
             "numeric_choice_v4_fill": bool(extension.get("numeric_choice_v4_fill")),
         })
         return rows[row]
+
+    @staticmethod
+    def _forced_keep(decision: Decision) -> int | None:
+        """The keep candidate of a Keep-or-Mulligan question asked after a mulligan (the rule), else None.
+
+        Only a decision that is wholly a mulligan question, with one keep answer, and whose every candidate says at
+        least one mulligan has been taken, is answered by the rule. The seven-card question (no mulligan taken) and
+        every other decision, the put-back included, go to the model."""
+        candidates = decision.candidates
+        if not candidates or any(c.semantic.get("kind") != "mulligan" for c in candidates):
+            return None
+        taken = [c.semantic.get("mulligans_taken") for c in candidates]
+        if any(type(n) is not int or n < 1 for n in taken):
+            return None
+        keeps = [c.candidate_id for c in candidates if c.semantic.get("keep") is True]
+        return keeps[0] if len(keeps) == 1 else None
 
     def on_game_over(self, request: GameOver) -> None:
         self._close_log()
@@ -329,6 +369,11 @@ def main(argv: list[str] | None = None) -> int:
         help="TEST MODE: keep at every mulligan decision without scoring it (a bot entry named for it only)",
     )
     parser.add_argument(
+        "--keep-after-mulligan", action="store_true",
+        help="RULE: after its first mulligan the bot keeps any hand without scoring the question (a bot entry named "
+             "for it only); the seven-card decision and the put-backs stay the model's",
+    )
+    parser.add_argument(
         "--allow-numeric-v4-fill", action="store_true",
         help="FLOW TESTING ONLY: score a numeric choice on its V4 fill (off the model's trained inputs) instead of refusing",
     )
@@ -337,12 +382,16 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--seed must be nonnegative")
     if args.test_keep_seven != (KEEP_SEVEN_NAME_PART in args.name):
         parser.error(f"--test-keep-seven and the name part {KEEP_SEVEN_NAME_PART!r} go together")
+    if args.keep_after_mulligan != (KEEP_RULE_NAME_PART in args.name):
+        parser.error(f"--keep-after-mulligan and the name part {KEEP_RULE_NAME_PART!r} go together")
+    if args.keep_after_mulligan and args.test_keep_seven:
+        parser.error("--keep-after-mulligan and --test-keep-seven are different bots: not both")
     try:
         scorer = ScorerProcess([args.scorer, *args.scorer_arg, "--config", args.config])
         bot = KernelFlatBot(
             scorer, seed=args.seed, decision_log=args.decision_log, name=args.name, version=args.version,
             expect_model_state=args.expect_model_state, test_keep_seven=args.test_keep_seven,
-            allow_numeric_v4_fill=args.allow_numeric_v4_fill,
+            allow_numeric_v4_fill=args.allow_numeric_v4_fill, keep_after_mulligan=args.keep_after_mulligan,
         )
     except (BotError, OSError, ValueError) as exc:
         print(f"kernel_flat_bot: {exc}", file=sys.stderr)

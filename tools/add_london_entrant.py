@@ -11,7 +11,9 @@ checkpoint that the scorer reads under the V7 feature transfer) into a bot the L
 
 The bot's mulligan and bottom choices are the model's own: nothing here sets a rule or a lean. `--keep-seven-test`
 registers the same checkpoint as a TEST entrant whose bot keeps every opening hand without scoring it (for checking
-the human's London flow against an ordinary game while a model's mulligan play is untrained).
+the human's London flow against an ordinary game while a model's mulligan play is untrained). `--keep-after-mulligan-rule`
+registers a model whose seven-card decision and put-backs are its own but whose Keep or Mulligan question after a first
+mulligan is answered by a declared rule (keep): a stopgap, named `...keep6...` and labelled so in the table name.
 
     python tools/add_london_entrant.py --name chains-a-c4-london-test --label "Basilisk 2 (London test)" \
         --checkpoint-json <c4-u1048576.json> --scorer <spellbench_scorer_v1.exe> --base-config <Basilisk 2 config>
@@ -31,6 +33,8 @@ V7_ENCODING = "4c592d136a74240f40b12c638203ab1758ed3cd63748ab7cd2788a60a78850a3"
 SCHEMA = "mtg-kernel-spellbench-scorer-config/v1"
 READY = "mtg-kernel-spellbench-scorer-ready/v1"
 DEFAULT_INPUTS = Path("E:/londonplay-20261114/inputs")
+KEEP_RULE_NOTE = ("mulligan decision at seven from the network (partly trained, level still unstable); "
+                  "keeps any six by rule")  # the same words as make_london_human_board.KEEP_RULE_NOTE
 LEAN_END_UPDATE = 32768  # arm M: the training-only keep offset reaches exactly zero at this fork update
 
 
@@ -101,6 +105,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--registry", type=Path)
     parser.add_argument("--keep-seven-test", action="store_true",
                         help="TEST entrant: the bot keeps every hand without scoring it")
+    parser.add_argument("--keep-after-mulligan-rule", action="store_true",
+                        help="the bot keeps any hand after its first mulligan without scoring it; the name must "
+                             "contain keep6 (and only such an entrant's may)")
     args = parser.parse_args(argv)
     checkpoint = args.checkpoint_json.resolve()
     actual = sha256_file(checkpoint)
@@ -110,6 +117,12 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("a keep-seven test entrant's name must contain keep7, so it is never mistaken for a learned one")
     if not args.keep_seven_test and "keep7" in args.name:
         raise SystemExit("only a --keep-seven-test entrant may carry keep7 in its name")
+    if args.keep_after_mulligan_rule and "keep6" not in args.name:
+        raise SystemExit("a keep-after-mulligan entrant's name must contain keep6, so it is never mistaken for a learned one")
+    if not args.keep_after_mulligan_rule and "keep6" in args.name:
+        raise SystemExit("only a --keep-after-mulligan-rule entrant may carry keep6 in its name")
+    if args.keep_after_mulligan_rule and args.keep_seven_test:
+        raise SystemExit("--keep-after-mulligan-rule and --keep-seven-test are different bots: not both")
     label, lean_active = args.label, None
     if args.keep_seven_test:  # the table name of a test entrant always says so (the board generator derives it again)
         plain = (label or args.name).removesuffix(" (keeps seven, test)")
@@ -120,6 +133,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.label or args.keep_seven_test:
             raise SystemExit("--chain derives the table name: do not pass --label or --keep-seven-test with it")
         label, lean_active = chain_label(args.chain, args.fork_updates, args.lean_end_update)
+        if args.keep_after_mulligan_rule:  # the table name says the rule: the chain state, then the stopgap's own words
+            label = f"{args.chain} at {args.fork_updates:,} updates: {KEEP_RULE_NOTE}"
+    elif args.keep_after_mulligan_rule:
+        label = (label or args.name).removesuffix(": " + KEEP_RULE_NOTE) + ": " + KEEP_RULE_NOTE
     base = json.loads(args.base_config.read_text(encoding="utf-8"))
     args.inputs_dir.mkdir(parents=True, exist_ok=True)
     config = args.inputs_dir / f"{args.name}.scorer.json"
@@ -130,7 +147,11 @@ def main(argv: list[str] | None = None) -> int:
     document = json.loads(registry.read_text(encoding="utf-8")) if registry.exists() else {"entrants": []}
     document["entrants"] = [e for e in document["entrants"] if e["name"] != args.name]
     description = args.description
-    if lean_active is not None and not description:
+    if args.keep_after_mulligan_rule and not description:
+        description = ("STOPGAP entrant: at seven cards the model decides Keep or Mulligan itself, as it samples every "
+                       "decision (no keep lean at play time). After one mulligan the bot keeps any hand by a declared rule, "
+                       "without asking the model; its put-back choice is its own. Not the finished mulligan model.")
+    elif lean_active is not None and not description:
         description = ("A chain state of the arm M mulligan lineage, played as saved: its mulligan and bottom choices are "
                        "the model's own. The keep lean of its training is never applied at play time.")
     document["entrants"].append({
@@ -139,7 +160,8 @@ def main(argv: list[str] | None = None) -> int:
                    "lean_active_when_saved": lean_active} if lean_active is not None else None),
         "scorer_config": str(config).replace("\\", "/"), "checkpoint": str(checkpoint).replace("\\", "/"),
         "checkpoint_sha256": actual, "model_state_sha256": state, "selection": base["selection"],
-        "keep_seven_test": bool(args.keep_seven_test)})
+        "keep_seven_test": bool(args.keep_seven_test),
+        "keep_after_mulligan_rule": bool(args.keep_after_mulligan_rule)})
     registry.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"registered {args.name}: scorer config {config}")
     print(f"  table name: {label or args.name}")
