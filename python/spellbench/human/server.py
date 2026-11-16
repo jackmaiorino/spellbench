@@ -111,12 +111,12 @@ class Conceded(RuntimeError):
     """The person gave up the game: every later decision of it is refused so the arena ends it at once."""
 
 
-# Said at the put-back prompt (in the log, and in the description of the plain selection used when the Manabrew prompt
-# cannot be built): the engine puts the cards back right after the new seven are drawn, before the next Keep or
-# Mulligan choice (a real table asks Keep or Mulligan first). It is the order the bots trained on.
 # Said first in every game of a session with an advisor (its identity is in each game's record header).
 ADVISED_NOTE = ("Advisor on: {label} shows how it weighs your choices. This is advised play, not a measure of your "
                 "unassisted play.")
+# Said at the put-back prompt (in the log, and in the description of the plain selection used when the Manabrew prompt
+# cannot be built): the engine puts the cards back right after the new seven are drawn, before the next Keep or
+# Mulligan choice (a real table asks Keep or Mulligan first). It is the order the bots trained on.
 PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the new seven are drawn, then asks Keep or "
                  "Mulligan on the smaller hand (real tables ask Keep or Mulligan first, then bottom).")
 
