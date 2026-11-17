@@ -211,7 +211,10 @@ def benchmark_source(benchmark_dir: Path, local: dict[str, str], run_dir: Path) 
     """A benchmark's arena config, as ``spellbench.human`` builds it, with every bot of the benchmark."""
     benchmark = dataclasses.replace(definition.load_benchmark(benchmark_dir), evaluation_targets=None,
                                     evaluation_matchups=None)
-    return session.resolve_local(benchmark.tournament_config(str(run_dir)), local)
+    source = benchmark.tournament_config(str(run_dir))
+    # A match plays the board's own engine: the export blocks' files are not needed and need no local value.
+    source.pop("export_blocks", None)
+    return session.resolve_local(source, local)
 
 
 def match_config(source: dict[str, Any], *, players: tuple[str, str], bank_ms: int, run_dir: Path,

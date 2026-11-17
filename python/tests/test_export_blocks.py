@@ -113,6 +113,12 @@ def test_human_play_takes_the_boards_own_engine(completed, tmp_path: Path) -> No
     assert source["export_blocks"]["bots"] == [ENTRANT]
     doc, _ = match.match_config(source, players=("uniform", "first"), bank_ms=600_000, run_dir=tmp_path / "run")
     assert "export_blocks" not in doc and doc["engine"]["command"][-1] == str(FAKE_ENGINE)
+    # The export form's files need no local value for a match: its placeholders are dropped before any is resolved.
+    raw = json.loads((directory / "benchmark.json").read_bytes())
+    raw["export_blocks"]["engine"]["command"] = [sys.executable, "${AN_EXPORT_ENGINE_WITH_NO_LOCAL_VALUE}"]
+    write_definition(directory, raw)
+    resolved = match.benchmark_source(directory, {}, tmp_path / "run")
+    assert "export_blocks" not in resolved and resolved["engine"]["command"][-1] == str(FAKE_ENGINE)
 
 
 @pytest.mark.parametrize("change, message", [
