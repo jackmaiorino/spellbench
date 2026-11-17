@@ -390,7 +390,7 @@ def main(argv: list[str] | None = None) -> int:
                              "factor), at most about 4 s of drawing per state. 0: only stack changes, 0.2 s apart. "
                              "The engine and the bot never wait for it; the prompt of your next decision comes after "
                              "the drawing, and your decision clock runs from when the engine asks, so that drawing "
-                             "counts against your bank")
+                             "counts against your bank; nothing is waited for while your bank is under two minutes")
     args = parser.parse_args(argv)
     if args.pace < 0:
         parser.error("--pace must be 0 or more")
