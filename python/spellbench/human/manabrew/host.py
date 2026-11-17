@@ -248,6 +248,7 @@ class Bridge:
         # between the relay's GameStarted and the game's first view); it ends that game when it appears.
         self._gone: str | None = None
         self._closing = False
+        self._finishing = False  # the session is ending: draw what is left without pacing waits (``close``)
         self.relay_lost: str | None = None
         self.resume_token: str | None = None  # the relay's token for ResumeRoom (kept, not used: see _relay_closed)
         # Log delivery (see _send_log): until when log lines are held back (a new game's start, a reload).
@@ -277,7 +278,8 @@ class Bridge:
                 time.sleep(self.RELAY_RETRY_S)
         self._open_deadline = deadline
         self._create_room()
-        threading.Thread(target=self._pump, daemon=True, name="manabrew-pump").start()
+        self._pump_thread = threading.Thread(target=self._pump, daemon=True, name="manabrew-pump")
+        self._pump_thread.start()
 
     def reconnect_timeout_s(self) -> int:
         """The table's reconnect timeout: how long the relay keeps a dropped person's seat (it forfeits it five seconds
@@ -507,7 +509,7 @@ class Bridge:
         for position in positions:
             kinds.append(pace_kind(before, position, me))
             before = position
-        budget = min(self.PACE_CAP_S, self._bank_room(state))
+        budget = 0.0 if self._finishing else min(self.PACE_CAP_S, self._bank_room(state))
         # spread the budget: a burst whose dwells add up to more is drawn proportionally faster
         planned = sum(self.PACE_DWELL_S.get(k, 0.0) for k in kinds[:-1] if k) * self.pace
         factor = min(1.0, budget / planned) if planned > 0 else 1.0
@@ -518,7 +520,7 @@ class Bridge:
                 if self.seats is not seats:
                     return None
                 wait = (min(budget, self._bank_room(state), self._dwell - (time.monotonic() - self._shown_at))
-                        if kind else 0.0)
+                        if kind and not self._finishing else 0.0)
             if wait > 0:
                 paced = True
                 budget -= wait
@@ -903,8 +905,23 @@ class Bridge:
                 print("  The game in progress is recorded as a loss (relay_lost).", flush=True)
         self.starts.put(None)
 
+    CLOSE_DRAIN_S = 8.0
+
+    def _end_unsent(self) -> bool:
+        """A game at the table is over and the client has not been sent its end yet."""
+        game = self.hub.game or {}
+        return (self.order is not None and self.relay_lost is None and self.hub.game_over is not None
+                and bool(game.get("game_id")) and getattr(self, "_ended", None) != game.get("game_id"))
+
     def close(self) -> None:
-        """Stop the pump and close the relay connections (the session is ending on purpose)."""
+        """Stop the pump and close the relay connections (the session is ending on purpose). The end of a game that is
+        over but not shown yet (the last game ended while a paced burst was being drawn) goes out first: the drawing
+        stops waiting and the pump sends the final state, for at most CLOSE_DRAIN_S, so closing never hangs on it."""
+        self._finishing = True
+        deadline = time.monotonic() + self.CLOSE_DRAIN_S
+        pump = getattr(self, "_pump_thread", None)
+        while pump is not None and pump.is_alive() and self._end_unsent() and time.monotonic() < deadline:
+            time.sleep(0.05)
         self._closing = True
         self._cancel_grace()
         for name in ("host", "bot"):

@@ -806,6 +806,49 @@ def test_no_paced_wait_takes_an_open_decisions_bank_under_the_floor(monkeypatch)
     asked.join(5)
 
 
+def test_the_last_games_end_reaches_the_client_before_the_session_closes_even_mid_burst(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    hub = new_hub(real=True)
+    bridge, _ = paced_bridge(hub)
+    bridge.pace, bridge.seats = 1.0, SEATS
+    events: list[tuple[str, dict | None]] = []
+
+    class Connection:  # the host's relay connection: what is sent, and when it is closed
+        def __init__(self) -> None:
+            self.ws = self
+
+        def send(self, message: dict) -> None:
+            events.append(("send", message))
+
+        def close(self) -> None:
+            events.append(("closed", None))
+
+    bridge.host = Connection()
+    in_wait = threading.Event()
+    real_sleep = time.sleep
+
+    def sleeping(seconds: float) -> None:
+        if seconds >= 0.2:  # a pacing wait (the pump's own waits are shorter)
+            in_wait.set()
+        real_sleep(seconds)
+
+    monkeypatch.setattr(host.time, "sleep", sleeping)
+    opponent_turn(hub)  # about 2.4 s of paced drawing
+    bridge._pump_thread = threading.Thread(target=bridge._pump, daemon=True)
+    bridge._pump_thread.start()
+    assert in_wait.wait(5)  # the burst is being drawn
+    hub.game_end({"game_id": "g-1", "terminal": {"winner": OPP, "classification": "natural", "reason": "game_over"}})
+    begun = time.monotonic()
+    bridge.close()  # the session's last game is over: it ends now
+    assert time.monotonic() - begun < 5  # bounded: the drawing stops waiting
+    kinds = [("end" if m and m.get("type") == "EndGame" else
+              "game over" if m and ((m.get("state") or {}).get("prompt") or {}).get("input", {}).get("type") == "gameOver"
+              else kind) for kind, m in events]
+    assert "game over" in kinds and kinds.index("game over") < kinds.index("closed")  # the client got the end first
+    bridge._pump_thread.join(10)  # the pump ends at its next state wait (at most 5 s)
+    assert not bridge._pump_thread.is_alive()
+
+
 def test_pacing_off_draws_only_the_stack_changes_as_before(monkeypatch) -> None:
     import spellbench.human.manabrew.host as host
     hub = new_hub(real=True)
