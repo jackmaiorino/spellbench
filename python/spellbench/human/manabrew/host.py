@@ -560,8 +560,9 @@ class Bridge:
                 return None  # the game is over now: the next pump sends the client its end
         over = state.get("game_over")
         self._bank(state, over)
-        # Every decision at which the stack changed is drawn, in order, even when the session answered it at once and
-        # the engine has moved on: an opponent's spell is on the board before it resolves.
+        # The positions the session passed through are drawn in order, even when it answered them at once and the
+        # engine has moved on: an opponent's spell is on the board before it resolves. With pacing every position whose
+        # board differs is drawn (``_push_paced``); without it, those at which the stack changed.
         frames = [] if over else list(state.get("frames") or [])
         if self.pace > 0:
             frames = frames[-self.PACE_FRAMES:]
