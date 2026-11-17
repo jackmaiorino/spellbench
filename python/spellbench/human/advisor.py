@@ -213,14 +213,32 @@ class Advisor:
         return {"rows": [{"id": row, "p": share} for row, share in zip(rows, shares)], "value": value,
                 "win": None if value is None else min(1.0, max(0.0, (value + 1.0) / 2.0))}
 
-    def close(self) -> None:
+    def close(self, timeout: float = 2.0) -> None:
+        """End the scorer in bounded time whatever it does: the process first (terminate, then kill), then the
+        streams. A read stuck writing to a scorer that stopped reading holds the input stream's lock until the pipe
+        breaks, so the streams are closed in a thread of their own, waited for at most ``timeout``."""
         proc = self._proc
-        try:
-            if proc.stdin is not None and not proc.stdin.closed:
-                proc.stdin.close()
-        except OSError:
-            pass
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        if proc.poll() is None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                try:
+                    proc.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    pass
+            except OSError:
+                pass
+
+        def close_streams() -> None:
+            for stream in (proc.stdin, proc.stdout):
+                try:
+                    if stream is not None:
+                        stream.close()
+                except (OSError, ValueError):
+                    pass
+
+        closer = threading.Thread(target=close_streams, daemon=True)
+        closer.start()
+        closer.join(timeout)
