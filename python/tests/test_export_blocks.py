@@ -71,13 +71,19 @@ def test_a_board_config_resolves_to_one_form_at_a_time(completed, tmp_path: Path
     assert board.forms() == (BASE_FORM, EXPORT_FORM)
     assert board.form_of((ENTRANT, "heuristic")) == EXPORT_FORM and board.form_of(("first", "uniform")) == BASE_FORM
     assert TournamentConfig.from_json(board.to_json()) == board  # the whole board round-trips with its export blocks
-    # A form is its own blocks under its own conditions. The base form is the board as it was before it named
-    # export blocks, to the byte, less the entrant's block; the export form holds that block alone.
+    # A form is its own blocks and their bots under its own conditions. The base form is the board as it was
+    # before it named export blocks, to the byte, less the entrant and its block; the export form holds that
+    # block, with the panel.
     base, export = board.as_form(BASE_FORM), board.as_form(EXPORT_FORM)
     assert base.matchups == tuple(pair for pair in before.matchups if ENTRANT not in pair)
     assert export.matchups == tuple(pair for pair in before.matchups if ENTRANT in pair) != ()
-    assert store.canonical_bytes({**base.to_json(), "matchups": before.to_json()["matchups"]}) == store.canonical_bytes(
-        before.to_json())
+    assert [bot.name for bot in base.bots] == [bot.name for bot in before.bots if bot.name != ENTRANT]
+    assert [bot.name for bot in export.bots] == [bot.name for bot in before.bots]  # the panel and the entrant
+    assert base.ladder.entrants == {} and export.ladder.entrants == before.ladder.entrants
+    assert store.canonical_bytes(base.to_json()) == store.canonical_bytes(
+        snapshot.without_entrants(before, (ENTRANT,)).to_json())
+    for form in (base, export):
+        assert TournamentConfig.from_json(form.to_json()) == form  # each form is a config a run could record
     assert export.export_blocks is None and export.evaluation_version == EXPORT_VERSION
     assert export.engine_command[-1].endswith("fake_export_engine.py") and export.evaluation_engine_identity == HEX
     contracts = snapshot.form_contracts(board)
@@ -102,6 +108,22 @@ def test_a_board_config_resolves_to_one_form_at_a_time(completed, tmp_path: Path
     two = TournamentConfig.from_json({**board.to_json(), "export_blocks": {
         **board.export_blocks.to_json(), "bots": [ENTRANT, "first"]}})
     assert snapshot.without_entrants(two, (ENTRANT,)).export_blocks.bots == ("first",)
+
+
+def test_a_bot_of_the_other_form_is_not_started(completed, tmp_path: Path) -> None:  # noqa: F811
+    """Preflight starts every subprocess bot of a config. The entrant plays only export blocks and may need what
+    the base form does not enable, so the base form must not hold it: here its command cannot start at all."""
+    directory = copied(completed, tmp_path)
+    raw = _with_export_blocks(directory, tmp_path)
+    entrant = next(bot for bot in raw["bots"] if bot["name"] == ENTRANT)
+    entrant["command"] = [sys.executable, str(tmp_path / "there-is-no-such-bot.py")]
+    write_definition(directory, raw)
+    board = panel.full_config(definition.load_benchmark(directory))
+    base, export = board.as_form(BASE_FORM), board.as_form(EXPORT_FORM)
+    assert ENTRANT not in {bot.name for bot in base.bots} and ENTRANT in {bot.name for bot in export.bots}
+    preflight(base, TEST_RUN_SECRET)  # none of its games seats the entrant, and the entrant is not started
+    with pytest.raises(TournamentError):
+        preflight(export, TEST_RUN_SECRET)  # the form that plays it does check it
 
 
 def test_the_export_form_keeps_the_boards_extensions() -> None:

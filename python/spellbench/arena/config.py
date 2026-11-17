@@ -530,9 +530,12 @@ class TournamentConfig:
 
         The matchups are the form's own (the blocks with an export bot for the export form, the others for the
         base form), so what this returns can be scheduled and played without putting an export block under the
-        base conditions or a base block under the export conditions. For the export form its engine command,
-        extensions, engine inputs, engine identity and evaluation version stand at the top level; for the base
-        form the config's own do. Neither carries ``export_blocks``, so the conditions are compared
+        base conditions or a base block under the export conditions. The roster is the form's too, as a run's
+        is: the bots of those blocks, the panel and the anchor, with the ladder's entrants among them. A bot
+        that plays only in the other form is not started or checked here (preflight starts every bot of a
+        config, and an export bot can need an extension the base form does not enable). For the export form
+        its engine command, extensions, engine inputs, engine identity and evaluation version stand at the top
+        level; for the base form the config's own do. Neither carries ``export_blocks``, so the conditions are compared
         (``snapshot.contract``, which reads no matchup) exactly as those of a run of a board without export
         blocks. A config without export blocks is its own base form."""
         if form not in (BASE_FORM, EXPORT_FORM) or (form == EXPORT_FORM and self.export_blocks is None):
@@ -540,10 +543,15 @@ class TournamentConfig:
         if self.export_blocks is None:
             return self
         own = None if self.matchups is None else tuple(pair for pair in self.matchups if self.form_of(pair) == form)
+        kept = ({bot.name for bot in self.bots} if own is None else {name for pair in own for name in pair}
+                ) | set(self.opponent_panel) | {self.rating_anchor}
+        roster = {"matchups": own, "bots": tuple(bot for bot in self.bots if bot.name in kept),
+                  "ladder": None if self.ladder is None else Ladder(self.ladder.band, {
+                      name: rungs for name, rungs in self.ladder.entrants.items() if name in kept})}
         if form == BASE_FORM:
-            return replace(self, matchups=own, export_blocks=None)
+            return replace(self, **roster, export_blocks=None)
         export = self.export_blocks
-        return replace(self, matchups=own, engine_command=export.engine_command, extensions=export.extensions,
+        return replace(self, **roster, engine_command=export.engine_command, extensions=export.extensions,
                        evaluation_version=export.evaluation_version,
                        evaluation_engine_identity=export.evaluation_engine_identity,
                        evaluation_engine_inputs=export.evaluation_engine_inputs, export_blocks=None)

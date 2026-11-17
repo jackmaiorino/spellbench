@@ -52,6 +52,10 @@ def test_the_board_plays_every_ordered_pairing_in_every_block() -> None:
     base, export = board.as_form("base"), board.as_form("export")
     assert {frozenset(pair) for pair in export.matchups} == {frozenset((SEARCH_ENTRANT, rung)) for rung in RUNGS[-3:]}
     assert {frozenset(pair) for pair in base.matchups} == played - {frozenset(pair) for pair in export.matchups}
+    # Each form's roster is its own: the base form does not hold the search entrant, which needs the export.
+    assert [bot.name for bot in base.bots] == [*RUNGS, "chains-a-c4-u1048576"]
+    assert [bot.name for bot in export.bots] == [*RUNGS, SEARCH_ENTRANT]
+    assert set(base.ladder.entrants) == {"chains-a-c4-u1048576"} and set(export.ladder.entrants) == {SEARCH_ENTRANT}
     assert base.engine_command[1] == "${MTG_KERNEL_V2_ENGINE}" and "x_kernel_infoset_v1" not in base.extensions
     assert export.engine_command[1] == "${MTG_KERNEL_V2_INFOSET_ENGINE}" and "x_kernel_infoset_v1" in export.extensions
     for config, blocks in ((base, 18), (export, 3)):
