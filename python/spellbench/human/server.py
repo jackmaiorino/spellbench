@@ -585,6 +585,8 @@ class Hub:
                          lambda: self._reading_alive(game) and ((self.advice or {}).get("seq") == seq or (
                              key is not None and self.declaration is not None and self.declaration["key"] == key)),
                          lambda: self._mark_dropped(game, seq, question))
+        if self.declaration is not None and self.declaration["items"]:  # as it is after the queue was pruned
+            advice["declaration"] = self._declaration_view()
         return {**advice, "reading": True}
 
     def _apply_read(self, game: Any, seq: int, texts: Mapping[int, str], question: Mapping[str, Any] | None,

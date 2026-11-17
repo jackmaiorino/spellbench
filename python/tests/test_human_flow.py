@@ -849,6 +849,49 @@ def test_the_last_games_end_reaches_the_client_before_the_session_closes_even_mi
     assert not bridge._pump_thread.is_alive()
 
 
+def test_close_waits_until_the_end_of_the_game_has_actually_been_sent(monkeypatch) -> None:
+    hub = new_hub(real=True)
+    bridge, _ = paced_bridge(hub)
+    bridge.seats = SEATS
+    events: list[str] = []
+    gate = threading.Event()
+
+    class Connection:  # the host's relay connection; sending the end-of-game prompt is slow
+        def __init__(self) -> None:
+            self.ws = self
+
+        def send(self, message: dict) -> None:
+            if ((message.get("state") or {}).get("prompt") or {}).get("input", {}).get("type") == "gameOver":
+                gate.wait(5)
+                events.append("game over")
+            elif message.get("type") == "EndGame":
+                events.append("end")
+
+        def close(self) -> None:
+            events.append("closed")
+
+    bridge.host = Connection()
+    hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=4)})
+    hub.game_end({"game_id": "g-1", "terminal": {"winner": OPP, "classification": "natural", "reason": "game_over"}})
+    pusher = threading.Thread(target=bridge._push, args=(hub.wait_state(-1, timeout=0.1),), daemon=True)
+    bridge._pump_thread = pusher
+    pusher.start()
+    real_sleep = time.sleep
+    deadline = time.monotonic() + 5
+    while getattr(bridge, "_ended", None) != "g-1" and time.monotonic() < deadline:  # the end is being sent now
+        real_sleep(0.01)
+    closer = threading.Thread(target=bridge.close, daemon=True)
+    begun = time.monotonic()
+    closer.start()
+    real_sleep(0.3)
+    assert "closed" not in events  # close waits for the sends, not for the mark that they started
+    gate.set()
+    closer.join(10)
+    pusher.join(5)
+    assert not closer.is_alive() and time.monotonic() - begun < 9
+    assert events == ["game over", "end", "closed"]
+
+
 def test_pacing_off_draws_only_the_stack_changes_as_before(monkeypatch) -> None:
     import spellbench.human.manabrew.host as host
     hub = new_hub(real=True)

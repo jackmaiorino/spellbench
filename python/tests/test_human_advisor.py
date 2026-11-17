@@ -600,6 +600,33 @@ def test_the_read_queue_stays_short_and_drops_what_is_no_longer_wanted() -> None
     assert hub.wait_reads(10)
 
 
+def test_a_read_dropped_by_the_cap_shows_as_dropped_in_the_new_read_too() -> None:
+    from spellbench.human.server import DROPPED_READ, READ_BACKLOG
+    gated = GatedAdvisor()
+    hub = Hub(advisor=gated, real_action_stops=True)  # type: ignore[arg-type]
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    open_and_answer(hub, advised(priority(phase="precombat_main"), model_input([0, 1])), 0)  # the reader is held here
+    count = READ_BACKLOG  # the first question's read and the later ones fill the queue exactly
+    first = threading.Thread(target=lambda: hub.choose(advised(
+        combat_substep("declare_attack", 0, count, MULLDRIFTER, [None, FOE]), model_input([0, 1]))), daemon=True)
+    first.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": []}) is None
+    first.join(5)
+    for index in range(1, count):
+        hub.choose(advised(combat_substep("declare_attack", index, count, creature(f"o-{index}", f"Bear {index}"),
+                                          [None, FOE]), model_input([0, 1])))
+    assert not any(i.get("unavailable") for i in hub.advice["declaration"]["items"])
+    # a new read of the same combat drops the oldest queued read: its row says so in the read now shown
+    open_and_answer(hub, advised(priority(phase="declare_attackers"), model_input([0, 1])), 0)
+    items = hub.advice["declaration"]["items"]
+    assert items[0].get("unavailable") == DROPPED_READ and not items[0].get("reading")
+    gated.release.set()
+    assert hub.wait_reads(10)
+
+
 def test_the_declaration_ends_with_its_combat_even_when_every_later_window_is_passed_for_the_person(advisor) -> None:
     from test_human_stops import MANA
     hub = Hub(advisor=advisor("ok"), real_action_stops=True)

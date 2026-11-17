@@ -621,6 +621,7 @@ class Bridge:
                                        "decidingPlayerId": self.seats.pid(game.get("seat")),
                                        "input": {"type": "gameOver"}}})
             self.host.send({"type": "EndGame", "game_id": self.game_id})
+            self._end_sent = game.get("game_id")  # both sends done: ``close`` may close the connection now
             self.order, self.seats = None, None
 
     def _send_log(self, state: Mapping[str, Any], over: bool, upto: int | None = None) -> None:
@@ -911,7 +912,7 @@ class Bridge:
         """A game at the table is over and the client has not been sent its end yet."""
         game = self.hub.game or {}
         return (self.order is not None and self.relay_lost is None and self.hub.game_over is not None
-                and bool(game.get("game_id")) and getattr(self, "_ended", None) != game.get("game_id"))
+                and bool(game.get("game_id")) and getattr(self, "_end_sent", None) != game.get("game_id"))
 
     def close(self) -> None:
         """Stop the pump and close the relay connections (the session is ending on purpose). The end of a game that is
