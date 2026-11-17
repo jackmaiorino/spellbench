@@ -1,5 +1,5 @@
-"""pauper-ladder-v3: every ordered deck pairing on the ladder, a deferred entrant, no per-deck ratings, and a
-definition that ``bench prepare`` reproduces."""
+"""pauper-ladder-v3: every ordered deck pairing on the ladder, the search entrant's export blocks, deferred
+entrants, no per-deck ratings, and a definition that ``bench prepare`` reproduces."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from arena_helpers import TEST_RUN_SECRET, builtin, leaderboard, make_config, roomy_machine, run
-from spellbench.arena import cli, store
+from spellbench.arena import cli, snapshot, store
 from spellbench.arena.config import TournamentConfig, TournamentError
 from spellbench.arena.leaderboard import NO_DECK_SLICES_NOTE
 from spellbench.arena.schedule import schedule
@@ -41,23 +41,36 @@ def test_the_board_plays_every_ordered_pairing_in_every_block() -> None:
     assert benchmark.extensions == ("x_kernel_flat_v4", "x_public_history_v1")
     assert benchmark.engine_command[1] == "${MTG_KERNEL_V2_ENGINE}"
     assert len(benchmark.deck_pool) == 8 and benchmark.evaluation_version == "pauper-ladder-v3.0.0"
-    config = TournamentConfig.from_json(benchmark.tournament_config("runs/check"))
-    games = schedule(config, TEST_RUN_SECRET)
-    # Fifteen rung blocks (seven rungs, band 3) and Basilisk 2's three: 18 blocks of 64 pairs, 2,304 games.
-    assert (len(config.matchups), config.pairs_per_matchup, len(games)) == (18, 64, 2304)
-    assert SEARCH_ENTRANT not in {bot.name for bot in config.bots}
-    played = {frozenset(pair) for pair in config.matchups}
+    board = panel.full_config(benchmark)
+    # Fifteen rung blocks (seven rungs, band 3) and three for each of the two entrants: 21 blocks of 64 pairs.
+    played = {frozenset(pair) for pair in board.matchups}
     rungs = {frozenset((a, RUNGS[j])) for i, a in enumerate(RUNGS) for j in range(i + 1, min(len(RUNGS), i + 4))}
-    assert len(rungs) == 15 and rungs <= played  # each rung against the three rungs above it
-    assert played - rungs == {frozenset(("chains-a-c4-u1048576", rung)) for rung in RUNGS[-3:]}
-    for matchup in range(len(config.matchups)):
-        block = [game for game in games if game.matchup_index == matchup]
-        pairings = Counter((game.decks[0].catalog_id, game.decks[1].catalog_id) for game in block)
-        assert len(pairings) == 64 and set(pairings.values()) == {2}  # one seat-swapped pair per ordered pairing
-        seats = Counter((spec.name, seat, game.decks[int(seat[1])].catalog_id, game.decks[1 - int(seat[1])].catalog_id)
-                        for game in block for seat, spec in game.seat_specs)
-        # Each bot holds every deck against every deck once on the play and once on the draw.
-        assert len(seats) == 2 * 2 * 64 and set(seats.values()) == {1}
+    assert len(rungs) == 15 and rungs <= played and len(played) == 21  # each rung against the three above it
+    assert played - rungs == {frozenset((entrant, rung)) for entrant in ("chains-a-c4-u1048576", SEARCH_ENTRANT)
+                              for rung in RUNGS[-3:]}
+    # Each form schedules its own blocks only: 18 without the export (the published ones), 3 with it.
+    base, export = board.as_form("base"), board.as_form("export")
+    assert {frozenset(pair) for pair in export.matchups} == {frozenset((SEARCH_ENTRANT, rung)) for rung in RUNGS[-3:]}
+    assert {frozenset(pair) for pair in base.matchups} == played - {frozenset(pair) for pair in export.matchups}
+    # Each form's roster is its own: the base form does not hold the search entrant, which needs the export.
+    assert [bot.name for bot in base.bots] == [*RUNGS, "chains-a-c4-u1048576"]
+    assert [bot.name for bot in export.bots] == [*RUNGS, SEARCH_ENTRANT]
+    assert set(base.ladder.entrants) == {"chains-a-c4-u1048576"} and set(export.ladder.entrants) == {SEARCH_ENTRANT}
+    assert base.engine_command[1] == "${MTG_KERNEL_V2_ENGINE}" and "x_kernel_infoset_v1" not in base.extensions
+    assert export.engine_command[1] == "${MTG_KERNEL_V2_INFOSET_ENGINE}" and "x_kernel_infoset_v1" in export.extensions
+    for config, blocks in ((base, 18), (export, 3)):
+        games = schedule(config, TEST_RUN_SECRET)
+        assert len(games) == blocks * 128
+        # The search entrant sits in every game of the export form and in none of the base form.
+        assert {SEARCH_ENTRANT in {spec.name for _, spec in game.seat_specs} for game in games} == {config is export}
+        for matchup in range(blocks):
+            block = [game for game in games if game.matchup_index == matchup]
+            pairings = Counter((game.decks[0].catalog_id, game.decks[1].catalog_id) for game in block)
+            assert len(pairings) == 64 and set(pairings.values()) == {2}  # one seat-swapped pair per ordered pairing
+            seats = Counter((spec.name, seat, game.decks[int(seat[1])].catalog_id,
+                             game.decks[1 - int(seat[1])].catalog_id) for game in block for seat, spec in game.seat_specs)
+            # Each bot holds every deck against every deck once on the play and once on the draw.
+            assert len(seats) == 2 * 2 * 64 and set(seats.values()) == {1}
 
 
 def test_the_board_names_its_validity_unit_and_publishes_no_deck_ratings() -> None:
@@ -70,14 +83,33 @@ def test_the_board_names_its_validity_unit_and_publishes_no_deck_ratings() -> No
     assert benchmark.excluded_runs == ()
 
 
-def test_the_search_entrant_is_listed_and_not_scheduled() -> None:
+def test_the_search_entrants_blocks_are_export_blocks_and_the_published_blocks_keep_their_contract() -> None:
     raw = json.loads((BOARD / "benchmark.json").read_bytes())
     benchmark = definition.load_benchmark(BOARD)
-    assert benchmark.deferred_entrants == (SEARCH_ENTRANT,) and benchmark.bot(SEARCH_ENTRANT) is not None
-    assert SEARCH_ENTRANT in benchmark.ladder.entrants
-    assert all(SEARCH_ENTRANT not in pair for pair in raw["evaluation_matchups"])
-    assert SEARCH_ENTRANT not in raw["evaluation_targets"] and len(raw["evaluation_matchups"]) == 18
-    assert all("evaluation_identity" in bot for bot in raw["bots"])  # prepared, the deferred entrant included
+    export = benchmark.export_blocks
+    assert benchmark.deferred_entrants == () and export.bots == (SEARCH_ENTRANT,)
+    # Each form carries its own version: the published blocks stay 3.0.0, the export blocks are 3.1.0.
+    assert (benchmark.evaluation_version, export.evaluation_version) == ("pauper-ladder-v3.0.0",
+                                                                         "pauper-ladder-v3.1.0")
+    assert export.engine_command[1] == "${MTG_KERNEL_V2_INFOSET_ENGINE}"
+    assert export.engine_command[3] == "${MTG_KERNEL_V2_EXPORT_BRIDGE}" != benchmark.engine_command[3]
+    assert export.extensions == (*benchmark.extensions, "x_kernel_infoset_v1")
+    assert export.evaluation_engine_identity and export.evaluation_engine_identity != benchmark.evaluation_engine_identity
+    assert all("evaluation_identity" in bot for bot in raw["bots"])
+    # The definition schedules the entrant's three blocks and nothing else: one run, one form.
+    assert sorted(map(sorted, raw["evaluation_matchups"])) == [sorted((rung, SEARCH_ENTRANT)) for rung in RUNGS[-3:]]
+    run = TournamentConfig.from_json(benchmark.tournament_config("runs/check"))
+    assert run.export_blocks is None and run.evaluation_version == "pauper-ladder-v3.1.0"
+    assert run.extensions == export.extensions and run.evaluation_engine_identity == export.evaluation_engine_identity
+    assert len(schedule(run, TEST_RUN_SECRET)) == 3 * 128
+    # The published run is still a source of the base form: its contract is the board's base contract, unchanged.
+    board = panel.full_config(benchmark)
+    contracts = snapshot.form_contracts(board)
+    published = TournamentConfig.from_json(store.read_json(BOARD / "runs" / "2026-11-15" / "config.json"))
+    assert snapshot.contract(published) == contracts["base"]
+    assert store.read_json(BOARD / "snapshots" / "2026-11-15" / "manifest.json")["contract"] == contracts["base"]
+    assert snapshot.contract(run) == contracts["export"] != contracts["base"]
+    assert all(board.form_of(pair) == ("export" if SEARCH_ENTRANT in pair else "base") for pair in board.matchups)
 
 
 def test_the_board_text_follows_the_wording_rules() -> None:
@@ -153,6 +185,8 @@ def test_the_committed_board_reproduces_under_the_pinned_assets(tmp_path: Path) 
     folder = tmp_path / "benchmarks" / BOARD.name
     folder.mkdir(parents=True)
     shutil.copyfile(BOARD / "benchmark.json", folder / "benchmark.json")
+    # The published run is part of what prepare reads: its blocks are the ones the schedule leaves out.
+    shutil.copytree(BOARD / "runs", folder / "runs")
     shutil.copyfile(os.environ["SPELLBENCH_PINNED_LOCAL"], folder.parent / "local.json")
     names = definition.placeholder_names(definition.load_benchmark(folder))
     environ = {key: value for key, value in os.environ.items()

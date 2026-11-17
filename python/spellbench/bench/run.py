@@ -559,7 +559,13 @@ def run_benchmark(
 
 
 def _config(benchmark: definition.Benchmark, name: str) -> TournamentConfig:
-    return TournamentConfig.from_json(benchmark.tournament_config(f"{definition.RUNS_DIR}/{name}"))
+    """The config of a run named ``name``. A run is one form of a board with export blocks: the definition's
+    schedule (``evaluation_matchups``) decides which, and a definition that schedules none is not run."""
+    config = TournamentConfig.from_json(benchmark.tournament_config(f"{definition.RUNS_DIR}/{name}"))
+    if config.export_blocks is not None:
+        raise BenchmarkError("this definition names export blocks and schedules no blocks of one form; run "
+                             "spellbench bench prepare, which writes the missing blocks into evaluation_matchups")
+    return config
 
 
 def _unrated_run(

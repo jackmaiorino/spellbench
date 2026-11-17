@@ -49,7 +49,8 @@ def build_config(*, benchmark_dir: Path, local: dict[str, str], opponent: str, g
     benchmark = dataclasses.replace(definition.load_benchmark(benchmark_dir), evaluation_targets=None,
                                     evaluation_matchups=None)
     doc = benchmark.tournament_config(str(run_dir))
-    for key in ("opponent_panel", "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs"):
+    for key in ("opponent_panel", "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs",
+                "export_blocks"):
         doc.pop(key, None)
     names = {bot["name"] for bot in doc["bots"]}
     if opponent not in names:

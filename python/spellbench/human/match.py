@@ -68,7 +68,8 @@ WINS_NEEDED = 2
 HUMAN = session.HUMAN
 HUMAN_STARTUP_MS = 4 * 3_600_000  # the person's seat start waits for "next game" (relay.py)
 GAMES_NAME, MATCHES_NAME, CONFIG_NAME, DIAGNOSTICS_NAME = "games.jsonl", "matches.json", "match-config.json", "diagnostics.jsonl"
-_PANEL_KEYS = ("opponent_panel", "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs", "ladder")
+_PANEL_KEYS = ("opponent_panel", "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs", "ladder",
+               "export_blocks")  # a match plays the board's own engine; export blocks are a rated run's matter
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +211,18 @@ def benchmark_source(benchmark_dir: Path, local: dict[str, str], run_dir: Path) 
     """A benchmark's arena config, as ``spellbench.human`` builds it, with every bot of the benchmark."""
     benchmark = dataclasses.replace(definition.load_benchmark(benchmark_dir), evaluation_targets=None,
                                     evaluation_matchups=None)
-    return session.resolve_local(benchmark.tournament_config(str(run_dir)), local)
+    source = benchmark.tournament_config(str(run_dir))
+    # A match plays the board's own engine: the export blocks' files are not needed and need no local value.
+    source.pop("export_blocks", None)
+    return session.resolve_local(source, local)
+
+
+def config_source(path: Path, local: dict[str, str]) -> dict[str, Any]:
+    """An arena config file as a match source, its placeholders resolved when local values are given. As for a
+    benchmark source, export blocks are dropped first: a match plays the config's own engine."""
+    source = json.loads(path.read_text(encoding="utf-8"))
+    source.pop("export_blocks", None)
+    return session.resolve_local(source, local) if local else source
 
 
 def match_config(source: dict[str, Any], *, players: tuple[str, str], bank_ms: int, run_dir: Path,
@@ -396,9 +408,7 @@ def main(argv: list[str] | None = None) -> int:
     local = json.loads(args.local.read_text(encoding="utf-8")) if args.local else {}
     python = local.get("PYTHON") or sys.executable
     if args.config is not None:
-        source_doc = json.loads(args.config.read_text(encoding="utf-8"))
-        if local:
-            source_doc = session.resolve_local(source_doc, local)
+        source_doc = config_source(args.config, local)
         source = str(args.config.resolve())
     else:
         benchmark = args.benchmark or session.REPO / "benchmarks" / "pauper-kernel-v2"

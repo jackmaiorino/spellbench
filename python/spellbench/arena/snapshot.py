@@ -13,12 +13,18 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from . import leaderboard, registry, store, validity
-from .config import BotSpec, Ladder, TournamentConfig, TournamentError, ladder_pairs
+from .config import BASE_FORM, EXPORT_FORM, BotSpec, Ladder, TournamentConfig, TournamentError, ladder_pairs
 from .ledger import LedgerRow, parse_ledger
 from .manifest import EngineFile
 from ..run_secret import RunSecret
 
 SCHEMA = "spellbench-snapshot/v1"
+# A snapshot that holds blocks of both forms of a ladder with export blocks: schema v1 plus one object,
+# ``export_blocks`` (the export form's contract, engine facts and matchups). The top level stays the base form's,
+# so a snapshot without an export-form block is written exactly as before, schema id included.
+SCHEMA_TWO_FORMS = "spellbench-snapshot/v2"
+SCHEMAS = (SCHEMA, SCHEMA_TWO_FORMS)
+_FACT_KEYS = ("protocol", "engine", "engine_profile", "information_rules", "engine_files")
 FILES = (store.CONFIG_NAME, store.REGISTRY_NAME, store.LEADERBOARD_JSON_NAME, store.LEADERBOARD_MD_NAME)
 CAVEAT = (
     "Reference-panel rating: entrants are compared through shared local opponents. Unplayed head-to-head "
@@ -68,6 +74,10 @@ def bot_inputs(spec: BotSpec, config: TournamentConfig) -> dict[str, Any]:
 
 
 def contract(config: TournamentConfig) -> dict[str, Any]:
+    """The evaluation conditions a run's blocks were played under, compared whole. ``config`` is one form: a run's
+    config, or a board's config as one of its forms (:func:`form_contracts`)."""
+    if config.export_blocks is not None:
+        raise SnapshotError("a board with export blocks has one contract for each form")
     if not config.opponent_panel or config.evaluation_engine_identity is None:
         raise SnapshotError("a reference-panel snapshot needs fingerprinted inputs; run bench prepare first")
     by_name = {bot.name: bot for bot in config.bots}
@@ -88,6 +98,32 @@ def contract(config: TournamentConfig) -> dict[str, Any]:
                                          for name in sorted(config.opponent_panel)}}
 
 
+def form_contracts(config: TournamentConfig) -> dict[str, dict[str, Any] | None]:
+    """The contract of each form of ``config``'s blocks: the base form alone, or the base and export forms of a
+    ladder with export blocks. A run supplies the block of a matchup only when its own contract equals the
+    contract of that matchup's form (``config.form_of``), so an export-form run never supplies a block without
+    an export bot, and a base-form run never supplies a block with one. The export form is None until
+    ``bench prepare`` has fingerprinted its engine: no run matches it yet."""
+    contracts: dict[str, dict[str, Any] | None] = {BASE_FORM: contract(config.as_form(BASE_FORM))}
+    if config.export_blocks is not None:
+        export = config.as_form(EXPORT_FORM)
+        contracts[EXPORT_FORM] = None if export.evaluation_engine_identity is None else contract(export)
+    return contracts
+
+
+def _forms_of(source_config: TournamentConfig, expected: Mapping[str, dict[str, Any] | None]) -> set[str]:
+    """The forms whose contract a run's own contract equals (none for an incompatible or unreadable run)."""
+    try:
+        terms = contract(source_config)
+    except SnapshotError:
+        return set()
+    return {form for form, wanted in expected.items() if wanted is not None and terms == wanted}
+
+
+def _blocks(count: int) -> str:
+    return f"{count} block" if count == 1 else f"{count} blocks"
+
+
 def required_matchups(config: TournamentConfig) -> tuple[tuple[str, str], ...]:
     names = sorted(bot.name for bot in config.bots)
     if config.ladder is not None:
@@ -101,11 +137,16 @@ def without_entrants(config: TournamentConfig, names: tuple[str, ...]) -> Tourna
     """The same evaluation without the named roster entries."""
     if not names:
         return config
+    export = config.export_blocks
+    if export is not None:  # export blocks without a bot left are no export blocks: the base form alone remains
+        kept = tuple(name for name in export.bots if name not in names)
+        export = replace(export, bots=kept) if kept else None
     left = replace(config, bots=tuple(bot for bot in config.bots if bot.name not in names),
                    matchups=None if config.matchups is None else
                    tuple(pair for pair in config.matchups if not set(pair) & set(names)),
                    ladder=None if config.ladder is None else Ladder(config.ladder.band,
-                       {name: rungs for name, rungs in config.ladder.entrants.items() if name not in names}))
+                       {name: rungs for name, rungs in config.ladder.entrants.items() if name not in names}),
+                   export_blocks=export)
     return TournamentConfig.from_json(left.to_json())
 
 
@@ -171,7 +212,7 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
     ``barred`` maps a matchup to the committed run that played it under this evaluation and failed the board's
     validity unit: a block of that matchup from a later run is never selected, so nothing stands in for a failed
     evaluation."""
-    expected = contract(config)
+    expected = form_contracts(config)
     current = {bot.name: bot for bot in config.bots}
     wanted = set(required_matchups(config))
     selected = {}
@@ -180,14 +221,13 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
             continue
         if validity.verdict(source.manifest.get(validity.MANIFEST_KEY)) == "fail":
             continue  # a run that failed its board's validity unit is never measured, rated or not
-        try:
-            compatible = contract(source.config) == expected
-        except SnapshotError:
-            compatible = False
-        if not compatible:
+        forms = _forms_of(source.config, expected)
+        if not forms:
             continue
         by_name = {bot.name: bot for bot in source.config.bots}
         for pair in wanted & source.blocks().keys():
+            if config.form_of(pair) not in forms:
+                continue  # a run supplies only the blocks of its own form
             if barred and pair in barred and _run_order(source.path.name) > _run_order(barred[pair]):
                 continue
             if all(bot_inputs(by_name[name], source.config) == bot_inputs(current[name], config) for name in pair):
@@ -237,14 +277,16 @@ def failed_attempts(run_dirs: Sequence[Path], desired: TournamentConfig) -> dict
     """
     if desired.validity is None:
         return {}
-    expected = contract(desired)
+    expected = form_contracts(desired)
     current = {bot.name: bot_inputs(bot, desired) for bot in desired.bots}
     found: dict[tuple[str, str], str] = {}
     for name, config, terms, failed in _committed_attempts(run_dirs):
-        if not failed or terms != expected:
+        forms = {form for form, wanted in expected.items() if wanted is not None and terms == wanted}
+        if not failed or not forms:
             continue
         for pair, inputs in _played(config).items():
-            if all(player in current for player in pair) and inputs == tuple(current[player] for player in pair):
+            if (desired.form_of(pair) in forms and all(player in current for player in pair)
+                    and inputs == tuple(current[player] for player in pair)):
                 found.setdefault(pair, name)  # oldest first
     return found
 
@@ -281,7 +323,7 @@ def dropped_ladder_blocks(config: TournamentConfig, sources: Sequence[Source]) -
     """
     if config.ladder is None:
         return []
-    expected = contract(config)
+    expected = form_contracts(config)
     current = {bot.name: bot for bot in config.bots}
     rungs = set(config.opponent_panel)
     wanted = set(required_matchups(config))
@@ -289,14 +331,12 @@ def dropped_ladder_blocks(config: TournamentConfig, sources: Sequence[Source]) -
     for source in sources:
         if source.manifest["run"]["rated"] is not True:
             continue
-        try:
-            if contract(source.config) != expected:
-                continue
-        except SnapshotError:
+        forms = _forms_of(source.config, expected)
+        if not forms:
             continue
         by_name = {bot.name: bot for bot in source.config.bots}
         for pair in source.blocks().keys() - wanted:
-            if set(pair) <= rungs and all(bot_inputs(by_name[name], source.config) == bot_inputs(current[name], config)
+            if config.form_of(pair) in forms and set(pair) <= rungs and all(bot_inputs(by_name[name], source.config) == bot_inputs(current[name], config)
                                           for name in pair):
                 dropped.add(pair)
     return sorted(dropped)
@@ -315,20 +355,21 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
     missing = sorted(wanted - chosen.keys())
     if missing:
         raise SnapshotError("missing compatible panel matchups: " + ", ".join(f"{a} vs {b}" for a, b in missing))
-    expected = contract(config)
+    expected = form_contracts(config)
     rows = []
     entries_by_name = {}
     specs = {bot.name: bot for bot in config.bots}
     receipts: dict[str, dict[str, Any]] = {}
     sources = {}
     next_pair = 0
-    facts = None
+    facts: dict[str, dict[str, Any]] = {}  # each form's engine facts, shared by every source run of that form
     parts = []  # each selected block's run, scheduled games and ledger, for the board's validity unit
     for pair in sorted(chosen):
         source = chosen[pair]
+        form = config.form_of(pair)
         if source.manifest["run"]["benchmark_id"] != benchmark_id:
             raise SnapshotError(f"source {source.path.name} belongs to another benchmark")
-        if contract(source.config) != expected:
+        if form not in _forms_of(source.config, expected):
             raise SnapshotError(f"source {source.path.name} has incompatible evaluation conditions")
         by_name = {bot.name: bot for bot in source.config.bots}
         if any(bot_inputs(by_name[name], source.config) != bot_inputs(specs[name], config) for name in pair):
@@ -337,14 +378,12 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
             raise SnapshotError(f"source {source.path.name} is not rated")
         if validity.verdict(source.manifest.get(validity.MANIFEST_KEY)) == "fail":
             raise SnapshotError(f"source {source.path.name} failed its board's validity unit")
-        source_facts = {key: source.manifest[key] for key in
-                        ("protocol", "engine", "engine_profile", "information_rules", "engine_files")}
+        source_facts = {key: source.manifest[key] for key in _FACT_KEYS}
         source_facts["resolved_decks"] = sorted(
             {store.canonical_bytes(deck.to_json()) for row in source.rows for deck in row.decks})
         source_facts["resolved_decks"] = [json.loads(item) for item in source_facts["resolved_decks"]]
-        if facts is not None and facts != source_facts:
+        if facts.setdefault(form, source_facts) != source_facts:
             raise SnapshotError("source runs disagree on engine, deck domain, profile or information rules")
-        facts = source_facts
         sources[source.path.name] = source
         receipt = receipts.setdefault(source.path.name, {"run": source.path.name,
             "manifest_sha256": source.manifest_sha256, "matchups": []})
@@ -367,6 +406,11 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
                 entries_by_name[entry.name] = replace(entry, training_style_tags=spec.training_style_tags,
                                                     registered_at=spec.registered_at)
     entries = [entries_by_name[bot.name] for bot in config.bots]
+    if BASE_FORM not in facts:
+        raise SnapshotError("a snapshot needs at least one block of the base form")
+    export_pairs = sorted(pair for pair in chosen if config.form_of(pair) == EXPORT_FORM)
+    if export_pairs and any(facts[EXPORT_FORM][key] != facts[BASE_FORM][key] for key in ("protocol", "resolved_decks")):
+        raise SnapshotError("the two forms' source runs disagree on the protocol or the deck domain")
     # Each source passed the unit by itself; the sample this rating is fitted from must pass it too.
     record = validity.evaluate_composition(config, parts)
     if record is not None and record["verdict"] == "fail":
@@ -384,12 +428,29 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
     if config.ladder is not None:
         document["evaluation"]["band"] = config.ladder.band
     document["notes"] = [*document["notes"], caveat(config)]
+    if export_pairs:
+        # Two evaluation versions in one fit: say which blocks were played under which, and with what.
+        export = config.export_blocks
+        assert export is not None
+        document["evaluation"]["export_blocks"] = {"version": export.evaluation_version, "bots": sorted(export.bots),
+            "extensions": list(export.extensions), "matchups": len(export_pairs)}
+        others = len(chosen) - len(export_pairs)
+        document["notes"].append(
+            f"Evaluation versions by block: {export.evaluation_version} (extensions: "
+            f"{', '.join(export.extensions) or 'none'}) for the {_blocks(len(export_pairs))} of "
+            f"{', '.join(sorted(export.bots))}; {config.evaluation_version} (extensions: "
+            f"{', '.join(config.extensions) or 'none'}) for the other {_blocks(others)}.")
     if pending:
         # Listed, not rated: these roster entries have no compatible panel block yet.
         document["evaluation"]["pending"] = sorted(pending)
         document["notes"].append("Pending, no panel results yet: " + ", ".join(sorted(pending)))
-    assert facts is not None
-    manifest = {"schema": SCHEMA, **facts, "contract": expected,
+    manifest = {"schema": SCHEMA_TWO_FORMS if export_pairs else SCHEMA, **facts[BASE_FORM],
+        "contract": expected[BASE_FORM],
+        # The export form's own contract and engine facts, and the matchups played under it. Written only for a
+        # snapshot that holds such a block, so every other snapshot keeps its bytes.
+        **({"export_blocks": {"contract": expected[EXPORT_FORM],
+                              **{key: facts[EXPORT_FORM][key] for key in _FACT_KEYS if key != "protocol"},
+                              "matchups": [list(pair) for pair in export_pairs]}} if export_pairs else {}),
         "sources": [receipts[name] for name in sorted(receipts)],
         "allow_unrated": not rated_only,
         **({"pending": sorted(pending)} if pending else {}),
@@ -426,7 +487,9 @@ def source_directory(directory: Path, label: str) -> Path:
 
 def validate_snapshot(directory: Path) -> list[str]:
     try:
-        manifest = store.read_json(directory / store.MANIFEST_NAME, schema=SCHEMA)
+        manifest = store.read_json(directory / store.MANIFEST_NAME)
+        if manifest.get("schema") not in SCHEMAS:
+            raise SnapshotError("not a snapshot manifest")
         if [file["path"] for file in manifest["files"]] != list(FILES):
             raise SnapshotError("snapshot must hash exactly its config, registry and leaderboard files")
         for name in (store.MANIFEST_NAME, *FILES):

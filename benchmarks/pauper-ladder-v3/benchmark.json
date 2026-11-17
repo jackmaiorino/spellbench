@@ -2,7 +2,7 @@
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-ladder-v3",
   "title": "Pauper · mtg-kernel ladder v3",
-  "summary": "The pauper-ladder-v2 references, decks, choices and clock, on the same pinned bridge, on every ordered pairing of the eight decks instead of mirrors only. Each matchup plays one seat-swapped pair per ordered deck pairing (64 pairs, 128 games): in a pair both bots play the same two deck and seat slots, and over the 64 pairings each bot pilots every deck against every deck, on the play and on the draw. A rating here is Elo against the reference bots over that fixed set of deck pairings. Unequal decks pull scores toward even, so gaps read smaller than on a mirror board: the scale is this board's own and is not comparable with pauper-ladder-v2 (mirrors only) or pauper-grid-v1 (an earlier engine). A run is rated only if it passes the board's validity unit; per-deck ratings are not published. Evaluation 3.0.0 runs without the information-set export (its exporter halts on a token returned to a hand, mtg-kernel#713, and no scheduled bot reads it); a bot that needs it joins later through a per-block opt-in under a new evaluation version.",
+  "summary": "The pauper-ladder-v2 references, decks, choices and clock, on the same pinned bridge, on every ordered pairing of the eight decks instead of mirrors only. Each matchup plays one seat-swapped pair per ordered deck pairing (64 pairs, 128 games): in a pair both bots play the same two deck and seat slots, and over the 64 pairings each bot pilots every deck against every deck, on the play and on the draw. A rating here is Elo against the reference bots over that fixed set of deck pairings. Unequal decks pull scores toward even, so gaps read smaller than on a mirror board: the scale is this board's own and is not comparable with pauper-ladder-v2 (mirrors only) or pauper-grid-v1 (an earlier engine). A run is rated only if it passes the board's validity unit; per-deck ratings are not published. Blocks without the information-set export are evaluation 3.0.0; no bot in them reads it. The blocks of a bot that needs it, the search entrant, are evaluation 3.1.0: the same board with the export on, on a bridge built with the exporter fix (mtg-kernel#713).",
   "format": "pauper-bo1",
   "engine": {
     "name": "mtg-kernel",
@@ -56,9 +56,42 @@
       ]
     }
   },
-  "deferred_entrants": [
-    "oh2-r2s1-b512-s4a-16k-k4"
-  ],
+  "export_blocks": {
+    "evaluation_version": "pauper-ladder-v3.1.0",
+    "bots": [
+      "oh2-r2s1-b512-s4a-16k-k4"
+    ],
+    "engine": {
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_INFOSET_ENGINE}",
+        "--bridge",
+        "${MTG_KERNEL_V2_EXPORT_BRIDGE}",
+        "--catalog",
+        "${MTG_KERNEL_PUBLIC_CATALOG}",
+        "--source-revision",
+        "e8fcb804f4522455b48b9185414f367698bf83de",
+        "--known-cards"
+      ]
+    },
+    "extensions": [
+      "x_kernel_flat_v4",
+      "x_public_history_v1",
+      "x_kernel_infoset_v1"
+    ],
+    "evaluation_engine_inputs": [
+      "${MTG_KERNEL_V2_ENGINE}",
+      "${MTG_KERNEL_V2_G6_DIGEST}",
+      "${MTG_KERNEL_V2_OBSERVATION}",
+      "${MTG_KERNEL_V2_SEMANTICS}",
+      "${MTG_KERNEL_V2_COMBAT}",
+      "${MTG_KERNEL_V2_ARRANGEMENT}",
+      "${MTG_KERNEL_V2_SELECTION_ORDER}",
+      "${MTG_KERNEL_V2_ORDER}",
+      "${MTG_KERNEL_V2_HISTORY}"
+    ],
+    "evaluation_engine_identity": "8abce7a05e7bd8ddf9330702e66288abda8286824a270902d450f23b73be7c52"
+  },
   "validity": {
     "unit": "spellbench-validity/v1",
     "block_natural_permille": 970,
@@ -329,7 +362,7 @@
         "label": "Basilisk 1 + search (16k, 4 workers)",
         "author": "mipo",
         "url": null,
-        "description": "The Basilisk 1 policy (oh2-r2s1-b512) with root-parallel s4a search: 4 single-threaded trees share 16,000 native transitions per searched decision, under a per-game allowance metered in transitions, never the clock, so reruns are identical on any host. It searches only the information-set payload the engine attaches (x_kernel_infoset_v1), never hidden state, and plays the sampled policy on every refusal, fault or allowance shortfall. The W1 search entrant; its constants are frozen in integrations/mtg_kernel/entrants/oh2-r2s1-b512-s4a-16k-k4.json. Placed on the 3 rungs nearest its unrated soak against b512 (61-67). Its placement on pauper-ladder-v2 (evaluation 2.0.0) is a record of that board. Here it is pending: it needs the information-set export, which evaluation 3.0.0 does not enable; it joins through a per-block opt-in under a new evaluation version once the exporter is fixed."
+        "description": "The Basilisk 1 policy (oh2-r2s1-b512) with root-parallel s4a search: 4 single-threaded trees share 16,000 native transitions per searched decision, under a per-game allowance metered in transitions, never the clock, so reruns are identical on any host. It searches only the information-set payload the engine attaches (x_kernel_infoset_v1), never hidden state, and plays the sampled policy on every refusal, fault or allowance shortfall. The W1 search entrant; its constants are frozen in integrations/mtg_kernel/entrants/oh2-r2s1-b512-s4a-16k-k4.json. Placed on the 3 rungs nearest its unrated soak against b512 (61-67). Its placement on pauper-ladder-v2 (evaluation 2.0.0) is a record of that board. Here its blocks are evaluation 3.1.0, played with the information-set export on (this board's export blocks); it is listed as pending until that run is published."
       },
       "evaluation_identity": "0b0fea989fd6ec03b84ac620f574cb37f9c71626b88ec940a24dd23b92de0122"
     },
@@ -373,86 +406,22 @@
   "evaluation_engine_identity": "afbc4836322ef52011594819a5de0b87a2a8a39350b8a9cd1762020c5ab424ad",
   "evaluation_matchups": [
     [
-      "c12",
-      "g115"
-    ],
-    [
-      "c12",
-      "gorge-ar8"
-    ],
-    [
-      "c12",
-      "heuristic"
-    ],
-    [
-      "c12",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "c12",
-      "uniform"
-    ],
-    [
-      "chains-a-c4-u1048576",
-      "g115"
-    ],
-    [
-      "chains-a-c4-u1048576",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "chains-a-c4-u1048576",
-      "oh2-r2s1-b512-argmax"
-    ],
-    [
       "g115",
-      "gorge-ar8"
-    ],
-    [
-      "g115",
-      "heuristic"
-    ],
-    [
-      "g115",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "g115",
-      "oh2-r2s1-b512-argmax"
-    ],
-    [
-      "gorge-ar8",
-      "heuristic"
-    ],
-    [
-      "gorge-ar8",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "gorge-ar8",
-      "oh2-r2s1-b512-argmax"
-    ],
-    [
-      "gorge-ar8",
-      "uniform"
-    ],
-    [
-      "heuristic",
-      "uniform"
+      "oh2-r2s1-b512-s4a-16k-k4"
     ],
     [
       "oh2-r2s1-b512",
-      "oh2-r2s1-b512-argmax"
+      "oh2-r2s1-b512-s4a-16k-k4"
+    ],
+    [
+      "oh2-r2s1-b512-argmax",
+      "oh2-r2s1-b512-s4a-16k-k4"
     ]
   ],
   "evaluation_targets": [
-    "c12",
-    "chains-a-c4-u1048576",
     "g115",
-    "gorge-ar8",
-    "heuristic",
     "oh2-r2s1-b512",
     "oh2-r2s1-b512-argmax",
-    "uniform"
+    "oh2-r2s1-b512-s4a-16k-k4"
   ]
 }

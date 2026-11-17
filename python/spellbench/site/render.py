@@ -558,6 +558,7 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         main.append('<aside class="fairness reference-panel"><span class="chip">reference panel</span>'
                     f'<p>Local opponents: {opponents}. Evaluation runs: {sources}.</p>'
                     f'<p>{_e(evaluation["caveat"])}</p>'
+                    + _export_blocks_line(evaluation)
                     + (f'<p>Pending, no panel results yet: {", ".join(_e(name) for name in evaluation["pending"])}.</p>'
                        if evaluation.get("pending") else "") + '</aside>')
     if view["newer_runs"]:
@@ -1286,6 +1287,19 @@ def _fairness_block(view: Mapping[str, Any]) -> str:
     if fairness["self_reported"]:
         text += " Its bots ran without a verified sandbox (spec 11.7), so the run cannot claim isolation."
     return f'<section class="fairness">\n<p>{text}</p>\n</section>'
+
+
+def _export_blocks_line(evaluation: Mapping[str, Any]) -> str:
+    """Which blocks of a board with export blocks were played under which evaluation version; empty otherwise."""
+    export = evaluation.get("export_blocks")
+    if not export:
+        return ""
+    count = export["matchups"]
+    blocks = f"{count} block" if count == 1 else f"{count} blocks"
+    return (f'<p class="export-blocks">Evaluation versions by block: {_e(export["version"])} (extensions: '
+            f'{", ".join(_e(name) for name in export["extensions"]) or "none"}) for the {_e(blocks)} of '
+            f'{", ".join(_e(name) for name in export["bots"])}; {_e(str(evaluation.get("version")))} for every '
+            "other block.</p>")
 
 
 def _newer_runs_note(newer_runs: Sequence[Mapping[str, Any]]) -> str:

@@ -54,6 +54,15 @@ by its own record (:func:`excluded_runs`), with no hand-typed entry.
 ``bench prepare`` schedules none of their blocks: the board shows each as
 pending until a later definition takes it off the list. The file that
 ``bench prepare`` writes is then the committed file, with no hand edit.
+
+``export_blocks`` gives a ladder a second set of evaluation conditions for
+the blocks of the bots it lists: its own ``evaluation_version``, engine
+command, ``extensions`` and engine inputs (``bench prepare`` writes its
+``evaluation_engine_identity``). Every other block keeps the board's own
+conditions and version, so its published blocks stay selected. A run plays
+one form: ``tournament_config`` writes a schedule of export blocks with the
+export conditions at the top level, a schedule of other blocks with the
+board's own, and refuses a schedule that mixes them.
 """
 
 from __future__ import annotations
@@ -76,13 +85,17 @@ from ..arena.config import (
     DEFAULT_RESOURCES,
     DEFAULT_TIME_CONTROL,
     DEFAULT_WORKERS,
+    BASE_FORM,
+    EXPORT_FORM,
     MAX_WORKERS,
     DeckSpec,
+    ExportBlocks,
     Ladder,
     TournamentConfig,
     TournamentError,
     ValidityUnit,
     ladder_pairs,
+    parse_export_blocks,
     parse_ladder,
 )
 from ..errors import MalformedJsonError, ValidationError
@@ -131,6 +144,7 @@ _OPTIONAL_FIELDS = (
     "validity",
     "deck_slices",
     "deferred_entrants",
+    "export_blocks",
     "extensions",
     "native_id_audits",
     "time_control",
@@ -222,6 +236,7 @@ class Benchmark:
     validity: ValidityUnit | None = None  # the board's validity unit (arena/validity.py); None names none
     deck_slices: bool = True  # False publishes no per-deck ratings
     deferred_entrants: tuple[str, ...] = ()  # ladder entrants bench prepare does not schedule yet
+    export_blocks: ExportBlocks | None = None  # the second set of conditions, for the blocks of the bots it lists
 
     def qualification_rules(self):
         from ..arena.qualification import current_rules
@@ -307,7 +322,40 @@ class Benchmark:
                 document["evaluation_engine_identity"] = self.evaluation_engine_identity
             if self.evaluation_engine_inputs:
                 document["evaluation_engine_inputs"] = list(self.evaluation_engine_inputs)
+            if self.export_blocks is not None:
+                self._write_form(document)
         return document
+
+    def _write_form(self, document: dict[str, Any]) -> None:
+        """Give ``document`` its form. The whole board (no ``evaluation_matchups``: a snapshot's config) keeps the
+        board's own conditions and carries ``export_blocks`` for the listed bots it holds. A schedule
+        (``evaluation_matchups``: the config of a run) is one form: export blocks alone get the export conditions
+        at the top level, other blocks alone keep the board's, and a mix is refused here, which is before
+        ``bench commit`` makes a commitment."""
+        export = self.export_blocks
+        assert export is not None
+        if self.evaluation_matchups is None:
+            held = {bot["name"] for bot in document["bots"]}
+            kept = tuple(name for name in export.bots if name in held)
+            if kept:
+                document["export_blocks"] = replace(export, bots=kept).to_json()
+            return
+        forms = {EXPORT_FORM if set(pair) & set(export.bots) else BASE_FORM for pair in document["matchups"]}
+        if len(forms) > 1:
+            raise BenchmarkError(
+                "benchmark.evaluation_matchups: mixes blocks of the export form (with "
+                + ", ".join(export.bots) + ") and of the base form; a run plays one form. Defer the entrants of "
+                "one form (deferred_entrants), run the other, then prepare again")
+        if forms == {EXPORT_FORM}:
+            document["engine"] = {"command": list(export.engine_command)}
+            document["extensions"] = list(export.extensions)
+            document["evaluation_version"] = export.evaluation_version
+            for key, value in (("evaluation_engine_identity", export.evaluation_engine_identity),
+                               ("evaluation_engine_inputs", list(export.evaluation_engine_inputs))):
+                if value:
+                    document[key] = value
+                else:
+                    document.pop(key, None)
 
 
 @dataclass(frozen=True)
@@ -644,6 +692,19 @@ def parse_benchmark(value: Any) -> Benchmark:
         if unlisted:
             raise BenchmarkError("benchmark.ladder.entrants: every bot outside the panel needs its rungs; missing "
                                  + ", ".join(unlisted))
+    export = None
+    if "export_blocks" in document:
+        if ladder is None:
+            raise BenchmarkError("benchmark.export_blocks: needs a ladder")
+        try:
+            export = parse_export_blocks(document["export_blocks"], names, "benchmark.export_blocks")
+        except TournamentError as exc:
+            raise BenchmarkError(str(exc)) from exc
+        if export.evaluation_version == document.get("evaluation_version"):
+            raise BenchmarkError("benchmark.export_blocks.evaluation_version: must differ from evaluation_version, "
+                                 "which labels the blocks without the export")
+        if ANCHOR_BOT in export.bots:
+            raise BenchmarkError("benchmark.export_blocks.bots: the rating anchor plays the base form")
     excluded = document.get("excluded_runs", [])
     if (not isinstance(excluded, list)
             or any(not isinstance(item, dict) or set(item) != {"run", "reason"} or type(item["run"]) is not str
@@ -716,6 +777,7 @@ def parse_benchmark(value: Any) -> Benchmark:
         validity=unit,
         deck_slices=document.get("deck_slices", True),
         deferred_entrants=tuple(deferred),
+        export_blocks=export,
     )
     if benchmark.pairing == _ALL_PAIRS and benchmark.pairs_per_deck % len(benchmark.deck_pool):
         raise BenchmarkError(
@@ -799,6 +861,14 @@ def _placeholder_fields(benchmark: Benchmark) -> Iterator[tuple[str, str]]:
         yield f"engine.command[{index}]", part
     for index, path in enumerate(benchmark.evaluation_engine_inputs):
         yield f"evaluation_engine_inputs[{index}]", path
+    export = benchmark.export_blocks
+    if export is not None and (benchmark.evaluation_matchups is None
+                               or any(set(pair) & set(export.bots) for pair in benchmark.evaluation_matchups)):
+        # The export form's files: needed for the whole board and for a schedule of export blocks.
+        for index, part in enumerate(export.engine_command):
+            yield f"export_blocks.engine.command[{index}]", part
+        for index, path in enumerate(export.evaluation_engine_inputs):
+            yield f"export_blocks.evaluation_engine_inputs[{index}]", path
     for bot_index, bot in enumerate(benchmark.bots):
         if benchmark.opponent_panel and benchmark.evaluation_targets is not None and bot.name not in set(benchmark.opponent_panel) | set(benchmark.evaluation_targets):
             continue
@@ -857,9 +927,9 @@ def excluded_runs(benchmark_dir: Path, benchmark: Benchmark | None = None) -> tu
     return (*listed, *generated)
 
 
-def excluded_run_names(benchmark_dir: Path) -> frozenset[str]:
+def excluded_run_names(benchmark_dir: Path, benchmark: Benchmark | None = None) -> frozenset[str]:
     """The runs excluded from measurement (:func:`excluded_runs`)."""
-    return frozenset(run for run, _ in excluded_runs(benchmark_dir))
+    return frozenset(run for run, _ in excluded_runs(benchmark_dir, benchmark))
 
 
 def placeholder_names(benchmark: Benchmark) -> tuple[str, ...]:

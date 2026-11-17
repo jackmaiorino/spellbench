@@ -257,12 +257,15 @@ argmax version, 18 blocks of 128), every game ended naturally, and the run
 passed the validity unit on every block, bot and deck pairing. The search
 entrant `oh2-r2s1-b512-s4a-16k-k4` is pending on v3. Not in v3: the
 Terror deck and mulligans (a later version). Rated play still asks
-graveyard order one card at a time, which training does not ask. Evaluation 3.0.0 runs without the information-set export
-(`x_kernel_infoset_v1`): the exporter halts when a token is returned to its
+graveyard order one card at a time, which training does not ask. Blocks
+without the information-set export (`x_kernel_infoset_v1`) are evaluation
+3.0.0: before its fix the exporter halted when a token was returned to its
 owner's hand (mtg-kernel#713; 18 of 336 Faeries games against the token
-decks in an unrated sweep, none without the export), and no scheduled bot
-reads it. A bot that needs it, the search entrant, joins later through a
-per-block opt-in under a new evaluation version, once the exporter is fixed.
+decks in an unrated sweep, none without the export), and no bot in those
+blocks reads it. The blocks of a bot that needs it, the search entrant, are
+evaluation 3.1.0 (the board's `export_blocks`): the same decks, pairings,
+clock and validity unit with the export on, on a bridge built with the
+exporter fix. A snapshot says which blocks were played under which version.
 [Rated snapshot, evaluation 3.0.0, engine d11d986d9](benchmarks/pauper-ladder-v3/snapshots/2026-11-15/LEADERBOARD.md)
 
 `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight
