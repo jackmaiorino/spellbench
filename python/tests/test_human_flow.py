@@ -707,31 +707,103 @@ def test_a_low_bank_draws_without_waiting(monkeypatch) -> None:
     assert waits  # with time in the bank the positions are paced again
 
 
-def test_a_valid_answer_is_taken_at_once_and_what_follows_from_it_is_not_held_back() -> None:
+def test_a_valid_answer_during_a_paced_wait_is_taken_before_the_wait_ends(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
     hub = new_hub(real=True)
     bridge, sent = paced_bridge(hub)
     bridge.pace, bridge.seats = 1.0, SEATS
-    bridge.PACE_DWELL_S = {"turn": 0.2, "action": 0.6, "combat": 0.6, "step": 0.1, "own": 0.05}
     opponent_turn(hub)
     spell = opponents_stack("Fireblast")
     thread = waiting_priority(hub, at([PASS, BOLT], phase="postcombat_main", active=OPP, turn=4, stack=spell))
-    pusher = threading.Thread(target=pump_once, args=(bridge,), daemon=True)
-    begun = time.monotonic()
-    pusher.start()
-    pusher.join(10)
-    assert time.monotonic() - begun >= 1.4  # the positions before the prompt were paced (0.2 + 0.6 + 0.6 + 0.1 s)
+    monkeypatch.setattr(host.time, "sleep", lambda seconds: None)
+    pump_once(bridge)  # the burst, then the prompt of the open decision
     prompt = next(m["state"]["prompt"] for m in sent if m.get("state", {}).get("kind") == "prompt")
-    assert bridge._dwell >= 0.5  # the opponent's spell, just drawn, is to stay about 0.6 s
-    begun = time.monotonic()
-    bridge._on_host(None, {"type": "StateUpdate", "from_player": "human", "state": {
-        "kind": "response", "promptId": prompt["promptId"], "action": {"type": "pass", "exhaustStack": False}}})
-    thread.join(5)
-    assert thread.result == [0] and time.monotonic() - begun < 0.25  # accepted at once
-    hub.choose({"decision": at([PASS, MANA], phase="postcombat_main", active=OPP, turn=4)})  # the spell resolves
-    sent.clear()
-    begun = time.monotonic()
+    # The burst is drawn again while that prompt is open; its first wait blocks until the test lets it go.
+    in_wait, release = threading.Event(), threading.Event()
+
+    def blocking(seconds: float) -> None:
+        in_wait.set()
+        release.wait(10)
+
+    monkeypatch.setattr(host.time, "sleep", blocking)
+    state = hub.wait_state(-1, timeout=0.1, frames_from=bridge.sent_frames, frames_game=bridge.sent_frames_game,
+                           positions_from=0)
+    pusher = threading.Thread(target=bridge._push, args=(state,), daemon=True)
+    pusher.start()
+    try:
+        assert in_wait.wait(5)  # the drawing is in a paced wait now
+        begun = time.monotonic()
+        bridge._on_host(None, {"type": "StateUpdate", "from_player": "human", "state": {
+            "kind": "response", "promptId": prompt["promptId"], "action": {"type": "pass", "exhaustStack": False}}})
+        thread.join(5)
+        assert thread.result == [0] and time.monotonic() - begun < 0.5  # accepted while the wait still runs
+        assert pusher.is_alive() and not release.is_set()
+        assert bridge._dwell == 0.0  # and what follows from it is not held back
+    finally:
+        release.set()
+        pusher.join(10)
+
+
+def test_unsent_positions_are_kept_and_a_gap_is_said_never_silent(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    import spellbench.human.server as server
+    hub = new_hub(real=True)
+    hub.wait_state(-1, timeout=0.01, positions_from=0)  # a host draws the positions
+    for turn in range(4, 454):  # 450 positions before the host takes any
+        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=turn)})
+    state = hub.wait_state(-1, timeout=0.01, positions_from=0)
+    assert len(state["positions"]) == 450 and "positions_gap" not in state
+    hub.wait_state(-1, timeout=0.01, positions_from=450)
+    assert hub.positions == []  # taken ones go
+    monkeypatch.setattr(server, "POSITION_UNSENT_LIMIT", 10)
+    for turn in range(500, 520):
+        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=turn)})
+    bridge, sent = paced_bridge(hub)
+    bridge.pace, bridge.seats, bridge.sent_positions = 1.0, SEATS, 450
+    monkeypatch.setattr(host.time, "sleep", lambda seconds: None)
     pump_once(bridge)
-    assert drawn_stacks(sent) and time.monotonic() - begun < 0.3  # not held for what was left of the 0.6 s
+    assert len(drawn_stacks(sent)) == 10 and bridge.sent_positions == 470
+    assert any("10 board positions were not drawn" in line["text"] for line in hub.log)  # said, in the log
+
+
+def test_the_bank_floor_counts_only_the_persons_own_running_clock(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub)
+    bridge.pace, bridge.seats = 1.0, SEATS
+    waits: list[float] = []
+    monkeypatch.setattr(host.time, "sleep", waits.append)
+    clock = {"remaining_ms": 122_000, "max_decision_ms": 1_800_000}
+    for turn in range(4, 8):
+        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=turn), "clock": clock})
+    hub.clock["at"] -= 3_000  # the opponent thought for three seconds since: not the person's time
+    pump_once(bridge)
+    assert waits  # 122 s in the bank and nothing of the person's open: paced
+
+
+def test_no_paced_wait_takes_an_open_decisions_bank_under_the_floor(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub)
+    bridge.pace, bridge.seats = 1.0, SEATS
+    waits: list[float] = []
+    monkeypatch.setattr(host.time, "sleep", waits.append)
+    clock = {"remaining_ms": 120_500, "max_decision_ms": 1_800_000}  # half a second above the floor
+    for turn, stack in ((4, []), (4, opponents_stack("Shock")), (5, []), (6, opponents_stack("Bolt"))):
+        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=turn, stack=stack),
+                    "clock": clock})
+    result: list[int] = []
+    asked = threading.Thread(target=lambda: result.append(hub.choose({"decision": at(
+        [PASS, BOLT], phase="precombat_main", active=OPP, turn=6, stack=opponents_stack("Bolt", "Shock")),
+        "clock": clock})), daemon=True)
+    asked.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    pump_once(bridge)
+    assert sum(waits) <= 0.5 + 1e-6  # never past the floor, though the burst would want about 3 s
+    hub.answer_with(hub.pending["seq"], 0)
+    asked.join(5)
 
 
 def test_pacing_off_draws_only_the_stack_changes_as_before(monkeypatch) -> None:

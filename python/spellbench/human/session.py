@@ -340,6 +340,7 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                      f"the human seat, {out / 'runs' / (name + '.ends.jsonl')} says why)" if ended else ""), flush=True)
     finally:
         bridge.close()
+        hub.close_advisor()
         stop.set()
         server.shutdown()
     return 0
@@ -469,6 +470,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"tournament published: {summary.tournament_dir} status {summary.status}, "
               f"{summary.games_total} games, {round((time.monotonic() - started) / 60)} minutes", flush=True)
     finally:
+        hub.close_advisor()
         stop.set()
         server.shutdown()
     return 0

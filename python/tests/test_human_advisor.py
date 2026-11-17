@@ -455,6 +455,43 @@ def test_a_stalled_advisor_never_holds_back_an_answer_or_the_persons_concession(
     assert hub.declaration is None or all(i.get("reading") for i in hub.declaration["items"][1:])  # nothing late lands
 
 
+def test_a_read_that_lands_after_the_answer_was_accepted_is_not_recorded_as_shown(advisor, tmp_path) -> None:
+    hub = Hub(log_dir=tmp_path, advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    captured: list = []
+    hub._queue_read = lambda *job: captured.append(job[3])  # type: ignore[method-assign]  # held, not read
+    started = ask(hub, advised(mulligan_decision(7, 0), model_input([0, 1])))
+    assert hub.advice["reading"]
+    with hub.cond:  # the answer is accepted, and the read lands before choose() takes the answer
+        assert hub.answer_with(hub.pending["seq"], 1) is None
+        captured[0]({"rows": [{"id": 1, "p": 0.7}, {"id": 0, "p": 0.3}], "value": 0.2, "win": 0.6})
+    started["thread"].join(timeout=5)
+    assert hub.advice["rows"] and hub.advice["late"]  # the panel still shows it, after the answer
+    hub.game_end({"game_id": "g-1", "terminal": {"winner": ME, "classification": "win", "reason": "win"}})
+    records = [json.loads(line) for line in (tmp_path / f"g-1.{ME}.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert records[1]["advisor"] == {"unavailable": "not read before the answer"}
+
+
+def test_reads_of_a_game_that_is_over_never_reach_the_scorer_and_the_reader_stops_at_the_end() -> None:
+    stalled = StalledAdvisor()
+    hub = Hub(advisor=stalled)  # type: ignore[arg-type]
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    started = ask(hub, advised(combat_substep("declare_attack", 0, 4, MULLDRIFTER, [None, FOE]), model_input([0, 1])))
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": []}) is None
+    started["thread"].join(timeout=5)
+    for index, subject in ((1, MISCREANT), (2, SEER), (3, creature("o-x", "Spellstutter Sprite"))):
+        hub.choose(advised(combat_substep("declare_attack", index, 4, subject, [None, FOE]), model_input([0, 1])))
+    deadline = time.monotonic() + 5
+    while stalled.reads < 2 and time.monotonic() < deadline:  # the scorer is stuck on the second read
+        time.sleep(0.01)
+    assert hub.concede("conceded")
+    stalled.release.set()
+    assert hub.wait_reads(10)
+    assert stalled.reads == 2  # the two reads queued behind it were dropped, never sent to the scorer
+    hub.close_advisor()
+    assert hub._reader is not None and not hub._reader.is_alive() and hub.advisor is None
+
+
 def test_the_declaration_ends_with_its_combat_even_when_every_later_window_is_passed_for_the_person(advisor) -> None:
     from test_human_stops import MANA
     hub = Hub(advisor=advisor("ok"), real_action_stops=True)

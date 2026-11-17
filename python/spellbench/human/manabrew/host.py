@@ -473,23 +473,25 @@ class Bridge:
     # already passed are drawn one after another, every one of them, and only the prompt of a decision that waits for
     # the person comes after them. The waits of one state of the play server's share a budget of PACE_CAP_S (a long
     # burst is drawn faster, PACE_MIN_S a position while the budget lasts, then without waiting). The arena times the
-    # person's decision from when the engine asked, so these waits count against their bank: when the bank is below
-    # PACE_BANK_FLOOR_S nothing is waited for, so the drawing can never be what runs a bank out.
+    # person's decision from when the engine asked, so these waits count against their bank: no wait takes the bank
+    # below PACE_BANK_FLOOR_S (``_bank_room``), so the drawing can never be what runs a bank out.
     PACE_DWELL_S = {"turn": 0.9, "action": 0.75, "combat": 0.75, "step": 0.3, "own": 0.2}
     PACE_CAP_S = 4.0
     PACE_MIN_S = 0.12
     PACE_BANK_FLOOR_S = 120.0
 
-    def _pace_budget(self, state: Mapping[str, Any]) -> float:
-        """The waiting this state may add: PACE_CAP_S, or nothing when the person's bank (as the last decision of
-        their seat gave it, less the time since) is below PACE_BANK_FLOOR_S."""
+    def _bank_room(self, state: Mapping[str, Any]) -> float:
+        """How long the drawing may still wait, now, before the person's bank would be under PACE_BANK_FLOOR_S. The
+        bank is the one the last decision of their seat came with; their clock runs only while a decision of theirs
+        is open (``pending``), so only then is the time since it came deducted. No clock known: no limit."""
         clock = state.get("clock") or {}
         limits = [v for v in (clock.get("remaining_ms"), clock.get("max_decision_ms")) if isinstance(v, (int, float))]
-        if limits and isinstance(clock.get("at"), (int, float)):
-            left_ms = min(limits) - max(0, (state.get("now") or clock["at"]) - clock["at"])
-            if left_ms < self.PACE_BANK_FLOOR_S * 1000:
-                return 0.0
-        return self.PACE_CAP_S
+        if not limits:
+            return float("inf")
+        left_ms = min(limits)
+        if state.get("pending") and isinstance(clock.get("at"), (int, float)):
+            left_ms -= max(0.0, time.time() * 1000 - clock["at"])
+        return max(0.0, (left_ms - self.PACE_BANK_FLOOR_S * 1000) / 1000)
 
     def _push_paced(self, state: Mapping[str, Any], game: Mapping[str, Any], seats: Any,
                     frames: list[Mapping[str, Any]], over: Any) -> bool | None:
@@ -505,7 +507,7 @@ class Bridge:
         for position in positions:
             kinds.append(pace_kind(before, position, me))
             before = position
-        budget = self._pace_budget(state)
+        budget = min(self.PACE_CAP_S, self._bank_room(state))
         # spread the budget: a burst whose dwells add up to more is drawn proportionally faster
         planned = sum(self.PACE_DWELL_S.get(k, 0.0) for k in kinds[:-1] if k) * self.pace
         factor = min(1.0, budget / planned) if planned > 0 else 1.0
@@ -515,7 +517,8 @@ class Bridge:
             with self.lock:
                 if self.seats is not seats:
                     return None
-                wait = min(budget, self._dwell - (time.monotonic() - self._shown_at)) if kind else 0.0
+                wait = (min(budget, self._bank_room(state), self._dwell - (time.monotonic() - self._shown_at))
+                        if kind else 0.0)
             if wait > 0:
                 paced = True
                 budget -= wait
@@ -584,6 +587,10 @@ class Bridge:
             frames = []
         elif self.pace > 0:
             frames = list(state.get("positions") or [])
+            gap = state.get("positions_gap")
+            if gap:
+                print(f"  display: {gap} board positions were not drawn (the drawing fell behind)", flush=True)
+                self.hub.say(f"{gap} board positions were not drawn here: the display fell behind the game.")
         else:
             frames = (state.get("frames") or [])[-self.FRAMES_SHOWN:]
         return game, self.seats, frames, over

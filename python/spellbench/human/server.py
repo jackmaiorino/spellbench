@@ -41,7 +41,11 @@ DEFAULT_STOPS = {f"{side}_{step}": False for side in ("own", "opp") for step in 
 DEFAULT_STOPS.update(own_precombat_main=True, own_postcombat_main=True, opp_stack=True, own_stack=False)
 LOG_LIMIT = 600
 FRAME_LIMIT = 40  # stack-changing positions kept for the Manabrew host to draw (``Hub.frames``)
-POSITION_LIMIT = 400  # positions whose board differs, kept for the Manabrew host's paced drawing (``Hub.positions``)
+# Positions whose board differs, for the Manabrew host's paced drawing (``Hub.positions``): with no reader, the newest
+# POSITION_LIMIT; with one, every position it has not taken yet, up to POSITION_UNSENT_LIMIT (beyond that the oldest go,
+# and the reader is told how many: ``positions_gap``).
+POSITION_LIMIT = 400
+POSITION_UNSENT_LIMIT = 2000
 # The steps of a turn in order, as the observation names them (the engine itself offers priority in only some of them).
 STEP_ORDER = ("untap", "upkeep", "draw", "precombat_main", "beginning_of_combat", "declare_attackers",
               "declare_blockers", "combat_damage", "end_of_combat", "postcombat_main", "end_step", "cleanup")
@@ -300,11 +304,14 @@ class Hub:
         # log lines there were by then), for the paced drawing; ``last_shown`` is the newest one's ``display_key``
         self.positions: list[dict[str, Any]] = []
         self.positions_total = 0
+        self.positions_reader = False  # a host draws them (``wait_state`` with ``positions_from``) ...
+        self.positions_taken = 0       # ... and has taken those before this count (they can go)
         self.last_shown: str | None = None
         # The advisor's reads run in a thread of their own, off this lock (``_queue_read``): an answer the person gave
         # is never held back by a read, and the person's concession or departure never waits for one.
         self._jobs: "queue.Queue[tuple[Any, ...]] | None" = None
         self._scorer = threading.Lock()  # one read at a time on the scorer's pipe
+        self._reader: threading.Thread | None = None
         self._reads_open = 0
         self.game_over: dict[str, Any] | None = None
         self.conceded: str | None = None  # the game id the person gave up (or lost the connection to), if any
@@ -389,7 +396,8 @@ class Hub:
             self.hold = self.auto_attack_group = self.forced_attack_group = self.passed_at = self.pending_key = None
             self.passed_keys = set()
             self.last_stack, self.frames, self.frames_total = (), [], 0
-            self.last_shown, self.positions, self.positions_total = None, [], 0
+            self.last_shown, self.positions, self.positions_total, self.positions_taken = None, [], 0, 0
+            self._drop_reads()  # reads queued for the game before are of no use now
             self._combat_logged = set()
             self._opening = {"mine": 0, "opp": 0, "done": False}
             self.narrator = narrate.Narrator(seat) if seat else None
@@ -426,6 +434,7 @@ class Hub:
             self._note("game", f"Game over: {'you win' if result == 'win' else 'you lose' if result == 'loss' else 'draw'}"
                                f" ({how})")
             self._write({"kind": "game_over", "terminal": terminal, "result": result})
+            self._drop_reads()
             if self._log_file is not None:
                 self._log_file.close()
                 self._log_file = None
@@ -509,7 +518,7 @@ class Hub:
             # ``_frame``: how many log lines there were by then, so the host shows each position with its own lines
             self.positions.append({**observation, "_frame": {"log_total": self.log_total}})
             self.positions_total += 1
-            del self.positions[:-POSITION_LIMIT]
+            self._trim_positions()
             self.last_shown = shown
         self._expire_declaration(observation)
         if not stack or not frozenset(stack) <= self.exhaust_ids:
@@ -527,8 +536,10 @@ class Hub:
                 else:
                     self._declaration_item(question, candidate_id, how, None)
                     game = (self.game or {}).get("game_id")
-                    self._queue_read(decision, model_input, game_id,
-                                     lambda read: self._fill_item(game, question, read))
+                    key = list(question["key"])
+                    self._queue_read(decision, model_input, game_id, lambda read: self._fill_item(game, question, read),
+                                     lambda: (self._reading_alive(game) and self.declaration is not None
+                                              and self.declaration["key"] == key))
         if candidate_id is None:
             self._priority_note(decision)
             self.seq += 1
@@ -565,7 +576,8 @@ class Hub:
         seq, game = self.seq, (self.game or {}).get("game_id")
         texts = {c["id"]: c["text"] for c in self.pending["candidates"]}
         question = advice.get("question")
-        self._queue_read(decision, model_input, game_id, lambda read: self._apply_read(game, seq, texts, question, read))
+        self._queue_read(decision, model_input, game_id, lambda read: self._apply_read(game, seq, texts, question, read),
+                         lambda: self._reading_alive(game) and (self.advice or {}).get("seq") == seq)
         return {**advice, "reading": True}
 
     def _apply_read(self, game: Any, seq: int, texts: Mapping[int, str], question: Mapping[str, Any] | None,
@@ -583,6 +595,10 @@ class Hub:
             else:
                 body.update(self._rows(read, texts, question), value=read["value"], win=read["win"],
                             scores=[[row["id"], round(row["p"], 6)] for row in read["rows"]])
+            # An answer already accepted for this decision (taken by ``choose`` or not yet) was given without this
+            # read: the record must not say it was shown. Decided here, under the same lock as the answer.
+            if advice.get("chosen") is not None or (self.answer is not None and (self.pending or {}).get("seq") == seq):
+                body["late"] = True
             body["rev"] = int(advice.get("rev") or 0) + 1
             self.advice = body
         if question is not None:  # its line of the list, if the person has answered it already
@@ -621,20 +637,63 @@ class Hub:
 
     # -- the advisor's thread ------------------------------------------------------------------------------------
 
-    def _queue_read(self, decision: Mapping[str, Any], model_input: Any, game_id: Any, apply) -> None:
+    def _queue_read(self, decision: Mapping[str, Any], model_input: Any, game_id: Any, apply, alive) -> None:
         """Read one decision in the advisor's own thread, never under this lock: ``apply(read)`` runs under the lock
-        once the read is back and checks that what it belongs to is still current. Reads are done in order."""
+        once the read is back and checks that what it belongs to is still current. ``alive()`` (under the lock) says
+        whether the read is still wanted: a job whose game or declaration has passed is skipped without asking the
+        scorer. Reads are done in order; the queue is emptied when a game starts or ends (``_drop_reads``)."""
         if self._jobs is None:
             self._jobs = queue.Queue()
-            threading.Thread(target=self._read_loop, daemon=True, name="advisor-reads").start()
+            self._reader = threading.Thread(target=self._read_loop, daemon=True, name="advisor-reads")
+            self._reader.start()
         self._reads_open += 1
-        self._jobs.put((decision, model_input, str(game_id or (self.game or {}).get("game_id") or "game"), apply))
+        self._jobs.put((decision, model_input, str(game_id or (self.game or {}).get("game_id") or "game"), apply, alive))
+
+    def _reading_alive(self, game: Any) -> bool:
+        return (self.game or {}).get("game_id") == game and self.game_over is None
+
+    def _drop_reads(self) -> None:
+        """Empty the queue of reads (a game started or ended: none of them is wanted any more). Under the lock."""
+        if self._jobs is None:
+            return
+        while True:
+            try:
+                job = self._jobs.get_nowait()
+            except queue.Empty:
+                break
+            if job is None:  # the stop sentinel stays where it is
+                self._jobs.put(None)
+                break
+            self._reads_open -= 1
+        self.cond.notify_all()
+
+    def close_advisor(self) -> None:
+        """At the session's end: drop the queued reads, stop the advisor's thread, then its scorer."""
+        with self.cond:
+            self._drop_reads()
+            advisor, self.advisor = self.advisor, None
+            jobs, reader = self._jobs, self._reader
+        if jobs is not None and reader is not None:
+            jobs.put(None)
+            reader.join(timeout=30)
+        if advisor is not None:
+            advisor.close()
 
     def _read_loop(self) -> None:
         assert self._jobs is not None
         while True:
-            decision, model_input, game_id, apply = self._jobs.get()
-            advisor = self.advisor
+            job = self._jobs.get()
+            if job is None:
+                return  # close_advisor
+            decision, model_input, game_id, apply, alive = job
+            with self.cond:
+                wanted = alive()
+                advisor = self.advisor
+            if not wanted:  # its game or declaration has passed: the scorer is not asked
+                with self.cond:
+                    self._reads_open -= 1
+                    self.cond.notify_all()
+                continue
             if advisor is None:
                 read: dict[str, Any] = {"unavailable": "the advisor stopped earlier in this session"}
             else:
@@ -776,7 +835,7 @@ class Hub:
                   "phase_step": (decision.get("observation") or {}).get("phase_step"),
                   "turn": (decision.get("observation") or {}).get("turn")}
         if advice is not None:  # what the advisor showed the person at this decision
-            if "scores" in advice:
+            if "scores" in advice and not advice.get("late"):
                 record["advisor"] = {"probabilities": advice["scores"], "value": advice["value"]}
             else:  # no read, or (reads take milliseconds) one that was not back when the person answered
                 record["advisor"] = {"unavailable": advice.get("unavailable") or "not read before the answer"}
@@ -1307,11 +1366,29 @@ class Hub:
                 current = (self.game or {}).get("game_id")
                 if (frames_game is not None and frames_game != current) or positions_from > self.positions_total:
                     positions_from = 0
+                # the reader has drawn everything before its cursor: those can go; the rest stay until taken
+                self.positions_reader = True
+                self.positions_taken = max(self.positions_taken, positions_from)
                 first = self.positions_total - len(self.positions)
                 state["positions"] = list(self.positions[max(positions_from - first, 0):])
                 state["positions_total"] = self.positions_total
+                if positions_from < first:  # more were waiting than POSITION_UNSENT_LIMIT: say how many are gone
+                    state["positions_gap"] = first - positions_from
                 state["frames_game"] = current
+                self._trim_positions()
             return state
+
+    def _trim_positions(self) -> None:
+        """Let positions go: with no reader, all but the newest POSITION_LIMIT; with one, those it has taken, and the
+        oldest of the rest only beyond POSITION_UNSENT_LIMIT (``wait_state`` then reports the gap)."""
+        first = self.positions_total - len(self.positions)
+        if not self.positions_reader:
+            drop = len(self.positions) - POSITION_LIMIT
+        else:
+            taken = max(0, self.positions_taken - first)
+            drop = max(taken, len(self.positions) - POSITION_UNSENT_LIMIT)
+        if drop > 0:
+            del self.positions[:drop]
 
 
 def make_server(hub: Hub, host: str = "127.0.0.1", port: int = 0, token: str | None = None) -> ThreadingHTTPServer:
