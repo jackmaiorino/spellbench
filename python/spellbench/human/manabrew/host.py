@@ -10,7 +10,9 @@ and the session are the ordinary ``spellbench.human`` ones: nothing the bot obse
 Priority windows: a window at which the person has nothing but passing and mana abilities is answered by the session
 and never sent, so the client's AUTOPASS countdown and its Full control setting have nothing to act on: Full control is
 not supported (the person is asked at every window with a real action, and at no other). The client's pass-until and
-exhaustStack reach ``Hub.pass_with``; every position at which the stack changed is drawn in order (``Hub.frames``).
+exhaustStack reach ``Hub.pass_with``; the positions the session passed through are drawn in order (``Hub.frames``):
+with display pacing (``--pace``, on by default in a session) each stays long enough to follow, without it only the
+stack's changes are drawn.
 The engine gives priority in only some steps (main phases, attackers, blockers), so a pass-until aimed at any other step
 (the opponent's end step is the client's default stop) is taken at the nearest window instead, and the log says so.
 
@@ -36,6 +38,7 @@ from typing import Any, Mapping
 
 import queue
 
+from .. import text
 from ..server import log_since
 from ..text import ABILITY_KINDS
 from . import decks, prompts, view
@@ -49,6 +52,64 @@ RELAY_RECONNECT_MIN_S, RELAY_RECONNECT_MAX_S = 10, 90  # the relay clamps a tabl
 # line sent in the first seconds of a game, or just after a reload, can arrive before it exists and be lost.
 LOG_MOUNT_WINDOW_S = 8.0
 BANK_WARNINGS_S = (600, 300, 120, 60)  # remaining decision bank, in seconds, at which the log says so
+
+
+COMBAT_STEPS = ("declare_attackers", "declare_blockers", "combat_damage", "end_of_combat")
+
+
+def _combat_marks(observation: Mapping[str, Any]) -> tuple[set[Any], set[Any]]:
+    """The object ids that are attacking and blocking in a position."""
+    attacking, blocking = set(), set()
+    for player in observation.get("players") or []:
+        for c in player.get("battlefield") or []:
+            permanent = c.get("permanent") or {}
+            if permanent.get("attacking"):
+                attacking.add(c.get("object_id"))
+            if permanent.get("blocking"):
+                blocking.add(c.get("object_id"))
+    return attacking, blocking
+
+
+def _board(observation: Mapping[str, Any]) -> list[Any]:
+    return [(p.get("seat"), p.get("hand_count"), p.get("library_count"),
+             [c.get("object_id") for c in p.get("graveyard") or []], [c.get("object_id") for c in p.get("exile") or []],
+             [(c.get("object_id"), (c.get("permanent") or {}).get("tapped"), (c.get("permanent") or {}).get("counters"),
+               (c.get("permanent") or {}).get("damage")) for c in p.get("battlefield") or []])
+            for p in observation.get("players") or []]
+
+
+def pace_kind(before: Mapping[str, Any] | None, after: Mapping[str, Any], me: str | None) -> str | None:
+    """What changed from one drawn position to the next, which sets how long the new one stays on the board before
+    the one after it (``Bridge.PACE_DWELL_S``): ``turn`` (a new turn), ``action`` (the opponent's spell or ability on
+    the stack or resolving, a life total, the opponent's permanents or cards on their turn), ``combat`` (the
+    opponent's attackers or blockers, or anything that changes in a combat step: damage, a creature dying), ``own``
+    (the person's own spell, attack or block, or a change on their own turn), ``step`` (only the step changed), or
+    None (nothing the board shows changed)."""
+    if before is None:
+        return None
+    if (before.get("turn"), before.get("active_seat")) != (after.get("turn"), after.get("active_seat")):
+        return "turn"
+    stack_before = [e.get("object_id") for e in before.get("stack") or []]
+    stack_after = [e.get("object_id") for e in after.get("stack") or []]
+    if stack_before != stack_after:
+        top = text.stack_top(after.get("stack")) if len(stack_after) >= len(stack_before) else None
+        top = top or text.stack_top(before.get("stack")) or {}
+        return "own" if top.get("controller_seat") == me else "action"
+    lives = lambda o: [(p.get("seat"), p.get("life")) for p in o.get("players") or []]  # noqa: E731
+    if lives(before) != lives(after):
+        return "action"
+    (att_b, blk_b), (att_a, blk_a) = _combat_marks(before), _combat_marks(after)
+    if att_b != att_a or blk_b != blk_a:
+        active = after.get("active_seat")
+        declarer = active if att_b != att_a else ("p1" if active == "p0" else "p0")
+        return "own" if declarer == me else "combat"
+    if _board(before) != _board(after):
+        if after.get("phase_step") in COMBAT_STEPS:
+            return "combat"
+        return "own" if after.get("active_seat") == me else "action"
+    if before.get("phase_step") != after.get("phase_step"):
+        return "step"
+    return None
 
 
 class RelayLost(RuntimeError):
@@ -140,8 +201,15 @@ class Session:
 class Bridge:
     def __init__(self, hub, *, relay_url: str, relay_key: str, room_name: str, bot_name: str,
                  bot_deck: tuple[str, list[Mapping[str, Any]]], bot_deck_for=None,
-                 allow_remote_relay: bool = False) -> None:
+                 allow_remote_relay: bool = False, pace: float = 0.0) -> None:
         self.hub = hub
+        # Display pacing (``_push``): a multiplier of ``PACE_DWELL_S`` (1.0 the default of ``--pace``); 0 draws only the
+        # stack's changes, FRAME_GAP_S apart, as before pacing existed.
+        self.pace = max(0.0, float(pace))
+        self._shown_obs: Mapping[str, Any] | None = None  # the position last drawn ...
+        self._shown_at = 0.0                              # ... when (time.monotonic())
+        self._dwell = 0.0                                 # ... and how long it stays before the next one is drawn
+        self.prompt_types: dict[Any, str] = {}
         self.allow_remote_relay = allow_remote_relay
         self.url, self.key = relay_url, relay_key
         self.room_name = room_name
@@ -379,19 +447,84 @@ class Bridge:
         if begun is None:
             return
         game, seats, frames, over = begun
-        paced = False
-        for index, frame in enumerate(frames):
-            with self.lock:
-                if self.seats is not seats:
-                    return  # the game ended meanwhile (a concession, a fault): nothing of this state is current
-                sent = self._send_view(frame, game, None)
-            if sent and index < len(frames) - 1:
-                paced = True
-                time.sleep(self.FRAME_GAP_S)  # so the client renders each position
+        if self.pace > 0:
+            paced = self._push_paced(state, game, seats, frames, over)
+            if paced is None:
+                return
+        else:
+            paced = False
+            for index, frame in enumerate(frames):
+                with self.lock:
+                    if self.seats is not seats:
+                        return  # the game ended meanwhile (a concession, a fault): nothing of this state is current
+                    sent = self._send_view(frame, game, None)
+                if sent and index < len(frames) - 1:
+                    paced = True
+                    time.sleep(self.FRAME_GAP_S)  # so the client renders each position
         with self.lock:
             if self.seats is not seats:
                 return
             self._push_end(state, game, over, paced)
+
+    # Display pacing: how long a drawn position stays on the board before the next one replaces it, by what changed
+    # in it (``pace_kind``), times ``pace``. The engine and the bot never wait for it: positions the session has
+    # already passed are drawn one after another, and only the prompt of a decision that waits for the person comes
+    # after them, by at most PACE_CAP_S for one state of the play server's plus what is left of the dwell before it (a
+    # long burst is drawn faster, down to PACE_MIN_S a position, and only its newest PACE_FRAMES positions are
+    # drawn). The arena times that decision from when the engine asked, so this wait counts against the person's
+    # bank and is in the decision's elapsed_ms, as the stack drawing before it always was.
+    PACE_DWELL_S = {"turn": 0.9, "action": 0.75, "combat": 0.75, "step": 0.3, "own": 0.2}
+    PACE_CAP_S = 4.0
+    PACE_MIN_S = 0.12
+    PACE_FRAMES = 24
+
+    def _push_paced(self, state: Mapping[str, Any], game: Mapping[str, Any], seats: Any,
+                    frames: list[Mapping[str, Any]], over: Any) -> bool | None:
+        """Draw the positions since the last state with the pacing above, each with the log lines that came before
+        it; the current position is drawn last. Returns whether any wait happened (the caller then checks the
+        decision is still open), or None when the game ended meanwhile. Waits hold no lock."""
+        me = seats.human_seat
+        positions = list(frames)
+        current = state.get("observation")
+        if current and not over:
+            positions.append(current)
+        kinds, before = [], self._shown_obs
+        for position in positions:
+            kinds.append(pace_kind(before, position, me))
+            before = position
+        planned = sum(self.PACE_DWELL_S.get(k, 0.0) for k in kinds[:-1] if k) * self.pace
+        factor = min(1.0, self.PACE_CAP_S / planned) if planned > 0 else 1.0
+        paced = False
+        for index, (position, kind) in enumerate(zip(positions, kinds)):
+            last = index == len(positions) - 1 and position is current
+            with self.lock:
+                if self.seats is not seats:
+                    return None
+                wait = self._dwell - (time.monotonic() - self._shown_at) if kind else 0.0
+            if wait > 0:
+                paced = True
+                time.sleep(wait)
+            with self.lock:
+                if self.seats is not seats:
+                    return None
+                upto = (position.get("_frame") or {}).get("log_total")
+                if upto is not None:
+                    self._send_log(state, bool(over), upto=upto)
+                if last:
+                    break  # the current position is drawn by _push_end, with the rest of the state
+                if self._send_view(position, game, None):
+                    self._drawn(position, kind, factor)
+        if current and not over:
+            self._drawn(current, kinds[-1], factor)
+        return paced
+
+    def _drawn(self, position: Mapping[str, Any], kind: str | None, factor: float) -> None:
+        """A position was drawn: it stays for the dwell of what changed in it. A position in which nothing the board
+        shows changed (``kind`` None: a mana pool, a priority holder) keeps the dwell of the one before it."""
+        self._shown_obs = position
+        if kind:
+            self._shown_at = time.monotonic()
+            self._dwell = max(self.PACE_MIN_S, self.PACE_DWELL_S.get(kind, 0.0) * self.pace * factor)
 
     def _push_begin(self, state: Mapping[str, Any]) -> tuple[Any, Any, list[Mapping[str, Any]], Any] | None:
         """The first part of ``_push`` (under the lock): the seats of a new game, the decision bank, the stack positions
@@ -416,6 +549,7 @@ class Bridge:
             self.sent_advice = None
             self.sent_frames, self.sent_frames_game, self.rejoins = 0, None, 0
             self.resent_seq = None
+            self._shown_obs, self._dwell = None, 0.0
             self._bank_warned = set()
             self._log_hold_until = time.time() + LOG_MOUNT_WINDOW_S  # see _send_log
             if self._gone is not None:  # the person left between the relay's GameStarted and this game's first view
@@ -428,7 +562,11 @@ class Bridge:
         self._bank(state, over)
         # Every decision at which the stack changed is drawn, in order, even when the session answered it at once and
         # the engine has moved on: an opponent's spell is on the board before it resolves.
-        frames = [] if over else (state.get("frames") or [])[-self.FRAMES_SHOWN:]
+        frames = [] if over else list(state.get("frames") or [])
+        if self.pace > 0:
+            frames = frames[-self.PACE_FRAMES:]
+        else:  # the positions at which the stack changed, as before pacing existed
+            frames = [f for f in frames if (f.get("_frame") or {}).get("stack_changed", True)][-self.FRAMES_SHOWN:]
         return game, self.seats, frames, over
 
     def _push_end(self, state: Mapping[str, Any], game: Mapping[str, Any], over: Any, paced: bool) -> None:
@@ -456,17 +594,23 @@ class Bridge:
             self.host.send({"type": "EndGame", "game_id": self.game_id})
             self.order, self.seats = None, None
 
-    def _send_log(self, state: Mapping[str, Any], over: bool) -> None:
+    def _send_log(self, state: Mapping[str, Any], over: bool, upto: int | None = None) -> None:
         """Send the log lines the client has not been given. The client's log panel does not exist until a few
         seconds after the board (and again after a reload), and a line that arrives before it is lost, so the lines of
         a game are held for ``LOG_MOUNT_WINDOW_S`` after its first view, or after the client reconnects, or until the
         person's first answer proves the client is up (``_on_response``), or the game ends; then every line since the
-        start (the hub's newest 600) goes out once, in order."""
+        start (the hub's newest 600) goes out once, in order. ``upto``: only the lines before that position (a count
+        of lines ever appended), the ones that came before a position being drawn (``_push_paced``)."""
         if not over and time.time() < self._log_hold_until:
             return
         log = state.get("log") or []
+        total = state.get("log_total", len(log))
         # sent_log counts lines ever sent (the hub keeps only its newest lines, so a list length is no cursor).
-        fresh, self.sent_log = log_since(log, state.get("log_total", len(log)), self.sent_log)
+        start = max(self.sent_log, total - len(log))
+        fresh, self.sent_log = log_since(log, total, self.sent_log)
+        if upto is not None and upto < self.sent_log:
+            fresh = fresh[:max(0, upto - start)]
+            self.sent_log = start + len(fresh)
         for line in fresh:
             self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
                 "entryType": LOG_TYPES.get(line.get("side"), "info"),
@@ -482,11 +626,19 @@ class Bridge:
         advice = state.get("advice")
         if not advice or (not over and time.time() < self._log_hold_until):
             return
-        key = ((state.get("game") or {}).get("game_id"), advice.get("seq"), advice.get("chosen"), self.rejoins)
+        key = ((state.get("game") or {}).get("game_id"), advice.get("seq"), advice.get("chosen"), advice.get("rev"),
+               self.rejoins)
         if key == self.sent_advice:
             return
         self.sent_advice = key
         shown = {name: value for name, value in advice.items() if name != "scores"}  # the record's, not the panel's
+        question = shown.get("question")
+        if isinstance(question, Mapping):
+            # Whether the client took this declaration on one combat screen (every creature at once) while the
+            # engine asks one creature at a time: the panel then says which creature this read is about.
+            asked = self.prompt_types.get(advice.get("seq"))
+            shown["question"] = {**{k: v for k, v in question.items() if k != "choices"},
+                                 "combined": asked in ("chooseAttackers", "chooseBlockers")}
         self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
             "entryType": "info", "message": "", "timestampMs": int(time.time() * 1000), "advisor": shown}})
 
@@ -550,6 +702,7 @@ class Bridge:
             data, answer = prompts.build(pending, observation, self.seats, error)
         wire_id = next(self._fresh_ids) if fresh else pending["seq"]
         self.prompt = {"seq": pending["seq"], "id": wire_id, "answer": answer, "type": data["type"]}
+        self.prompt_types = {pending["seq"]: data["type"]}  # the newest decision's prompt type (``_send_advice``)
         me = self.seats.pid(self.seats.human_seat)
         prompt = {"promptId": wire_id, "decidingPlayerId": me, "input": data}
         source = (pending.get("context") or {}).get("source")
@@ -741,6 +894,7 @@ class Bridge:
         if envelope.get("kind") != "response":
             return
         self._log_hold_until = 0.0  # the client answered, so its log panel exists: held log lines go out (_send_log)
+        self._dwell = 0.0  # the person acted: what follows from it is drawn at once (display pacing)
         me = self.seats.pid(self.seats.human_seat) if self.seats else None
         if self.prompt is None:
             # The client keeps its pass button disabled ("waiting") until a new prompt or an error arrives, so a

@@ -207,6 +207,163 @@ def test_the_client_gets_the_read_once_its_panels_are_up_and_again_with_the_answ
     assert advice_sent(bridge)[-1]["chosen"] == 1 and len(advice_sent(bridge)) == 2
 
 
+# -- attack and block declarations: one question per creature, named, and the declaration's reads together ---------------
+
+OPP = "p1"
+
+
+def creature(oid: str, name: str, seat: str = ME) -> dict:
+    return {"object_id": oid, "card_name": name, "owner_seat": seat, "controller_seat": seat, "zone": "battlefield"}
+
+
+def combat_substep(kind: str, index: int, count: int, subject: dict, aims: list, *, turn: int = 5, active: str = ME,
+                   group_id: int = 9, phase: str | None = None) -> dict:
+    """One substep of an attack (``declare_attack``) or block (``declare_block``) declaration as the engine poses it."""
+    role, other = ("attacker", "defender") if kind == "declare_attack" else ("blocker", "attacker")
+    phase = phase or ("declare_attackers" if kind == "declare_attack" else "declare_blockers")
+    return {"acting_seat": ME, "seat_step": 10 + index,
+            "group": {"group_id": group_id, "substep_index": index, "substep_count": count},
+            "context": {"kind": "choice", "source": None, "purpose": None, "text": None, "rewind": False},
+            "observation": {"viewer": ME, "turn": turn, "phase_step": phase, "active_seat": active, "priority_seat": ME,
+                            "players": [{"seat": ME, "life": 20, "battlefield": []},
+                                        {"seat": OPP, "life": 20, "battlefield": []}], "stack": [], "known": []},
+            "candidates": [{"candidate_id": i, "semantic": {"kind": kind, role: subject, other: aim}, "display_text": None}
+                           for i, aim in enumerate(aims)]}
+
+
+def priority(*, phase: str, turn: int = 5, active: str = ME) -> dict:
+    bolt = {"object_id": "o-b", "card_name": "Lightning Bolt", "owner_seat": ME, "controller_seat": ME, "zone": "hand"}
+    request = combat_substep("declare_attack", 0, 1, creature("x", "x"), [None], turn=turn, active=active, phase=phase)
+    request["context"]["kind"] = "priority"
+    request["candidates"] = [{"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": None},
+                             {"candidate_id": 1, "semantic": {"kind": "cast_spell", "source": bolt, "method": "normal"},
+                              "display_text": None}]
+    return request
+
+
+MULLDRIFTER, MISCREANT, SEER = creature("o-m", "Mulldrifter"), creature("o-f", "Faerie Miscreant"), creature("o-s", "Faerie Seer")
+FOE = {"player": OPP}
+
+
+def attack_with_plan(hub: Hub, attackers: list[str]) -> list[int]:
+    """The person declares a three-creature attack on one screen (the plan answers substeps 2 and 3)."""
+    started = ask(hub, advised(combat_substep("declare_attack", 0, 3, MULLDRIFTER, [None, FOE]), model_input([0, 1])))
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": attackers}) is None
+    started["thread"].join(timeout=5)
+    answers = [started["result"]["answer"]]
+    for index, subject in ((1, MISCREANT), (2, SEER)):
+        answers.append(hub.choose(advised(combat_substep("declare_attack", index, 3, subject, [None, FOE]),
+                                          model_input([0, 1]))))
+    return answers
+
+
+def test_an_attack_read_names_its_creature_and_question_and_plain_choices(advisor) -> None:
+    hub = Hub(advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    started = ask(hub, advised(combat_substep("declare_attack", 0, 3, MULLDRIFTER, [None, FOE]), model_input([0, 1])))
+    question = hub.advice["question"]
+    assert question["title"] == "Attack with Mulldrifter?" and (question["index"], question["count"]) == (0, 3)
+    assert question["subject_id"] == "o-m" and question["screen"] == "attack"
+    assert [(row["short"], row["p"]) for row in hub.advice["rows"]] == [("attack", pytest.approx(0.7311, abs=1e-4)),
+                                                                         ("hold back", pytest.approx(0.2689, abs=1e-4))]
+    assert "declaration" not in hub.advice  # nothing of this declaration is answered yet
+    hub.answer_with(hub.pending["seq"], 1)
+    started["thread"].join(timeout=5)
+
+
+def test_the_reads_of_every_creature_of_a_one_screen_attack_are_listed_with_the_persons_answers(advisor, tmp_path) -> None:
+    hub = Hub(log_dir=tmp_path, advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    assert attack_with_plan(hub, ["o-m", "o-s"]) == [1, 0, 1]
+    declaration = hub.advice["declaration"]
+    assert declaration["kind"] == "attack" and declaration["count"] == 3
+    items = declaration["items"]
+    assert [(i["index"], i["subject"], i["chosen"], i["how"]) for i in items] == [
+        (0, "Mulldrifter", "attack", "plan"), (1, "Faerie Miscreant", "hold back", "plan"), (2, "Faerie Seer", "attack", "plan")]
+    assert all(i["p_attack"] == pytest.approx(0.7311, abs=1e-4) for i in items)
+    assert items[1]["p_chosen"] == pytest.approx(0.2689, abs=1e-4)
+    assert hub.advice["rev"] == 3 and hub.advice["chosen"] == 1  # the first question's read, answered, then two more
+    # The records are as before: the advisor's shares only for the decision the person was shown.
+    hub.game_end({"game_id": "g-1", "terminal": {"winner": ME, "classification": "win", "reason": "win"}})
+    records = [json.loads(line) for line in (tmp_path / f"g-1.{ME}.jsonl").read_text(encoding="utf-8").splitlines()]
+    decisions = [r for r in records if r.get("kind") == "decision"]
+    assert ["advisor" in r for r in decisions] == [True, False, False]
+    assert [r["how"] for r in decisions] == ["plan", "plan", "plan"]
+    assert "tensor" not in json.dumps(hub.state())
+
+
+def test_the_declaration_stays_with_the_reads_of_that_combat_and_ends_after_it(advisor) -> None:
+    hub = Hub(advisor=advisor("ok"), real_action_stops=True)
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    attack_with_plan(hub, ["o-m"])
+    started = ask(hub, advised(priority(phase="declare_blockers"), model_input([0, 1])))
+    assert len(hub.advice["declaration"]["items"]) == 3  # a read later in the same combat shows the attack too
+    hub.answer_with(hub.pending["seq"], 0)
+    started["thread"].join(timeout=5)
+    started = ask(hub, advised(priority(phase="postcombat_main"), model_input([0, 1])))
+    assert "declaration" not in hub.advice and hub.declaration is None  # combat is over
+    hub.answer_with(hub.pending["seq"], 0)
+    started["thread"].join(timeout=5)
+
+
+def test_a_block_read_names_the_blocker_and_the_attacker(advisor) -> None:
+    hub = Hub(advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    guardian, ogre = creature("o-g", "Guardian of the Guildpact", OPP), creature("o-o", "Ogre", OPP)
+    skyfisher = creature("o-k", "Kor Skyfisher")
+    started = ask(hub, advised(combat_substep("declare_block", 0, 2, skyfisher, [None, guardian], active=OPP),
+                               model_input([0, 1])))
+    assert hub.advice["question"]["title"] == "Block Guardian of the Guildpact with Kor Skyfisher?"
+    assert [row["short"] for row in hub.advice["rows"]] == ["block Guardian of the Guildpact", "no block"]
+    assert hub.plan_with(hub.pending["seq"], {"kind": "block", "blocks": {"o-k": None, "o-w": "o-o"}}) is None
+    started["thread"].join(timeout=5)
+    wall = creature("o-w", "Wall of Roots")
+    request = advised(combat_substep("declare_block", 1, 2, wall, [None, guardian, ogre], active=OPP),
+                      model_input([0, 1, 2]))
+    assert hub.choose(request) == 2
+    items = hub.advice["declaration"]["items"]
+    assert [(i["subject"], i["chosen"]) for i in items] == [("Kor Skyfisher", "no block"), ("Wall of Roots", "block Ogre")]
+    assert items[1]["rows"][0] == {"text": "block Ogre", "p": pytest.approx(0.5761, abs=1e-4)}  # e / (2 + e)
+    assert "p_attack" not in items[1]
+
+
+def test_a_creature_with_one_legal_choice_is_listed_without_a_read(advisor) -> None:
+    hub = Hub(advisor=advisor("die-after-1"))  # a second read would stop the advisor: none is asked for
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    started = ask(hub, advised(combat_substep("declare_attack", 0, 2, MULLDRIFTER, [None, FOE]), model_input([0, 1])))
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": []}) is None
+    started["thread"].join(timeout=5)
+    assert hub.choose(advised(combat_substep("declare_attack", 1, 2, SEER, [FOE]), model_input([0]))) == 0
+    items = hub.advice["declaration"]["items"]
+    assert items[1] == {"index": 1, "subject": "Faerie Seer", "subject_id": "o-s", "chosen": "attack", "how": "single",
+                        "only": True}
+    assert hub.advisor is not None
+
+
+def test_the_client_is_told_the_read_is_one_creature_of_its_combined_screen_and_gets_the_later_reads(advisor) -> None:
+    from test_human_manabrew import card
+    hub = Hub(opponent="Basilisk 2", advisor=advisor("argmax"))
+    bridge = bridge_in_game(hub)
+    bridge.dealt = {"human": "Faeries", "bot": "Burn", "differs": False}
+    bridge._log_hold_until = 0.0
+    request = advised(combat_substep("declare_attack", 0, 2, MULLDRIFTER, [None, FOE]), model_input([0, 1]))
+    request["decision"]["observation"]["players"][0]["battlefield"] = [card("o-m", "Mulldrifter", ME, "battlefield"),
+                                                                       card("o-s", "Faerie Seer", ME, "battlefield")]
+    started = ask(hub, request)
+    bridge._push(hub.state())
+    first = advice_sent(bridge)[-1]
+    assert first["question"]["combined"] is True and first["question"]["title"] == "Attack with Mulldrifter?"
+    assert "choices" not in first["question"]  # the hub's own lookup, not the panel's
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": ["o-s"]}) is None
+    started["thread"].join(timeout=5)
+    hub.choose(advised(combat_substep("declare_attack", 1, 2, SEER, [None, FOE]), model_input([0, 1])))
+    bridge._push(hub.state())
+    last = advice_sent(bridge)[-1]
+    assert [(i["subject"], i["chosen"]) for i in last["declaration"]["items"]] == [("Mulldrifter", "hold back"),
+                                                                                    ("Faerie Seer", "attack")]
+    assert last["question"]["combined"] is True and last["chosen"] == 0
+
+
 def test_the_relay_keeps_the_model_input_only_for_a_session_with_an_advisor() -> None:
     class Stub(relay.Relay):
         def __init__(self, advisor: bool) -> None:

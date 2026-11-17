@@ -38,7 +38,7 @@ PHASE_STEPS = ("upkeep", "draw", "precombat_main", "beginning_of_combat", "decla
 DEFAULT_STOPS = {f"{side}_{step}": False for side in ("own", "opp") for step in PHASE_STEPS}
 DEFAULT_STOPS.update(own_precombat_main=True, own_postcombat_main=True, opp_stack=True, own_stack=False)
 LOG_LIMIT = 600
-FRAME_LIMIT = 40  # stack-changing positions kept for the Manabrew host to draw (``Hub.frames``)
+FRAME_LIMIT = 80  # positions kept for the Manabrew host to draw (``Hub.frames``)
 # The steps of a turn in order, as the observation names them (the engine itself offers priority in only some of them).
 STEP_ORDER = ("untap", "upkeep", "draw", "precombat_main", "beginning_of_combat", "declare_attackers",
               "declare_blockers", "combat_damage", "end_of_combat", "postcombat_main", "end_step", "cleanup")
@@ -107,6 +107,62 @@ def position_key(decision: Mapping[str, Any]) -> str:
     return hashlib.sha1(json.dumps([observation, candidates], sort_keys=True, default=str).encode()).hexdigest()
 
 
+def display_key(observation: Mapping[str, Any]) -> str:
+    """A fingerprint of what the board shows the person: turn, step, stack, and each seat's life, hand and library
+    counts, graveyard and exile, and permanents (tapped, attacking, blocking, counters, damage). Two decisions with
+    the same key look the same on the board. Display only (``Hub.frames``)."""
+    players = []
+    for player in observation.get("players") or []:
+        board = [(c.get("object_id"), (c.get("permanent") or {}).get("tapped"),
+                  (c.get("permanent") or {}).get("attacking"), (c.get("permanent") or {}).get("blocking"),
+                  (c.get("permanent") or {}).get("counters"), (c.get("permanent") or {}).get("damage"))
+                 for c in player.get("battlefield") or []]
+        players.append((player.get("seat"), player.get("life"), player.get("hand_count"), player.get("library_count"),
+                        [c.get("object_id") for c in player.get("graveyard") or []],
+                        [c.get("object_id") for c in player.get("exile") or []], board))
+    return json.dumps([observation.get("turn"), observation.get("active_seat"), observation.get("phase_step"),
+                       stack_ids(observation), players], sort_keys=True, default=str)
+
+
+def combat_question(decision: Mapping[str, Any], me: str | None) -> dict[str, Any] | None:
+    """The question one substep of an attack or block declaration asks, in plain words, or None for any other
+    decision. The engine asks about one creature at a time: an attack substep is "attack with this creature, and
+    whom?", a block substep "block with this creature, and which attacker?". ``choices`` gives each candidate a short
+    label ("attack", "hold back", "block Guardian of the Guildpact", "no block"); ``key`` names the declaration (its
+    group, turn and active seat). Display only."""
+    candidates = decision.get("candidates") or []
+    kinds = {(c.get("semantic") or {}).get("kind") for c in candidates}
+    if kinds == {"declare_attack"}:
+        kind, role, other = "attack", "attacker", "defender"
+    elif kinds == {"declare_block"}:
+        kind, role, other = "block", "blocker", "attacker"
+    else:
+        return None
+    subject = (candidates[0].get("semantic") or {}).get(role) or {}
+    name = text.card(subject)
+    aims = [(c.get("semantic") or {}).get(other) for c in candidates]
+    real = [aim for aim in aims if aim is not None]
+    choices: dict[int, str] = {}
+    for c, aim in zip(candidates, aims):
+        if kind == "attack":
+            label = "hold back" if aim is None else ("attack" if len(real) == 1 else f"attack {text.target(aim, me)}")
+        else:
+            label = "no block" if aim is None else f"block {text.card(aim)}"
+        choices[c["candidate_id"]] = label
+    if kind == "attack":
+        title = f"Attack with {name}?"
+    elif len(real) == 1:
+        title = f"Block {text.card(real[0])} with {name}?"
+    else:
+        title = f"Block with {name}?"
+    group = decision.get("group") or {}
+    observation = decision.get("observation") or {}
+    return {"kind": kind, "subject": name, "subject_id": subject.get("object_id"), "title": title,
+            "index": int(group.get("substep_index") or 0), "count": int(group.get("substep_count") or 1),
+            "choices": choices,
+            "key": [kind, group.get("group_id"), observation.get("turn"), observation.get("active_seat")]}
+
+
 class Conceded(RuntimeError):
     """The person gave up the game: every later decision of it is refused so the arena ends it at once."""
 
@@ -136,6 +192,10 @@ class Hub:
         self.advisor = advisor
         self.advisor_identity = advisor.identity() if advisor is not None else None
         self.advice: dict[str, Any] | None = None
+        # The reads of the attack or block declaration under way (``_declaration_item``): one item per creature the
+        # engine asked about, with the person's answer. Shown with every read until that combat is over. Display
+        # only: the decision records are written as before.
+        self.declaration: dict[str, Any] | None = None
         # True: the person gets every priority at which they have a legal action besides passing and mana abilities,
         # in any step of either turn and on any stack (the Manabrew path, which has no panel for stops). False: only
         # the stops of ``self.stops`` (the play page's S panel).
@@ -172,7 +232,9 @@ class Hub:
         self.passed_keys: set[str] = set()  # positions the person already passed at, in that step
         self.pending_key: str | None = None
         self.last_stack: tuple[Any, ...] = ()
-        self.frames: list[dict[str, Any]] = []  # observations of decisions at which the stack changed (newest last)
+        self.last_shown: str | None = None  # ``display_key`` of the newest frame
+        # observations of decisions at which what the board shows changed (newest last), each with ``_frame``
+        self.frames: list[dict[str, Any]] = []
         self.frames_total = 0
         self.game_over: dict[str, Any] | None = None
         self.conceded: str | None = None  # the game id the person gave up (or lost the connection to), if any
@@ -247,7 +309,7 @@ class Hub:
                          "rules": request.get("rules") or {}}
             self.log, self.observation, self.clock, self.pending = [], None, None, None
             self.log_total = 0
-            self.advice = None
+            self.advice = self.declaration = None
             if self.banner:
                 self._note("game", self.banner)
             if self.advisor_identity is not None:
@@ -256,7 +318,7 @@ class Hub:
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
             self.hold = self.auto_attack_group = self.forced_attack_group = self.passed_at = self.pending_key = None
             self.passed_keys = set()
-            self.last_stack, self.frames, self.frames_total = (), [], 0
+            self.last_stack, self.last_shown, self.frames, self.frames_total = (), None, [], 0
             self._combat_logged = set()
             self._opening = {"mine": 0, "opp": 0, "done": False}
             self.narrator = narrate.Narrator(seat) if seat else None
@@ -349,6 +411,8 @@ class Hub:
                 candidate_id, how, chosen_text = self._take_answer()
                 if advice is not None and self.advice is advice:
                     self.advice = advice = {**advice, "chosen": candidate_id}
+                    if advice.get("question") is not None:
+                        self._declaration_item(advice["question"], advice, candidate_id, how)
             return self._conclude(decision, how, candidate_id, chosen_text, started, advice)
 
     def _begin(self, decision: Mapping[str, Any], clock: Mapping[str, Any], *, model_input: Any = None,
@@ -361,15 +425,28 @@ class Hub:
         self._absorb(decision, clock)
         observation = decision.get("observation") or {}
         stack = stack_ids(observation)
-        if stack != self.last_stack:  # a position the person may need to see before the stack moves on
-            self.last_stack = stack
-            self.frames.append(dict(observation))
+        shown = display_key(observation)
+        if shown != self.last_shown:  # a position the person may need to see before the game moves on
+            # ``_frame``: whether the stack changed here (the positions drawn with pacing off) and how many log lines
+            # there were by then (so the Manabrew host can show each position with its own lines).
+            self.frames.append({**observation, "_frame": {"stack_changed": stack != self.last_stack,
+                                                         "log_total": self.log_total}})
             self.frames_total += 1
             del self.frames[:-FRAME_LIMIT]
+            self.last_shown = shown
+        self.last_stack = stack
         if not stack or not frozenset(stack) <= self.exhaust_ids:
             # the stack the person asked to pass through is empty, or something that was not on it appeared: stop
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
         how, candidate_id = self._automatic(decision)
+        if candidate_id is not None and how in ("plan", "single") and self.advisor_identity is not None:
+            # A later creature of a declaration the person made on one screen (or one that has a single choice): the
+            # engine asks about it now, with the earlier answers in place, so the advisor reads it now.
+            question = combat_question(decision, (self.game or {}).get("seat"))
+            if question is not None:
+                read = (self._advisor_read(decision, model_input, game_id) if how == "plan" else
+                        {"rows": [{"id": candidate_id, "p": 1.0}], "only": True})
+                self._declaration_item(question, read, candidate_id, how)
         if candidate_id is None:
             self._priority_note(decision)
             self.seq += 1
@@ -390,15 +467,14 @@ class Hub:
             return None
         advice: dict[str, Any] = {"seq": self.seq, "model": self.advisor_identity["label"],
                                   "prompt": self.pending["prompt"]}
-        if self.advisor is None:
-            return {**advice, "unavailable": "the advisor stopped earlier in this session"}
-        try:
-            read = self.advisor.read(str(game_id or (self.game or {}).get("game_id") or "game"), decision, model_input)
-        except AdvisorError as exc:
-            self._note("game", f"The advisor stopped: {exc}. The game goes on without it.")
-            advisor, self.advisor = self.advisor, None
-            threading.Thread(target=advisor.close, daemon=True).start()
-            return {**advice, "unavailable": str(exc)}
+        question = combat_question(decision, (self.game or {}).get("seat"))
+        if question is not None:
+            # An attack or block substep: the read is about one creature, named in ``question``; ``screen`` says
+            # whether the person declares the whole attack or block on one screen (the Manabrew client's combat
+            # prompts are built from it), so the panel can say that the other creatures' reads follow.
+            advice["question"] = {**question, "screen": self.pending.get("screen")}
+        self._attach_declaration(advice, decision)
+        read = self._advisor_read(decision, model_input, game_id)
         if "unavailable" in read:
             return {**advice, "unavailable": read["unavailable"]}
         # Choices the person reads as the same line (two copies of a land) are one row with their shares added: the
@@ -411,9 +487,81 @@ class Hub:
             line["ids"].append(row["id"])
             line["p"] += row["p"]
         rows = [{"ids": line["ids"], "text": label, "p": round(line["p"], 4)} for label, line in merged.items()]
+        if question is not None:
+            for row in rows:  # the short label of a combat choice: its subject is the question's
+                row["short"] = question["choices"].get(row["ids"][0], row["text"])
         rows.sort(key=lambda row: -row["p"])  # stable: ties stay in the model's row order
         return {**advice, "rows": rows, "value": read["value"], "win": read["win"],
                 "scores": [[row["id"], round(row["p"], 6)] for row in read["rows"]]}
+
+    def _advisor_read(self, decision: Mapping[str, Any], model_input: Any, game_id: Any) -> dict[str, Any]:
+        """The advisor's read of one decision posed to the person's seat (``Advisor.read``), or ``{"unavailable":
+        reason}``. A scorer that fails is dropped for the rest of the session, with a log line."""
+        if self.advisor is None:
+            return {"unavailable": "the advisor stopped earlier in this session"}
+        try:
+            return self.advisor.read(str(game_id or (self.game or {}).get("game_id") or "game"), decision, model_input)
+        except AdvisorError as exc:
+            self._note("game", f"The advisor stopped: {exc}. The game goes on without it.")
+            advisor, self.advisor = self.advisor, None
+            threading.Thread(target=advisor.close, daemon=True).start()
+            return {"unavailable": str(exc)}
+
+    def _declaration_item(self, question: Mapping[str, Any], read: Mapping[str, Any], candidate_id: int,
+                          how: str) -> None:
+        """Add the read of one answered creature question to the declaration under way (a new declaration starts the
+        list again), and show the list with the newest read. ``read``: the advisor's rows by candidate (``Advisor.read``
+        or a pending advice's rows), or ``unavailable``."""
+        key = list(question["key"])
+        if self.declaration is None or self.declaration["key"] != key:
+            self.declaration = {"key": key, "kind": question["kind"], "count": question["count"], "items": [],
+                                "turn": key[2:]}
+        shares: dict[str, float] = {}
+        for row in read.get("rows") or []:
+            for cid in row.get("ids") or [row.get("id")]:
+                label = question["choices"].get(cid, "?")
+                shares[label] = shares.get(label, 0.0) + (row["p"] / len(row.get("ids") or [cid]) if "ids" in row
+                                                          else row["p"])
+        chosen = question["choices"].get(candidate_id, "?")
+        item: dict[str, Any] = {"index": question["index"], "subject": question["subject"],
+                                "subject_id": question["subject_id"], "chosen": chosen, "how": how}
+        if "unavailable" in read:
+            item["unavailable"] = read["unavailable"]
+        elif read.get("only"):
+            item["only"] = True  # one legal choice: nothing to weigh
+        else:
+            rows = sorted(shares.items(), key=lambda pair: -pair[1])
+            item["rows"] = [{"text": label, "p": round(p, 4)} for label, p in rows]
+            item["p_chosen"] = round(shares.get(chosen, 0.0), 4)
+            if question["kind"] == "attack":
+                item["p_attack"] = round(sum(p for label, p in rows if label != "hold back"), 4)
+        self.declaration["items"].append(item)
+        if self.advice is not None and self.pending is None:
+            self.advice = {**self.advice, "declaration": self._declaration_view(),
+                           "rev": int(self.advice.get("rev") or 0) + 1}
+
+    def _declaration_view(self) -> dict[str, Any]:
+        declaration = self.declaration or {}
+        return {"kind": declaration.get("kind"), "count": declaration.get("count"),
+                "items": [dict(item) for item in declaration.get("items") or []]}
+
+    def _attach_declaration(self, advice: dict[str, Any], decision: Mapping[str, Any]) -> None:
+        """Show the declaration's reads with this read while that combat goes on (same turn, a combat step); a read
+        after it, or a new declaration of the other kind, ends the list."""
+        declaration = self.declaration
+        if declaration is None:
+            return
+        observation = decision.get("observation") or {}
+        here = [observation.get("turn"), observation.get("active_seat")]
+        question = advice.get("question")
+        if question is not None and question["key"] != declaration["key"]:
+            self.declaration = None  # another declaration: its own list starts with its first answer
+            return
+        if here != declaration["turn"] or observation.get("phase_step") not in COMBAT_STEPS:
+            self.declaration = None
+            return
+        if declaration["items"]:
+            advice["declaration"] = self._declaration_view()
 
     def _take_answer(self) -> tuple[int, str, str | None]:
         """The person's answer to the pending decision, which is then no longer pending."""

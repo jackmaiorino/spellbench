@@ -283,7 +283,7 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
 
     bridge = manabrew_host.Bridge(hub, relay_url=args.relay_url, relay_key=args.relay_key, room_name=args.room_name,
                                   bot_name=shown, bot_deck=manabrew_host.pool_deck(), bot_deck_for=bot_deck_for,
-                                  allow_remote_relay=args.allow_remote_relay)
+                                  allow_remote_relay=args.allow_remote_relay, pace=args.pace)
     bridge.start()
     print(f"  Manabrew: join table '{args.room_name}', pick a training deck, press Start game\n", flush=True)
     picks = out / "runs" / f"{name}.picks.jsonl"
@@ -384,7 +384,16 @@ def main(argv: list[str] | None = None) -> int:
                              "log and record say so")
     parser.add_argument("--advisor-label", default="",
                         help="the advisor's name on screen and in the records (default: its board label)")
+    parser.add_argument("--pace", type=float, default=1.0,
+                        help="manabrew: display pacing, so a person can follow the opponent's turn: each position the "
+                             "session passed through stays on the board 0.2 to 0.9 s by what changed (times this "
+                             "factor), at most about 4 s of drawing per state. 0: only stack changes, 0.2 s apart. "
+                             "The engine and the bot never wait for it; the prompt of your next decision comes after "
+                             "the drawing, and your decision clock runs from when the engine asks, so that drawing "
+                             "counts against your bank")
     args = parser.parse_args(argv)
+    if args.pace < 0:
+        parser.error("--pace must be 0 or more")
     if args.exclude_decks:
         from .manabrew import decks as board_decks
         left_out = [d.strip() for d in args.exclude_decks.split(",") if d.strip()]

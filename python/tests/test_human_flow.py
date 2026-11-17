@@ -576,6 +576,104 @@ def test_the_pacing_of_drawn_positions_holds_no_lock_so_the_persons_answer_is_ha
                    for m in sent)  # the decision it was about is gone: it is not sent after the fact
 
 
+# -- display pacing: what the session passed through is drawn slowly enough to follow -----------------------------------------
+
+
+def creature_on(observation: dict, seat: str, oid: str, name: str, **permanent) -> None:
+    players = {p["seat"]: p for p in observation["players"]}
+    players[seat].setdefault("battlefield", []).append(
+        {**ref(oid, name, seat), "characteristics": {"types": ["creature"], "keywords": [], "power": 2, "toughness": 2},
+         "permanent": {"tapped": False, "attacking": False, "blocking": False, "counters": {}, "damage": 0, **permanent}})
+
+
+def test_what_changed_sets_how_long_a_position_stays() -> None:
+    from spellbench.human.manabrew.host import pace_kind
+    base = at([PASS, MANA], phase="precombat_main", active=OPP, turn=4)["observation"]
+    same = json.loads(json.dumps(base))
+    assert pace_kind(None, base, ME) is None and pace_kind(base, same, ME) is None
+    assert pace_kind(base, at([PASS], phase="precombat_main", active=ME, turn=5)["observation"], ME) == "turn"
+    assert pace_kind(base, at([PASS], phase="postcombat_main", active=OPP, turn=4)["observation"], ME) == "step"
+    cast = at([PASS], active=OPP, turn=4, stack=opponents_stack("Shock"))["observation"]
+    assert pace_kind(base, cast, ME) == "action" and pace_kind(cast, base, ME) == "action"  # cast, then resolved
+    mine = at([PASS], active=OPP, turn=4, stack=[{**ref("o-x", "Bolt", ME, "stack"), "stack_kind": "spell"}])["observation"]
+    assert pace_kind(base, mine, ME) == "own"
+    hurt = json.loads(json.dumps(base))
+    hurt["players"][0]["life"] -= 3
+    assert pace_kind(base, hurt, ME) == "action"
+    before = at([PASS], phase="declare_attackers", active=OPP, turn=4)["observation"]
+    after = json.loads(json.dumps(before))
+    creature_on(before, OPP, "o-g", "Goblin")
+    creature_on(after, OPP, "o-g", "Goblin", attacking=True, tapped=True)
+    assert pace_kind(before, after, ME) == "combat"  # the opponent's attackers
+    assert pace_kind(before, after, OPP) == "own"
+
+
+def opponent_turn(hub: Hub) -> None:
+    """An opponent's turn the session passes through for the person: a new turn, a spell cast and resolved, a step."""
+    hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=ME, turn=3)})
+    hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=4)})
+    hub.say("Opp casts Shock")
+    hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=4, stack=opponents_stack("Shock"))})
+    hub.say("Shock resolves")
+    hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=4)})
+    hub.choose({"decision": at([PASS, MANA], phase="postcombat_main", active=OPP, turn=4)})
+
+
+def test_paced_positions_wait_by_what_changed_and_the_log_comes_with_each(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub)
+    bridge.pace, bridge.seats = 1.0, SEATS
+    waits: list[float] = []
+    monkeypatch.setattr(host.time, "sleep", waits.append)  # no real waiting: the waits asked for are kept
+    opponent_turn(hub)
+    pump_once(bridge)
+    assert drawn_stacks(sent) == [[], [], ["Shock"], [], []]  # every position, the stack ones and the others
+    # dwell of each drawn position before the next one: the new turn, the spell, its resolution (the last one is the
+    # current position, which the prompt of a decision would follow at once)
+    assert waits == pytest.approx([0.9, 0.75, 0.75], abs=0.01)
+    kinds = [m["state"]["kind"] for m in sent if m.get("state", {}).get("kind") in ("state", "log")]
+    messages = [m["state"]["entry"]["message"] for m in sent if m.get("state", {}).get("kind") == "log"]
+    assert messages.index("Opp casts Shock") < messages.index("Shock resolves")
+    # the line about the spell is sent with the position that shows it, not after everything
+    shock_line = next(i for i, m in enumerate(sent) if m.get("state", {}).get("entry", {}).get("message") == "Opp casts Shock")
+    shock_view = next(i for i, m in enumerate(sent) if m.get("state", {}).get("kind") == "state"
+                      and m["state"]["state"]["gameView"]["stack"])
+    assert shock_line < shock_view and kinds.count("state") == 5
+
+
+def test_a_long_burst_is_drawn_faster_and_the_persons_answer_is_never_waited_on(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub)
+    bridge.pace = 1.0
+    waits: list[float] = []
+    monkeypatch.setattr(host.time, "sleep", waits.append)
+    for turn in range(4, 24):  # twenty turns go by at once
+        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP if turn % 2 else ME, turn=turn)})
+    pump_once(bridge)
+    assert sum(waits) <= bridge.PACE_CAP_S and len(waits) == 18  # 18 turns of 0.9 s would be 16 s
+    assert min(waits) >= bridge.PACE_MIN_S
+    waits.clear()
+    bridge._dwell = 0.9
+    bridge._on_response("human", {"kind": "response", "promptId": 1, "action": {}})  # the person acts
+    hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=ME, turn=30)})
+    pump_once(bridge)
+    assert waits == []  # what follows from the person's own answer is drawn at once
+
+
+def test_pacing_off_draws_only_the_stack_changes_as_before(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub, gap=0.2)
+    waits: list[float] = []
+    monkeypatch.setattr(host.time, "sleep", waits.append)
+    opponent_turn(hub)
+    pump_once(bridge)
+    assert drawn_stacks(sent) == [["Shock"], [], []]  # the spell, its resolution, then the current position
+    assert waits == [0.2]
+
+
 def test_the_page_state_does_not_carry_the_frames() -> None:
     hub = new_hub(real=True)
     hub.choose({"decision": at([PASS, MANA], active=OPP, turn=4, stack=opponents_stack("Shock"))})
