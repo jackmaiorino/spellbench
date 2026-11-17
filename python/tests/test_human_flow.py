@@ -503,7 +503,8 @@ def drawn_stacks(sent: list[dict]) -> list[list[str]]:
 
 def pump_once(bridge: Bridge) -> None:
     """What the pump does with the hub's newest state, with the bridge's own cursor."""
-    bridge._push(bridge.hub.wait_state(-1, timeout=0.1, frames_from=bridge.sent_frames, frames_game=bridge.sent_frames_game))
+    bridge._push(bridge.hub.wait_state(-1, timeout=0.1, frames_from=bridge.sent_frames, frames_game=bridge.sent_frames_game,
+                                       positions_from=bridge.sent_positions if bridge.pace > 0 else None))
 
 
 def test_the_stack_changes_of_a_second_game_are_drawn_from_its_first() -> None:
@@ -642,24 +643,95 @@ def test_paced_positions_wait_by_what_changed_and_the_log_comes_with_each(monkey
     assert shock_line < shock_view and kinds.count("state") == 5
 
 
-def test_a_long_burst_is_drawn_faster_and_the_persons_answer_is_never_waited_on(monkeypatch) -> None:
+def alternating_turns_and_own_spells(hub: Hub, count: int) -> None:
+    """``count`` positions the session passes through at once: a new turn, then my own spell on the stack, and again."""
+    for n in range(count):
+        turn = 4 + n // 2
+        stack = [] if n % 2 == 0 else [{**MY_SPELL, "object_id": f"o-m{n}"}]
+        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=turn, stack=stack)})
+
+
+def test_a_long_burst_of_mixed_changes_is_drawn_in_full_within_one_budget(monkeypatch) -> None:
     import spellbench.human.manabrew.host as host
     hub = new_hub(real=True)
     bridge, sent = paced_bridge(hub)
-    bridge.pace = 1.0
+    bridge.pace, bridge.seats = 1.0, SEATS
     waits: list[float] = []
     monkeypatch.setattr(host.time, "sleep", waits.append)
-    for turn in range(4, 24):  # twenty turns go by at once
-        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP if turn % 2 else ME, turn=turn)})
+    alternating_turns_and_own_spells(hub, 30)  # 0.9 s and 0.2 s dwells, clamped to the 0.12 s floor when scaled
     pump_once(bridge)
-    assert sum(waits) <= bridge.PACE_CAP_S and len(waits) == 18  # 18 turns of 0.9 s would be 16 s
-    assert min(waits) >= bridge.PACE_MIN_S
-    waits.clear()
-    bridge._dwell = 0.9
-    bridge._on_response("human", {"kind": "response", "promptId": 1, "action": {}})  # the person acts
-    hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=ME, turn=30)})
+    assert hub.positions_total == 30 and bridge.sent_positions == 30
+    assert len(drawn_stacks(sent)) == 30  # every position is drawn, none dropped
+    assert 0 < sum(waits) <= bridge.PACE_CAP_S + 1e-9  # the clamped dwells share one budget
+    sent.clear(), waits.clear()
     pump_once(bridge)
-    assert waits == []  # what follows from the person's own answer is drawn at once
+    assert drawn_stacks(sent) == [] and waits == []  # nothing is drawn twice
+
+
+def test_with_pacing_off_the_stack_positions_are_kept_and_drawn_as_before(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    hub = new_hub(real=True)
+    expected, last = [], ()
+    for n in range(50):  # stack changes with step changes between them, which never push a stack change out
+        stack = opponents_stack(f"Shock{n}") if n % 2 == 0 else []
+        for phase in ("precombat_main", "postcombat_main"):
+            request = at([PASS, MANA], phase=phase, active=OPP, turn=4, stack=stack)
+            hub.choose({"decision": request})
+            ids = tuple(entry["object_id"] for entry in stack)
+            if ids != last:
+                expected.append(request["observation"])
+                last = ids
+    assert hub.frames == expected[-40:] and hub.frames_total == len(expected)
+    bridge, sent = paced_bridge(hub, gap=0.2)
+    monkeypatch.setattr(host.time, "sleep", lambda s: None)
+    pump_once(bridge)
+    assert len(drawn_stacks(sent)) == 8 + 1  # the newest eight stack positions, then the current one
+
+
+def test_a_low_bank_draws_without_waiting(monkeypatch) -> None:
+    import spellbench.human.manabrew.host as host
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub)
+    bridge.pace, bridge.seats = 1.0, SEATS
+    waits: list[float] = []
+    monkeypatch.setattr(host.time, "sleep", waits.append)
+    low = {"remaining_ms": 90_000, "max_decision_ms": 1_800_000}  # a minute and a half left
+    for turn in range(4, 8):
+        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=turn), "clock": low})
+    pump_once(bridge)
+    assert len(drawn_stacks(sent)) == 4 and waits == []  # all drawn, nothing waited: the drawing never runs a bank out
+    plenty = {"remaining_ms": 1_000_000, "max_decision_ms": 1_800_000}
+    for turn in range(8, 10):
+        hub.choose({"decision": at([PASS, MANA], phase="precombat_main", active=OPP, turn=turn), "clock": plenty})
+    pump_once(bridge)
+    assert waits  # with time in the bank the positions are paced again
+
+
+def test_a_valid_answer_is_taken_at_once_and_what_follows_from_it_is_not_held_back() -> None:
+    hub = new_hub(real=True)
+    bridge, sent = paced_bridge(hub)
+    bridge.pace, bridge.seats = 1.0, SEATS
+    bridge.PACE_DWELL_S = {"turn": 0.2, "action": 0.6, "combat": 0.6, "step": 0.1, "own": 0.05}
+    opponent_turn(hub)
+    spell = opponents_stack("Fireblast")
+    thread = waiting_priority(hub, at([PASS, BOLT], phase="postcombat_main", active=OPP, turn=4, stack=spell))
+    pusher = threading.Thread(target=pump_once, args=(bridge,), daemon=True)
+    begun = time.monotonic()
+    pusher.start()
+    pusher.join(10)
+    assert time.monotonic() - begun >= 1.4  # the positions before the prompt were paced (0.2 + 0.6 + 0.6 + 0.1 s)
+    prompt = next(m["state"]["prompt"] for m in sent if m.get("state", {}).get("kind") == "prompt")
+    assert bridge._dwell >= 0.5  # the opponent's spell, just drawn, is to stay about 0.6 s
+    begun = time.monotonic()
+    bridge._on_host(None, {"type": "StateUpdate", "from_player": "human", "state": {
+        "kind": "response", "promptId": prompt["promptId"], "action": {"type": "pass", "exhaustStack": False}}})
+    thread.join(5)
+    assert thread.result == [0] and time.monotonic() - begun < 0.25  # accepted at once
+    hub.choose({"decision": at([PASS, MANA], phase="postcombat_main", active=OPP, turn=4)})  # the spell resolves
+    sent.clear()
+    begun = time.monotonic()
+    pump_once(bridge)
+    assert drawn_stacks(sent) and time.monotonic() - begun < 0.3  # not held for what was left of the 0.6 s
 
 
 def test_pacing_off_draws_only_the_stack_changes_as_before(monkeypatch) -> None:

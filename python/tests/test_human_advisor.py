@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 import math
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -53,7 +55,8 @@ def advisor():
 
 
 def ask(hub: Hub, request: dict) -> dict:
-    """``pending_of`` for a whole ``choose`` request (the helper wraps a bare decision)."""
+    """``pending_of`` for a whole ``choose`` request (the helper wraps a bare decision), once its read is back (reads
+    run in the advisor's own thread)."""
     import threading
     result: dict = {}
     thread = threading.Thread(target=lambda: result.update(answer=hub.choose(request)), daemon=True)
@@ -61,7 +64,16 @@ def ask(hub: Hub, request: dict) -> dict:
     with hub.cond:
         while hub.pending is None and thread.is_alive():
             hub.cond.wait(0.05)
+    assert hub.wait_reads(10)
     return {"thread": thread, "result": result}
+
+
+def choose(hub: Hub, request: dict) -> int:
+    """A decision the session answers without the person (a later creature of a planned declaration): the answer, once
+    the reads it queued are back."""
+    answer = hub.choose(request)
+    assert hub.wait_reads(10)
+    return answer
 
 
 def test_the_scorer_of_a_bot_command_is_its_program_arguments_and_config() -> None:
@@ -252,7 +264,7 @@ def attack_with_plan(hub: Hub, attackers: list[str]) -> list[int]:
     started["thread"].join(timeout=5)
     answers = [started["result"]["answer"]]
     for index, subject in ((1, MISCREANT), (2, SEER)):
-        answers.append(hub.choose(advised(combat_substep("declare_attack", index, 3, subject, [None, FOE]),
+        answers.append(choose(hub, advised(combat_substep("declare_attack", index, 3, subject, [None, FOE]),
                                           model_input([0, 1]))))
     return answers
 
@@ -282,7 +294,7 @@ def test_the_reads_of_every_creature_of_a_one_screen_attack_are_listed_with_the_
         (0, "Mulldrifter", "attack", "plan"), (1, "Faerie Miscreant", "hold back", "plan"), (2, "Faerie Seer", "attack", "plan")]
     assert all(i["p_attack"] == pytest.approx(0.7311, abs=1e-4) for i in items)
     assert items[1]["p_chosen"] == pytest.approx(0.2689, abs=1e-4)
-    assert hub.advice["rev"] == 3 and hub.advice["chosen"] == 1  # the first question's read, answered, then two more
+    assert hub.advice["chosen"] == 1 and not any(i.get("reading") for i in items)  # the first read, with two more
     # The records are as before: the advisor's shares only for the decision the person was shown.
     hub.game_end({"game_id": "g-1", "terminal": {"winner": ME, "classification": "win", "reason": "win"}})
     records = [json.loads(line) for line in (tmp_path / f"g-1.{ME}.jsonl").read_text(encoding="utf-8").splitlines()]
@@ -320,10 +332,10 @@ def test_a_block_read_names_the_blocker_and_the_attacker(advisor) -> None:
     wall = creature("o-w", "Wall of Roots")
     request = advised(combat_substep("declare_block", 1, 2, wall, [None, guardian, ogre], active=OPP),
                       model_input([0, 1, 2]))
-    assert hub.choose(request) == 2
+    assert choose(hub, request) == 2
     items = hub.advice["declaration"]["items"]
     assert [(i["subject"], i["chosen"]) for i in items] == [("Kor Skyfisher", "no block"), ("Wall of Roots", "block Ogre")]
-    assert items[1]["rows"][0] == {"text": "block Ogre", "p": pytest.approx(0.5761, abs=1e-4)}  # e / (2 + e)
+    assert items[1]["rows"][0] == {"text": "block Ogre", "target": "object:o-o", "p": pytest.approx(0.5761, abs=1e-4)}  # e / (2 + e)
     assert "p_attack" not in items[1]
 
 
@@ -333,10 +345,10 @@ def test_a_creature_with_one_legal_choice_is_listed_without_a_read(advisor) -> N
     started = ask(hub, advised(combat_substep("declare_attack", 0, 2, MULLDRIFTER, [None, FOE]), model_input([0, 1])))
     assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": []}) is None
     started["thread"].join(timeout=5)
-    assert hub.choose(advised(combat_substep("declare_attack", 1, 2, SEER, [FOE]), model_input([0]))) == 0
+    assert choose(hub, advised(combat_substep("declare_attack", 1, 2, SEER, [FOE]), model_input([0]))) == 0
     items = hub.advice["declaration"]["items"]
-    assert items[1] == {"index": 1, "subject": "Faerie Seer", "subject_id": "o-s", "chosen": "attack", "how": "single",
-                        "only": True}
+    assert items[1] == {"index": 1, "subject": "Faerie Seer", "subject_id": "o-s", "chosen": "attack",
+                        "chosen_target": "player:p1", "how": "single", "only": True}
     assert hub.advisor is not None
 
 
@@ -356,12 +368,108 @@ def test_the_client_is_told_the_read_is_one_creature_of_its_combined_screen_and_
     assert "choices" not in first["question"]  # the hub's own lookup, not the panel's
     assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": ["o-s"]}) is None
     started["thread"].join(timeout=5)
-    hub.choose(advised(combat_substep("declare_attack", 1, 2, SEER, [None, FOE]), model_input([0, 1])))
+    choose(hub, advised(combat_substep("declare_attack", 1, 2, SEER, [None, FOE]), model_input([0, 1])))
     bridge._push(hub.state())
     last = advice_sent(bridge)[-1]
     assert [(i["subject"], i["chosen"]) for i in last["declaration"]["items"]] == [("Mulldrifter", "hold back"),
                                                                                     ("Faerie Seer", "attack")]
     assert last["question"]["combined"] is True and last["chosen"] == 0
+
+
+def ogre(oid: str, *, damage: int = 0) -> dict:
+    return {**creature(oid, "Ogre", OPP), "characteristics": {"types": ["creature"], "power": 3, "toughness": 3},
+            "permanent": {"tapped": False, "attacking": True, "blocking": False, "counters": {}, "damage": damage}}
+
+
+def test_two_attackers_of_one_name_stay_two_choices_with_their_own_shares(advisor) -> None:
+    hub = Hub(advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    hurt, fresh = ogre("o-a1", damage=1), ogre("o-a2")
+    request = advised(combat_substep("declare_block", 0, 1, creature("o-k", "Kor Skyfisher"), [None, hurt, fresh],
+                                     active=OPP), model_input([0, 1, 2]))
+    request["decision"]["observation"]["players"][1]["battlefield"] = [hurt, fresh]
+    started = ask(hub, request)
+    rows = hub.advice["rows"]
+    assert [(row["short"], row["target"]) for row in rows] == [
+        ("block Ogre (3/3)", "object:o-a2"), ("no block", "none"), ("block Ogre (3/3, 1 damage)", "object:o-a1")]
+    assert rows[0]["p"] == pytest.approx(0.5761, abs=1e-4) and rows[2]["p"] == pytest.approx(0.2119, abs=1e-4)
+    assert hub.plan_with(hub.pending["seq"], {"kind": "block", "blocks": {"o-k": "o-a1"}}) is None
+    started["thread"].join(timeout=5)
+    assert started["result"]["answer"] == 1
+    item = hub.advice["declaration"]["items"][0]
+    assert item["chosen"] == "block Ogre (3/3, 1 damage)" and item["chosen_target"] == "object:o-a1"
+    assert item["p_chosen"] == pytest.approx(0.2119, abs=1e-4)  # its own share, not the two Ogres' together
+    assert len(item["rows"]) == 3
+
+
+def test_attackers_of_one_name_in_the_same_state_are_numbered() -> None:
+    from spellbench.human.server import combat_question
+    a, b = ogre("o-a1"), ogre("o-a2")
+    request = combat_substep("declare_block", 0, 1, creature("o-k", "Kor Skyfisher"), [None, a, b], active=OPP)
+    request["observation"]["players"][1]["battlefield"] = [a, b]
+    question = combat_question(request, ME)
+    assert question["choices"] == {0: "no block", 1: "block Ogre #1", 2: "block Ogre #2"}
+    assert question["targets"] == {0: "none", 1: "object:o-a1", 2: "object:o-a2"}
+
+
+class StalledAdvisor:
+    """An advisor whose scorer stops answering after its first read (``release`` lets it go on)."""
+
+    def __init__(self) -> None:
+        self.release = threading.Event()
+        self.reads = 0
+
+    def identity(self) -> dict:
+        return {"name": "stalled", "label": "Stalled", "model_state_sha256": None, "selection": "argmax-first-v1"}
+
+    def read(self, game_id, decision, extension) -> dict:
+        self.reads += 1
+        if self.reads > 1:
+            self.release.wait(20)
+        rows = [{"id": c["candidate_id"], "p": 1 / len(decision["candidates"])} for c in decision["candidates"]]
+        return {"rows": rows, "value": 0.0, "win": 0.5}
+
+    def close(self) -> None:
+        self.release.set()
+
+
+def test_a_stalled_advisor_never_holds_back_an_answer_or_the_persons_concession() -> None:
+    stalled = StalledAdvisor()
+    hub = Hub(advisor=stalled)  # type: ignore[arg-type]
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    started = ask(hub, advised(combat_substep("declare_attack", 0, 3, MULLDRIFTER, [None, FOE]), model_input([0, 1])))
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": ["o-m", "o-f", "o-s"]}) is None
+    started["thread"].join(timeout=5)
+    begun = time.monotonic()
+    for index, subject in ((1, MISCREANT), (2, SEER)):  # the scorer is stuck on the first of these
+        assert hub.choose(advised(combat_substep("declare_attack", index, 3, subject, [None, FOE]),
+                                  model_input([0, 1]))) == 1
+    assert time.monotonic() - begun < 1.0  # the planned answers went back at once
+    items = hub.advice["declaration"]["items"]
+    assert [i.get("reading", False) for i in items] == [False, True, True]  # the panel says they are being read
+    begun = time.monotonic()
+    assert hub.concede("conceded")  # the lock is free: the person's concession is not held up by the read
+    assert time.monotonic() - begun < 1.0
+    stalled.release.set()
+    assert hub.wait_reads(10)
+    assert hub.declaration is None or all(i.get("reading") for i in hub.declaration["items"][1:])  # nothing late lands
+
+
+def test_the_declaration_ends_with_its_combat_even_when_every_later_window_is_passed_for_the_person(advisor) -> None:
+    from test_human_stops import MANA
+    hub = Hub(advisor=advisor("ok"), real_action_stops=True)
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    attack_with_plan(hub, ["o-m"])
+    assert "declaration" in hub.advice
+    rev = hub.advice.get("rev", 0)
+    passed = priority(phase="declare_blockers")
+    passed["candidates"][1] = {"candidate_id": 1, "semantic": MANA, "display_text": None}
+    assert hub.choose({"decision": passed}) == 0  # answered for the person: still that combat, the list stays
+    assert "declaration" in hub.advice
+    passed = priority(phase="postcombat_main")
+    passed["candidates"][1] = {"candidate_id": 1, "semantic": MANA, "display_text": None}
+    assert hub.choose({"decision": passed}) == 0  # passed for the person too, after combat: the list is gone
+    assert hub.declaration is None and "declaration" not in hub.advice and hub.advice["rev"] > rev
 
 
 def test_the_relay_keeps_the_model_input_only_for_a_session_with_an_advisor() -> None:

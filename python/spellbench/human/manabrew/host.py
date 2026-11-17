@@ -226,6 +226,7 @@ class Bridge:
         self.prompt: dict[str, Any] | None = None  # {"seq", "answer", "type"}
         self.sent_log = 0
         self.sent_advice: tuple[Any, ...] | None = None  # the advisor read last sent (``_send_advice``)
+        self.sent_positions = 0  # the hub's positions already drawn with pacing (Hub.positions_total), same game
         self.sent_frames = 0  # the hub's stack-changing positions already drawn (Hub.frames_total) ...
         self.sent_frames_game: Any = None  # ... of this game of the hub's (its frame count restarts with each game)
         self.rejoins = 0  # times the person's client came back in this game (see _view_game_id)
@@ -426,7 +427,8 @@ class Bridge:
         try:
             wait = 1.0 if time.time() < self._log_hold_until else 5.0  # held log lines go out as soon as the hold ends
             state = self.hub.wait_state(version, timeout=wait, frames_from=self.sent_frames,
-                                        frames_game=self.sent_frames_game)
+                                        frames_game=self.sent_frames_game,
+                                        positions_from=self.sent_positions if self.pace > 0 else None)
             version = state["version"]
             self._push(state)  # takes the lock in steps: the pacing of drawn stack positions holds nothing
             if state.get("hello_waiting"):
@@ -468,15 +470,26 @@ class Bridge:
 
     # Display pacing: how long a drawn position stays on the board before the next one replaces it, by what changed
     # in it (``pace_kind``), times ``pace``. The engine and the bot never wait for it: positions the session has
-    # already passed are drawn one after another, and only the prompt of a decision that waits for the person comes
-    # after them, by at most PACE_CAP_S for one state of the play server's plus what is left of the dwell before it (a
-    # long burst is drawn faster, down to PACE_MIN_S a position, and only its newest PACE_FRAMES positions are
-    # drawn). The arena times that decision from when the engine asked, so this wait counts against the person's
-    # bank and is in the decision's elapsed_ms, as the stack drawing before it always was.
+    # already passed are drawn one after another, every one of them, and only the prompt of a decision that waits for
+    # the person comes after them. The waits of one state of the play server's share a budget of PACE_CAP_S (a long
+    # burst is drawn faster, PACE_MIN_S a position while the budget lasts, then without waiting). The arena times the
+    # person's decision from when the engine asked, so these waits count against their bank: when the bank is below
+    # PACE_BANK_FLOOR_S nothing is waited for, so the drawing can never be what runs a bank out.
     PACE_DWELL_S = {"turn": 0.9, "action": 0.75, "combat": 0.75, "step": 0.3, "own": 0.2}
     PACE_CAP_S = 4.0
     PACE_MIN_S = 0.12
-    PACE_FRAMES = 24
+    PACE_BANK_FLOOR_S = 120.0
+
+    def _pace_budget(self, state: Mapping[str, Any]) -> float:
+        """The waiting this state may add: PACE_CAP_S, or nothing when the person's bank (as the last decision of
+        their seat gave it, less the time since) is below PACE_BANK_FLOOR_S."""
+        clock = state.get("clock") or {}
+        limits = [v for v in (clock.get("remaining_ms"), clock.get("max_decision_ms")) if isinstance(v, (int, float))]
+        if limits and isinstance(clock.get("at"), (int, float)):
+            left_ms = min(limits) - max(0, (state.get("now") or clock["at"]) - clock["at"])
+            if left_ms < self.PACE_BANK_FLOOR_S * 1000:
+                return 0.0
+        return self.PACE_CAP_S
 
     def _push_paced(self, state: Mapping[str, Any], game: Mapping[str, Any], seats: Any,
                     frames: list[Mapping[str, Any]], over: Any) -> bool | None:
@@ -492,17 +505,20 @@ class Bridge:
         for position in positions:
             kinds.append(pace_kind(before, position, me))
             before = position
+        budget = self._pace_budget(state)
+        # spread the budget: a burst whose dwells add up to more is drawn proportionally faster
         planned = sum(self.PACE_DWELL_S.get(k, 0.0) for k in kinds[:-1] if k) * self.pace
-        factor = min(1.0, self.PACE_CAP_S / planned) if planned > 0 else 1.0
+        factor = min(1.0, budget / planned) if planned > 0 else 1.0
         paced = False
         for index, (position, kind) in enumerate(zip(positions, kinds)):
             last = index == len(positions) - 1 and position is current
             with self.lock:
                 if self.seats is not seats:
                     return None
-                wait = self._dwell - (time.monotonic() - self._shown_at) if kind else 0.0
+                wait = min(budget, self._dwell - (time.monotonic() - self._shown_at)) if kind else 0.0
             if wait > 0:
                 paced = True
+                budget -= wait
                 time.sleep(wait)
             with self.lock:
                 if self.seats is not seats:
@@ -548,6 +564,7 @@ class Bridge:
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
             self.sent_advice = None
             self.sent_frames, self.sent_frames_game, self.rejoins = 0, None, 0
+            self.sent_positions = 0
             self.resent_seq = None
             self._shown_obs, self._dwell = None, 0.0
             self._bank_warned = set()
@@ -562,12 +579,13 @@ class Bridge:
         self._bank(state, over)
         # The positions the session passed through are drawn in order, even when it answered them at once and the
         # engine has moved on: an opponent's spell is on the board before it resolves. With pacing every position whose
-        # board differs is drawn (``_push_paced``); without it, those at which the stack changed.
-        frames = [] if over else list(state.get("frames") or [])
-        if self.pace > 0:
-            frames = frames[-self.PACE_FRAMES:]
-        else:  # the positions at which the stack changed, as before pacing existed
-            frames = [f for f in frames if (f.get("_frame") or {}).get("stack_changed", True)][-self.FRAMES_SHOWN:]
+        # board differs is drawn, none left out (``_push_paced``); without it, the newest stack changes, as always.
+        if over:
+            frames = []
+        elif self.pace > 0:
+            frames = list(state.get("positions") or [])
+        else:
+            frames = (state.get("frames") or [])[-self.FRAMES_SHOWN:]
         return game, self.seats, frames, over
 
     def _push_end(self, state: Mapping[str, Any], game: Mapping[str, Any], over: Any, paced: bool) -> None:
@@ -575,6 +593,7 @@ class Bridge:
         ``paced``: the lock was let go while the positions were drawn, so a decision the person has answered or the
         game's end since is looked for before a prompt is sent."""
         self.sent_frames = state.get("frames_total", self.sent_frames)
+        self.sent_positions = state.get("positions_total", self.sent_positions)
         self.sent_frames_game = state.get("frames_game", self.sent_frames_game)
         observation = state.get("observation")
         if observation:
@@ -638,7 +657,7 @@ class Bridge:
             # Whether the client took this declaration on one combat screen (every creature at once) while the
             # engine asks one creature at a time: the panel then says which creature this read is about.
             asked = self.prompt_types.get(advice.get("seq"))
-            shown["question"] = {**{k: v for k, v in question.items() if k != "choices"},
+            shown["question"] = {**{k: v for k, v in question.items() if k not in ("choices", "targets")},
                                  "combined": asked in ("chooseAttackers", "chooseBlockers")}
         self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
             "entryType": "info", "message": "", "timestampMs": int(time.time() * 1000), "advisor": shown}})
