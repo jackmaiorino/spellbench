@@ -15,7 +15,7 @@ hosts never enable the probe (spec 9.7, 12.2).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations_with_replacement
 from pathlib import Path
 from typing import Any
@@ -113,6 +113,68 @@ def ladder_pairs(panel: tuple[str, ...], ladder: Ladder) -> frozenset[frozenset[
     pairs = {frozenset((a, panel[j])) for i, a in enumerate(panel) for j in range(i + 1, min(len(panel), i + 1 + ladder.band))}
     pairs.update(frozenset((name, rung)) for name, rungs in ladder.entrants.items() for rung in rungs)
     return frozenset(pairs)
+
+
+BASE_FORM, EXPORT_FORM = "base", "export"  # the two forms a ladder block can be played under
+
+
+@dataclass(frozen=True)
+class ExportBlocks:
+    """A ladder's second set of evaluation conditions: a block with one of ``bots`` is played under this engine
+    command, extension list, engine inputs and engine identity, labelled ``evaluation_version``; every other block
+    is played under the config's own. Everything else (decks, pairing, clock, limits, validity unit, anchor) is
+    shared. A run is always one form (:meth:`TournamentConfig.as_form`)."""
+
+    evaluation_version: str
+    bots: tuple[str, ...]
+    engine_command: tuple[str, ...]
+    extensions: tuple[str, ...]
+    evaluation_engine_inputs: tuple[str, ...] = ()
+    evaluation_engine_identity: str | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        doc: dict[str, Any] = {"evaluation_version": self.evaluation_version, "bots": list(self.bots),
+                               "engine": {"command": list(self.engine_command)},
+                               "extensions": list(self.extensions)}
+        if self.evaluation_engine_inputs:
+            doc["evaluation_engine_inputs"] = list(self.evaluation_engine_inputs)
+        if self.evaluation_engine_identity is not None:
+            doc["evaluation_engine_identity"] = self.evaluation_engine_identity
+        return doc
+
+
+def parse_export_blocks(value: Any, names: set[str], context: str) -> ExportBlocks:
+    """Check an ``export_blocks`` object against the configured bot names."""
+    keys = {"evaluation_version", "bots", "engine", "extensions", "evaluation_engine_inputs",
+            "evaluation_engine_identity"}
+    if not isinstance(value, dict) or set(value) - keys or not {"evaluation_version", "bots", "engine",
+                                                                 "extensions"} <= set(value):
+        raise TournamentError(f"{context}: must be an object with evaluation_version, bots, engine and extensions "
+                              "(and optionally evaluation_engine_inputs, evaluation_engine_identity)")
+    version = _req_str(value["evaluation_version"], f"{context}.evaluation_version")
+    bots = value["bots"]
+    if (not isinstance(bots, list) or not bots or any(type(name) is not str or name not in names for name in bots)
+            or len(set(bots)) != len(bots)):
+        raise TournamentError(f"{context}.bots: must list distinct configured bots")
+    engine = value["engine"]
+    if not isinstance(engine, dict) or set(engine) != {"command"}:
+        raise TournamentError(f"{context}.engine: must be an object with command")
+    command = engine["command"]
+    if not isinstance(command, list) or not command or any(type(part) is not str or not part for part in command):
+        raise TournamentError(f"{context}.engine.command: must be a nonempty list of strings")
+    extensions = value["extensions"]
+    if (not isinstance(extensions, list) or len(set(extensions)) != len(extensions)
+            or any(type(item) is not str or not EXTENSION_KEY_RE.fullmatch(item) for item in extensions)):
+        raise TournamentError(f"{context}.extensions: must be a list of distinct extension names (x_[a-z0-9_]+)")
+    inputs = value.get("evaluation_engine_inputs", [])
+    if (not isinstance(inputs, list) or any(type(path) is not str or not path for path in inputs)
+            or len(set(inputs)) != len(inputs)):
+        raise TournamentError(f"{context}.evaluation_engine_inputs: must name distinct input files")
+    identity = value.get("evaluation_engine_identity")
+    if "evaluation_engine_identity" in value and (
+            type(identity) is not str or len(identity) != 64 or any(c not in "0123456789abcdef" for c in identity)):
+        raise TournamentError(f"{context}.evaluation_engine_identity: needs 64 lowercase hex characters")
+    return ExportBlocks(version, tuple(bots), tuple(command), tuple(extensions), tuple(inputs), identity)
 
 
 def parse_ladder(value: Any, panel: tuple[str, ...], names: set[str], context: str) -> Ladder:
@@ -450,6 +512,35 @@ class TournamentConfig:
     deck_pairing: str = "mirror"
     validity: ValidityUnit | None = None  # the board's validity unit; None for boards that name none
     deck_slices: bool = True  # False: the leaderboard publishes no per-deck ratings (too few pairs per deck)
+    export_blocks: ExportBlocks | None = None  # a ladder's second set of conditions; only a whole-board config has it
+
+    def form_of(self, pair: Any) -> str:
+        """The form the block of ``pair`` (two bot names) is played under: the export form when the board names
+        export blocks and one of the two bots is listed there, the base form otherwise."""
+        if self.export_blocks is not None and set(pair) & set(self.export_blocks.bots):
+            return EXPORT_FORM
+        return BASE_FORM
+
+    def forms(self) -> tuple[str, ...]:
+        """The forms of this config's blocks: the base form alone unless it names export blocks."""
+        return (BASE_FORM,) if self.export_blocks is None else (BASE_FORM, EXPORT_FORM)
+
+    def as_form(self, form: str) -> "TournamentConfig":
+        """This config as a run of one form records it: for the export form its engine command, extensions,
+        engine inputs, engine identity and evaluation version stand at the top level; for the base form the
+        config's own do. Neither carries ``export_blocks``: a run is one form, and its conditions are compared
+        (``snapshot.contract``) exactly as a run's of a board without export blocks."""
+        if form not in (BASE_FORM, EXPORT_FORM) or (form == EXPORT_FORM and self.export_blocks is None):
+            raise TournamentError(f"config: no {form!r} form")
+        if self.export_blocks is None:
+            return self
+        if form == BASE_FORM:
+            return replace(self, export_blocks=None)
+        export = self.export_blocks
+        return replace(self, engine_command=export.engine_command, extensions=export.extensions,
+                       evaluation_version=export.evaluation_version,
+                       evaluation_engine_identity=export.evaluation_engine_identity,
+                       evaluation_engine_inputs=export.evaluation_engine_inputs, export_blocks=None)
 
     def deck_cycle(self) -> tuple[tuple[DeckSpec, DeckSpec], ...]:
         """The (p0, p1) deck pairings that pairs cycle through, in schedule order.
@@ -584,6 +675,8 @@ class TournamentConfig:
             doc["validity"] = self.validity.to_json()
         if not self.deck_slices:  # likewise
             doc["deck_slices"] = False
+        if self.export_blocks is not None:  # likewise
+            doc["export_blocks"] = self.export_blocks.to_json()
         return doc
 
     @classmethod
@@ -628,6 +721,7 @@ class TournamentConfig:
             "deck_pairing",
             "validity",
             "deck_slices",
+            "export_blocks",
         }
         required = {
             "schema",
@@ -750,6 +844,16 @@ class TournamentConfig:
             if not {frozenset(pair) for pair in matchups} <= ladder_pairs(tuple(panel), ladder):
                 raise TournamentError("config.matchups: a ladder config plays only ladder matchups")
         validity = ValidityUnit.from_json(value["validity"], f"{context}.validity") if "validity" in value else None
+        export_blocks = None
+        if "export_blocks" in value:
+            if ladder is None:
+                raise TournamentError(f"{context}.export_blocks: needs a ladder")
+            export_blocks = parse_export_blocks(value["export_blocks"], set(names), f"{context}.export_blocks")
+            if export_blocks.evaluation_version == evaluation_version:
+                raise TournamentError(f"{context}.export_blocks.evaluation_version: must differ from the config's "
+                                      "evaluation_version, which labels the blocks without the export")
+            if matchups and all(set(pair) & set(export_blocks.bots) for pair in matchups):
+                raise TournamentError(f"{context}.export_blocks: every block would use it; make it the engine")
         deck_slices = value.get("deck_slices", True)
         if type(deck_slices) is not bool:
             raise TournamentError(f"{context}.deck_slices: must be true or false")
@@ -796,6 +900,12 @@ class TournamentConfig:
         _req_str(rating_anchor, f"{context}.rating_anchor")
         if rating_anchor not in names:
             raise TournamentError(f"{context}.rating_anchor: not a configured bot: {rating_anchor!r}")
+        if export_blocks is not None:
+            if rating_anchor in export_blocks.bots:
+                raise TournamentError(f"{context}.export_blocks.bots: the rating anchor plays the base form")
+            if set(native_id_audits) - set(export_blocks.extensions):
+                raise TournamentError(f"{context}.export_blocks.extensions: must keep every extension that "
+                                      "native_id_audits names")
         workers = _req_uint(
             value.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1, maximum=MAX_WORKERS
         )
@@ -854,4 +964,5 @@ class TournamentConfig:
             deck_pairing=deck_pairing,
             validity=validity,
             deck_slices=deck_slices,
+            export_blocks=export_blocks,
         )

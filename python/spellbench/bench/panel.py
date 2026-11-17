@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Mapping
 
 from ..arena import runner, snapshot, store
-from ..arena.config import BotSpec, TournamentConfig
+from ..arena.config import EXPORT_FORM, BotSpec, TournamentConfig
 from ..arena.manifest import EngineFile
 from .. import builtins
 from . import definition, pinning
@@ -155,9 +155,27 @@ def check_prepared(directory: Path, *, unrated: bool = False,
                         "bench prepare writes"]
 
 
+def _without_schedule(directory: Path) -> definition.Benchmark:
+    """The definition in ``directory`` without its previous schedule. Prepare writes the schedule from the
+    published results, so a stale one never stops it: after a board gains export blocks, the schedule of its last
+    run can mix the two forms, which ``load_benchmark`` refuses."""
+    path = directory / definition.BENCHMARK_FILE
+    raw = definition._read_json(path)
+    for key in ("evaluation_targets", "evaluation_matchups"):
+        raw.pop(key, None)
+    try:
+        benchmark = definition.parse_benchmark(raw)
+    except definition.BenchmarkError as exc:
+        raise definition.BenchmarkError(f"{path}: {exc}") from exc
+    if benchmark.id != directory.name:
+        raise definition.BenchmarkError(
+            f"{directory}: id {benchmark.id!r} does not match the folder name {directory.name!r}")
+    return benchmark
+
+
 def _prepared(directory: Path, *, unrated: bool, environ: Mapping[str, str]) -> tuple[bytes, tuple[str, ...]]:
     """The ``benchmark.json`` bytes ``bench prepare`` writes for ``directory`` and its evaluation targets."""
-    benchmark = definition.load_benchmark(directory)
+    benchmark = _without_schedule(directory)
     if not benchmark.opponent_panel:
         raise definition.BenchmarkError("bench prepare requires opponent_panel and evaluation_version in benchmark.json")
     config = full_config(benchmark)
@@ -169,6 +187,11 @@ def _prepared(directory: Path, *, unrated: bool, environ: Mapping[str, str]) -> 
     raw = definition._read_json(directory / definition.BENCHMARK_FILE)
     engine = pinning.engine_files(executed.engine_command, extra=executed.evaluation_engine_inputs)
     raw["evaluation_engine_identity"] = snapshot.files_identity(engine)
+    if config.export_blocks is not None:
+        # The export form's engine is fingerprinted the same way, from its own command and inputs.
+        export = runner.executed_config(config.as_form(EXPORT_FORM), lambda text: definition.substitute(text, values))
+        raw["export_blocks"]["evaluation_engine_identity"] = snapshot.files_identity(
+            pinning.engine_files(export.engine_command, extra=export.evaluation_engine_inputs))
     by_name = {bot.name: bot for bot in executed.bots}
     for bot in raw["bots"]:
         spec = by_name[bot["name"]]
@@ -190,6 +213,12 @@ def _prepared(directory: Path, *, unrated: bool, environ: Mapping[str, str]) -> 
     again = sorted(pair for pair in missing if pair in failed)
     if again and not unrated:
         raise definition.BenchmarkError(_replay_refusal(again, failed))
+    if len({desired.form_of(pair) for pair in missing}) > 1:
+        # A run plays one form, and a commitment made for a mixed schedule could only be revealed unplayed.
+        raise definition.BenchmarkError(
+            "the missing blocks mix the export form and the base form; a run plays one form. Defer the entrants "
+            "of one form (deferred_entrants), run the other, then prepare again: "
+            + ", ".join(f"{a} vs {b} ({desired.form_of((a, b))})" for a, b in sorted(missing)))
     panel = set(updated.opponent_panel)
     pending = {name for pair in missing for name in pair if name not in panel}
     if updated.ladder is not None:

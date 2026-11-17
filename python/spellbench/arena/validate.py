@@ -125,7 +125,7 @@ def validate_tournament_dir(directory: Path) -> list[str]:
     the frozen legacy verifier (Decision 1), which reports a missing manifest or an unknown schema.
     """
     directory = Path(directory)
-    if _manifest_schema(directory) == "spellbench-snapshot/v1":
+    if _manifest_schema(directory) in ("spellbench-snapshot/v1", "spellbench-snapshot/v2"):
         from .snapshot import validate_snapshot
         return validate_snapshot(directory)
     if _manifest_schema(directory) == TOURNAMENT_SCHEMA_V2:

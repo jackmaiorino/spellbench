@@ -423,7 +423,13 @@ def commit_run(
     if benchmark.opponent_panel:
         from ..arena.config import TournamentConfig
         from ..arena.snapshot import contract
-        config = TournamentConfig.from_json(benchmark.tournament_config("check"))
+        try:
+            config = TournamentConfig.from_json(benchmark.tournament_config("check"))
+        except definition.BenchmarkError as exc:  # a schedule that mixes the two forms: no commitment for it
+            raise CommitError(str(exc)) from None
+        if config.export_blocks is not None:
+            raise CommitError("this definition names export blocks and schedules no blocks of one form; run "
+                              "spellbench bench prepare, which writes the missing blocks into evaluation_matchups")
         contract(config)
         if not config.matchups:
             raise CommitError("no missing panel evaluations; use spellbench bench compose instead")

@@ -70,11 +70,14 @@ export of that commit. Its engine command is the plain adapter
 `kernel_engine_v2.py` (placeholder `MTG_KERNEL_V2_ENGINE`), without
 `x_kernel_infoset_v1`: on this bridge the information-set exporter halts
 when a token sits in a hand (I1, mtg-kernel#713), which off-mirror Faeries
-games reach. A bot that needs the export joins later through a per-block
-opt-in under a new evaluation version, with the exporter fixed first.
-Evaluation 3.0.0 does not offer per-block extensions and does not forbid
-them: the extensions are a field of the definition and of the snapshot
-contract, and a later evaluation version defines the opt-in.
+games reach. Those blocks are evaluation 3.0.0. A bot that needs the export
+plays its blocks under the board's `export_blocks`, evaluation 3.1.0: the
+information-set adapter `kernel_engine_infoset_v2.py` (placeholder
+`MTG_KERNEL_V2_INFOSET_ENGINE`) with `x_kernel_infoset_v1`, on the bridge
+built from mtg-kernel e8fcb804, the exporter fix (placeholder
+`MTG_KERNEL_V2_EXPORT_BRIDGE`, sha256 6589101c...), with the same scorer,
+catalog, interpreter and adapter bytes. A run is one of the two forms, and a
+snapshot records which blocks were played under which.
 Its rule for a committed definition: `spellbench
 bench prepare benchmarks/pauper-ladder-v3 --check`, run from a clean
 checkout of the default branch with the pinned `python.exe` and with every
