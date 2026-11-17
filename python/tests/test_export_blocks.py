@@ -71,9 +71,13 @@ def test_a_board_config_resolves_to_one_form_at_a_time(completed, tmp_path: Path
     assert board.forms() == (BASE_FORM, EXPORT_FORM)
     assert board.form_of((ENTRANT, "heuristic")) == EXPORT_FORM and board.form_of(("first", "uniform")) == BASE_FORM
     assert TournamentConfig.from_json(board.to_json()) == board  # the whole board round-trips with its export blocks
-    # The base form is the board as it was before it named export blocks, to the byte.
-    assert store.canonical_bytes(board.as_form(BASE_FORM).to_json()) == store.canonical_bytes(before.to_json())
-    export = board.as_form(EXPORT_FORM)
+    # A form is its own blocks under its own conditions. The base form is the board as it was before it named
+    # export blocks, to the byte, less the entrant's block; the export form holds that block alone.
+    base, export = board.as_form(BASE_FORM), board.as_form(EXPORT_FORM)
+    assert base.matchups == tuple(pair for pair in before.matchups if ENTRANT not in pair)
+    assert export.matchups == tuple(pair for pair in before.matchups if ENTRANT in pair) != ()
+    assert store.canonical_bytes({**base.to_json(), "matchups": before.to_json()["matchups"]}) == store.canonical_bytes(
+        before.to_json())
     assert export.export_blocks is None and export.evaluation_version == EXPORT_VERSION
     assert export.engine_command[-1].endswith("fake_export_engine.py") and export.evaluation_engine_identity == HEX
     contracts = snapshot.form_contracts(board)
@@ -85,7 +89,14 @@ def test_a_board_config_resolves_to_one_form_at_a_time(completed, tmp_path: Path
     for play_it in (lambda: schedule(board, TEST_RUN_SECRET), lambda: preflight(board, TEST_RUN_SECRET)):
         with pytest.raises(TournamentError, match="a board with export blocks is not one run"):
             play_it()
-    assert len(schedule(board.as_form(EXPORT_FORM), TEST_RUN_SECRET)) == len(schedule(before, TEST_RUN_SECRET))
+    # Scheduling a form plays that form's blocks only: no export block under the base engine, and the reverse.
+    def blocks(config: TournamentConfig) -> set[tuple[str, ...]]:
+        return {tuple(sorted(spec.name for _, spec in game.seat_specs)) for game in schedule(config, TEST_RUN_SECRET)}
+
+    assert blocks(base) == {("first", "uniform"), ("heuristic", "uniform")}
+    assert blocks(export) == {(ENTRANT, "heuristic")}
+    assert len(schedule(base, TEST_RUN_SECRET)) + len(schedule(export, TEST_RUN_SECRET)) == len(
+        schedule(before, TEST_RUN_SECRET))
     # A roster without the export bots is one form again.
     assert snapshot.without_entrants(board, (ENTRANT,)).export_blocks is None
     two = TournamentConfig.from_json({**board.to_json(), "export_blocks": {
@@ -119,6 +130,14 @@ def test_human_play_takes_the_boards_own_engine(completed, tmp_path: Path) -> No
     write_definition(directory, raw)
     resolved = match.benchmark_source(directory, {}, tmp_path / "run")
     assert "export_blocks" not in resolved and resolved["engine"]["command"][-1] == str(FAKE_ENGINE)
+    # The same for a config file given as the source (--config), with local values to resolve.
+    whole = replace(definition.load_benchmark(directory), evaluation_targets=None, evaluation_matchups=None)
+    path = tmp_path / "source-config.json"
+    path.write_text(json.dumps(whole.tournament_config(str(tmp_path / "run"))), encoding="utf-8")
+    assert "export_blocks" in json.loads(path.read_text(encoding="utf-8"))
+    for local in ({}, {"SOME_OTHER_VALUE": "x"}):
+        from_file = match.config_source(path, local)
+        assert "export_blocks" not in from_file and from_file["engine"]["command"][-1] == str(FAKE_ENGINE)
 
 
 @pytest.mark.parametrize("change, message", [

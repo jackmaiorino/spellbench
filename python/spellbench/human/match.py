@@ -217,6 +217,14 @@ def benchmark_source(benchmark_dir: Path, local: dict[str, str], run_dir: Path) 
     return session.resolve_local(source, local)
 
 
+def config_source(path: Path, local: dict[str, str]) -> dict[str, Any]:
+    """An arena config file as a match source, its placeholders resolved when local values are given. As for a
+    benchmark source, export blocks are dropped first: a match plays the config's own engine."""
+    source = json.loads(path.read_text(encoding="utf-8"))
+    source.pop("export_blocks", None)
+    return session.resolve_local(source, local) if local else source
+
+
 def match_config(source: dict[str, Any], *, players: tuple[str, str], bank_ms: int, run_dir: Path,
                  decks: Sequence[str] | None = None, python: str = sys.executable,
                  decision_log: Path | None = None) -> tuple[dict[str, Any], list[str]]:
@@ -400,9 +408,7 @@ def main(argv: list[str] | None = None) -> int:
     local = json.loads(args.local.read_text(encoding="utf-8")) if args.local else {}
     python = local.get("PYTHON") or sys.executable
     if args.config is not None:
-        source_doc = json.loads(args.config.read_text(encoding="utf-8"))
-        if local:
-            source_doc = session.resolve_local(source_doc, local)
+        source_doc = config_source(args.config, local)
         source = str(args.config.resolve())
     else:
         benchmark = args.benchmark or session.REPO / "benchmarks" / "pauper-kernel-v2"

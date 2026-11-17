@@ -526,18 +526,24 @@ class TournamentConfig:
         return (BASE_FORM,) if self.export_blocks is None else (BASE_FORM, EXPORT_FORM)
 
     def as_form(self, form: str) -> "TournamentConfig":
-        """This config as a run of one form records it: for the export form its engine command, extensions,
-        engine inputs, engine identity and evaluation version stand at the top level; for the base form the
-        config's own do. Neither carries ``export_blocks``: a run is one form, and its conditions are compared
-        (``snapshot.contract``) exactly as a run's of a board without export blocks."""
+        """One form of this config: that form's blocks under that form's conditions, and nothing else.
+
+        The matchups are the form's own (the blocks with an export bot for the export form, the others for the
+        base form), so what this returns can be scheduled and played without putting an export block under the
+        base conditions or a base block under the export conditions. For the export form its engine command,
+        extensions, engine inputs, engine identity and evaluation version stand at the top level; for the base
+        form the config's own do. Neither carries ``export_blocks``, so the conditions are compared
+        (``snapshot.contract``, which reads no matchup) exactly as those of a run of a board without export
+        blocks. A config without export blocks is its own base form."""
         if form not in (BASE_FORM, EXPORT_FORM) or (form == EXPORT_FORM and self.export_blocks is None):
             raise TournamentError(f"config: no {form!r} form")
         if self.export_blocks is None:
             return self
+        own = None if self.matchups is None else tuple(pair for pair in self.matchups if self.form_of(pair) == form)
         if form == BASE_FORM:
-            return replace(self, export_blocks=None)
+            return replace(self, matchups=own, export_blocks=None)
         export = self.export_blocks
-        return replace(self, engine_command=export.engine_command, extensions=export.extensions,
+        return replace(self, matchups=own, engine_command=export.engine_command, extensions=export.extensions,
                        evaluation_version=export.evaluation_version,
                        evaluation_engine_identity=export.evaluation_engine_identity,
                        evaluation_engine_inputs=export.evaluation_engine_inputs, export_blocks=None)

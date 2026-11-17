@@ -391,8 +391,8 @@ def _preflight_bot(config: TournamentConfig, hello: EnvHelloOk, rules: Rules, sp
 
 def _one_form(config: TournamentConfig) -> None:
     """A run is one form. A board's whole config with export blocks names two engines; whoever plays or schedules
-    it must take one form first (``TournamentConfig.as_form``, or a definition's schedule), so no path can play
-    an export block under the base conditions or the reverse."""
+    it must take one form first: ``TournamentConfig.as_form``, which keeps only that form's blocks, or a
+    definition's schedule. So no path can play an export block under the base conditions or the reverse."""
     if config.export_blocks is not None:
         raise TournamentError("config.export_blocks: a board with export blocks is not one run; play one form")
 

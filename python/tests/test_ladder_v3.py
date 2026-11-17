@@ -41,23 +41,32 @@ def test_the_board_plays_every_ordered_pairing_in_every_block() -> None:
     assert benchmark.extensions == ("x_kernel_flat_v4", "x_public_history_v1")
     assert benchmark.engine_command[1] == "${MTG_KERNEL_V2_ENGINE}"
     assert len(benchmark.deck_pool) == 8 and benchmark.evaluation_version == "pauper-ladder-v3.0.0"
-    config = panel.full_config(benchmark).as_form("base")  # the whole board; the schedule is the same in either form
-    games = schedule(config, TEST_RUN_SECRET)
+    board = panel.full_config(benchmark)
     # Fifteen rung blocks (seven rungs, band 3) and three for each of the two entrants: 21 blocks of 64 pairs.
-    assert (len(config.matchups), config.pairs_per_matchup, len(games)) == (21, 64, 2688)
-    played = {frozenset(pair) for pair in config.matchups}
+    played = {frozenset(pair) for pair in board.matchups}
     rungs = {frozenset((a, RUNGS[j])) for i, a in enumerate(RUNGS) for j in range(i + 1, min(len(RUNGS), i + 4))}
-    assert len(rungs) == 15 and rungs <= played  # each rung against the three rungs above it
+    assert len(rungs) == 15 and rungs <= played and len(played) == 21  # each rung against the three above it
     assert played - rungs == {frozenset((entrant, rung)) for entrant in ("chains-a-c4-u1048576", SEARCH_ENTRANT)
                               for rung in RUNGS[-3:]}
-    for matchup in range(len(config.matchups)):
-        block = [game for game in games if game.matchup_index == matchup]
-        pairings = Counter((game.decks[0].catalog_id, game.decks[1].catalog_id) for game in block)
-        assert len(pairings) == 64 and set(pairings.values()) == {2}  # one seat-swapped pair per ordered pairing
-        seats = Counter((spec.name, seat, game.decks[int(seat[1])].catalog_id, game.decks[1 - int(seat[1])].catalog_id)
-                        for game in block for seat, spec in game.seat_specs)
-        # Each bot holds every deck against every deck once on the play and once on the draw.
-        assert len(seats) == 2 * 2 * 64 and set(seats.values()) == {1}
+    # Each form schedules its own blocks only: 18 without the export (the published ones), 3 with it.
+    base, export = board.as_form("base"), board.as_form("export")
+    assert {frozenset(pair) for pair in export.matchups} == {frozenset((SEARCH_ENTRANT, rung)) for rung in RUNGS[-3:]}
+    assert {frozenset(pair) for pair in base.matchups} == played - {frozenset(pair) for pair in export.matchups}
+    assert base.engine_command[1] == "${MTG_KERNEL_V2_ENGINE}" and "x_kernel_infoset_v1" not in base.extensions
+    assert export.engine_command[1] == "${MTG_KERNEL_V2_INFOSET_ENGINE}" and "x_kernel_infoset_v1" in export.extensions
+    for config, blocks in ((base, 18), (export, 3)):
+        games = schedule(config, TEST_RUN_SECRET)
+        assert len(games) == blocks * 128
+        # The search entrant sits in every game of the export form and in none of the base form.
+        assert {SEARCH_ENTRANT in {spec.name for _, spec in game.seat_specs} for game in games} == {config is export}
+        for matchup in range(blocks):
+            block = [game for game in games if game.matchup_index == matchup]
+            pairings = Counter((game.decks[0].catalog_id, game.decks[1].catalog_id) for game in block)
+            assert len(pairings) == 64 and set(pairings.values()) == {2}  # one seat-swapped pair per ordered pairing
+            seats = Counter((spec.name, seat, game.decks[int(seat[1])].catalog_id,
+                             game.decks[1 - int(seat[1])].catalog_id) for game in block for seat, spec in game.seat_specs)
+            # Each bot holds every deck against every deck once on the play and once on the draw.
+            assert len(seats) == 2 * 2 * 64 and set(seats.values()) == {1}
 
 
 def test_the_board_names_its_validity_unit_and_publishes_no_deck_ratings() -> None:
