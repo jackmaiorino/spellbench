@@ -452,7 +452,8 @@ def test_a_stalled_advisor_never_holds_back_an_answer_or_the_persons_concession(
     assert time.monotonic() - begun < 1.0
     stalled.release.set()
     assert hub.wait_reads(10)
-    assert hub.declaration is None or all(i.get("reading") for i in hub.declaration["items"][1:])  # nothing late lands
+    from spellbench.human.server import DROPPED_READ
+    assert [i.get("unavailable") for i in hub.declaration["items"][1:]] == [DROPPED_READ] * 2  # nothing late lands
 
 
 def test_a_read_that_lands_after_the_answer_was_accepted_is_not_recorded_as_shown(advisor, tmp_path) -> None:
@@ -490,6 +491,113 @@ def test_reads_of_a_game_that_is_over_never_reach_the_scorer_and_the_reader_stop
     assert stalled.reads == 2  # the two reads queued behind it were dropped, never sent to the scorer
     hub.close_advisor()
     assert hub._reader is not None and not hub._reader.is_alive() and hub.advisor is None
+
+
+DEAF_SCORER = '''import json, sys, time
+print(json.dumps({"schema": "mtg-kernel-spellbench-scorer-ready/v1", "float_encoding": "ieee754-binary32-u32-bits",
+                  "selection": "argmax-first-v1", "model_state_sha256": "0" * 64, "feature_contract_digest": %r,
+                  "feature_encoding_digest": %r, "card_db_hash": %r}), flush=True)
+time.sleep(600)  # never reads its input
+''' % (CONTRACT, ENCODING, CARD_DB)
+
+
+def test_the_session_end_closes_a_scorer_that_stopped_reading_in_bounded_time(tmp_path) -> None:
+    script = tmp_path / "deaf_scorer.py"
+    script.write_text(DEAF_SCORER, encoding="utf-8")
+    deaf = Advisor([sys.executable, "-B", str(script)], name="deaf", label="Deaf")
+    hub = Hub(advisor=deaf)
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    big = model_input([0, 1], tensor={"state": [0] * 400_000})  # far more than a pipe holds
+    asked = threading.Thread(target=lambda: hub.choose(advised(mulligan_decision(7, 0), big)), daemon=True)
+    asked.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    time.sleep(1.0)  # the advisor's thread is now stuck writing to the full pipe
+    closer = threading.Thread(target=hub.close_advisor, daemon=True)
+    begun = time.monotonic()
+    closer.start()
+    closer.join(15)
+    assert not closer.is_alive() and time.monotonic() - begun < 10
+    assert deaf._proc.poll() is not None and hub._reader is not None and not hub._reader.is_alive()
+    hub.answer_with(hub.pending["seq"], 0)
+    asked.join(5)
+
+
+class GatedAdvisor(StalledAdvisor):
+    """Every read waits until ``release`` is set."""
+
+    def read(self, game_id, decision, extension) -> dict:
+        self.reads += 1
+        self.release.wait(20)
+        rows = [{"id": c["candidate_id"], "p": 1 / len(decision["candidates"])} for c in decision["candidates"]]
+        return {"rows": rows, "value": 0.0, "win": 0.5}
+
+
+def open_and_answer(hub: Hub, request: dict, candidate_id: int) -> None:
+    """A decision the person is asked and answers (its read may still be on its way)."""
+    result: list = []
+    thread = threading.Thread(target=lambda: result.append(hub.choose(request)), daemon=True)
+    thread.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    assert hub.answer_with(hub.pending["seq"], candidate_id) is None
+    thread.join(5)
+
+
+def test_a_combat_read_queued_behind_others_is_made_while_its_list_is_shown() -> None:
+    gated = GatedAdvisor()
+    hub = Hub(advisor=gated, real_action_stops=True)  # type: ignore[arg-type]
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    open_and_answer(hub, advised(priority(phase="precombat_main"), model_input([0, 1])), 0)  # the reader is held here
+    result: list = []
+    first = threading.Thread(target=lambda: result.append(hub.choose(advised(
+        combat_substep("declare_attack", 0, 2, MULLDRIFTER, [None, FOE]), model_input([0, 1])))), daemon=True)
+    first.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": ["o-m", "o-s"]}) is None
+    first.join(5)
+    hub.choose(advised(combat_substep("declare_attack", 1, 2, SEER, [None, FOE]), model_input([0, 1])))
+    # a later decision of the same combat moves the read on: the attack's list is still shown
+    open_and_answer(hub, advised(priority(phase="declare_attackers"), model_input([0, 1])), 0)
+    gated.release.set()
+    assert hub.wait_reads(10)
+    items = hub.advice["declaration"]["items"]
+    assert [("rows" in i, i.get("reading", False)) for i in items] == [(True, False), (True, False)]
+
+
+def test_the_read_queue_stays_short_and_drops_what_is_no_longer_wanted() -> None:
+    from spellbench.human.server import DROPPED_READ, READ_BACKLOG
+    from test_human_stops import MANA
+    gated = GatedAdvisor()
+    hub = Hub(advisor=gated, real_action_stops=True)  # type: ignore[arg-type]
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    open_and_answer(hub, advised(priority(phase="precombat_main"), model_input([0, 1])), 0)  # the reader is held here
+    count = READ_BACKLOG + 10
+    first = threading.Thread(target=lambda: hub.choose(advised(
+        combat_substep("declare_attack", 0, count, MULLDRIFTER, [None, FOE]), model_input([0, 1]))), daemon=True)
+    first.start()
+    with hub.cond:
+        while hub.pending is None:
+            hub.cond.wait(0.05)
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": []}) is None
+    first.join(5)
+    for index in range(1, count):
+        hub.choose(advised(combat_substep("declare_attack", index, count, creature(f"o-{index}", f"Bear {index}"),
+                                          [None, FOE]), model_input([0, 1])))
+    assert hub._jobs.qsize() <= READ_BACKLOG  # never more waiting than that, and nothing blocked
+    items = hub.advice["declaration"]["items"]
+    assert sum(i.get("unavailable") == DROPPED_READ for i in items) == count - READ_BACKLOG
+    passed = priority(phase="postcombat_main")
+    passed["candidates"][1] = {"candidate_id": 1, "semantic": MANA, "display_text": None}
+    hub.choose({"decision": passed})  # combat is over: its reads are no longer wanted
+    open_and_answer(hub, advised(priority(phase="postcombat_main"), model_input([0, 1])), 0)
+    assert hub._jobs.qsize() == 1  # the new read only: the combat's were pruned when it was queued
+    gated.release.set()
+    assert hub.wait_reads(10)
 
 
 def test_the_declaration_ends_with_its_combat_even_when_every_later_window_is_passed_for_the_person(advisor) -> None:

@@ -46,6 +46,8 @@ FRAME_LIMIT = 40  # stack-changing positions kept for the Manabrew host to draw 
 # and the reader is told how many: ``positions_gap``).
 POSITION_LIMIT = 400
 POSITION_UNSENT_LIMIT = 2000
+READ_BACKLOG = 16  # advisor reads waiting at most; beyond that the oldest is dropped (shown as not read)
+DROPPED_READ = "dropped before it was read"
 # The steps of a turn in order, as the observation names them (the engine itself offers priority in only some of them).
 STEP_ORDER = ("untap", "upkeep", "draw", "precombat_main", "beginning_of_combat", "declare_attackers",
               "declare_blockers", "combat_damage", "end_of_combat", "postcombat_main", "end_step", "cleanup")
@@ -539,7 +541,8 @@ class Hub:
                     key = list(question["key"])
                     self._queue_read(decision, model_input, game_id, lambda read: self._fill_item(game, question, read),
                                      lambda: (self._reading_alive(game) and self.declaration is not None
-                                              and self.declaration["key"] == key))
+                                              and self.declaration["key"] == key),
+                                     lambda: self._mark_dropped(game, None, question))
         if candidate_id is None:
             self._priority_note(decision)
             self.seq += 1
@@ -576,8 +579,12 @@ class Hub:
         seq, game = self.seq, (self.game or {}).get("game_id")
         texts = {c["id"]: c["text"] for c in self.pending["candidates"]}
         question = advice.get("question")
+        key = list(question["key"]) if question is not None else None
+        # wanted while its read is the one shown, or while its combat's list (where its line is) is shown
         self._queue_read(decision, model_input, game_id, lambda read: self._apply_read(game, seq, texts, question, read),
-                         lambda: self._reading_alive(game) and (self.advice or {}).get("seq") == seq)
+                         lambda: self._reading_alive(game) and ((self.advice or {}).get("seq") == seq or (
+                             key is not None and self.declaration is not None and self.declaration["key"] == key)),
+                         lambda: self._mark_dropped(game, seq, question))
         return {**advice, "reading": True}
 
     def _apply_read(self, game: Any, seq: int, texts: Mapping[int, str], question: Mapping[str, Any] | None,
@@ -637,17 +644,65 @@ class Hub:
 
     # -- the advisor's thread ------------------------------------------------------------------------------------
 
-    def _queue_read(self, decision: Mapping[str, Any], model_input: Any, game_id: Any, apply, alive) -> None:
+    def _queue_read(self, decision: Mapping[str, Any], model_input: Any, game_id: Any, apply, alive, dropped) -> None:
         """Read one decision in the advisor's own thread, never under this lock: ``apply(read)`` runs under the lock
         once the read is back and checks that what it belongs to is still current. ``alive()`` (under the lock) says
         whether the read is still wanted: a job whose game or declaration has passed is skipped without asking the
-        scorer. Reads are done in order; the queue is emptied when a game starts or ends (``_drop_reads``)."""
+        scorer, and ``dropped()`` then shows it as not read. Reads are done in order. The queue never blocks: jobs no
+        longer wanted are pruned here, at most READ_BACKLOG wait (the oldest go), and it is emptied when a game starts
+        or ends (``_drop_reads``)."""
         if self._jobs is None:
             self._jobs = queue.Queue()
             self._reader = threading.Thread(target=self._read_loop, daemon=True, name="advisor-reads")
             self._reader.start()
+        waiting = self._take_jobs()
+        for job in waiting:
+            if job is not None and not job[4]():
+                self._forget(job)
+        waiting = [job for job in waiting if job is None or job[4]()]
+        waiting.append((decision, model_input, str(game_id or (self.game or {}).get("game_id") or "game"), apply, alive,
+                        dropped))
         self._reads_open += 1
-        self._jobs.put((decision, model_input, str(game_id or (self.game or {}).get("game_id") or "game"), apply, alive))
+        while sum(job is not None for job in waiting) > READ_BACKLOG:
+            oldest = next(index for index, job in enumerate(waiting) if job is not None)
+            self._forget(waiting.pop(oldest))
+        for job in waiting:
+            self._jobs.put(job)
+
+    def _take_jobs(self) -> list[Any]:
+        assert self._jobs is not None
+        taken = []
+        while True:
+            try:
+                taken.append(self._jobs.get_nowait())
+            except queue.Empty:
+                return taken
+
+    def _forget(self, job: tuple[Any, ...]) -> None:
+        """A queued read that will not be made: it no longer counts as open, and its row says it was not read."""
+        self._reads_open -= 1
+        try:
+            job[5]()
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+        self.cond.notify_all()
+
+    def _mark_dropped(self, game: Any, seq: int | None, question: Mapping[str, Any] | None) -> None:
+        """A read that was dropped: the advice still waiting for it, and its line of the list, stop saying reading."""
+        if (self.game or {}).get("game_id") != game:
+            return
+        advice = self.advice
+        if seq is not None and advice is not None and advice.get("seq") == seq and advice.get("reading"):
+            body = {k: v for k, v in advice.items() if k != "reading"}
+            body["unavailable"] = DROPPED_READ
+            body["rev"] = int(advice.get("rev") or 0) + 1
+            self.advice = body
+        declaration = self.declaration
+        if question is not None and declaration is not None and declaration["key"] == list(question["key"]):
+            for item in declaration["items"]:
+                if item["index"] == question["index"] and item.get("reading"):
+                    self._fill(item, question, {"unavailable": DROPPED_READ})
+                    self._publish_declaration()
 
     def _reading_alive(self, game: Any) -> bool:
         return (self.game or {}).get("game_id") == game and self.game_over is None
@@ -656,28 +711,27 @@ class Hub:
         """Empty the queue of reads (a game started or ended: none of them is wanted any more). Under the lock."""
         if self._jobs is None:
             return
-        while True:
-            try:
-                job = self._jobs.get_nowait()
-            except queue.Empty:
-                break
-            if job is None:  # the stop sentinel stays where it is
+        for job in self._take_jobs():
+            if job is None:  # the stop sentinel stays
                 self._jobs.put(None)
-                break
-            self._reads_open -= 1
+            else:
+                self._forget(job)
         self.cond.notify_all()
 
     def close_advisor(self) -> None:
-        """At the session's end: drop the queued reads, stop the advisor's thread, then its scorer."""
+        """At the session's end, in bounded time whatever the scorer does: drop the queued reads, stop the scorer
+        (``Advisor.close`` ends the process first, which also frees a read stuck writing to it), then let the
+        advisor's thread go."""
         with self.cond:
             self._drop_reads()
             advisor, self.advisor = self.advisor, None
             jobs, reader = self._jobs, self._reader
-        if jobs is not None and reader is not None:
+        if jobs is not None:
             jobs.put(None)
-            reader.join(timeout=30)
         if advisor is not None:
             advisor.close()
+        if reader is not None:
+            reader.join(timeout=5)
 
     def _read_loop(self) -> None:
         assert self._jobs is not None
@@ -685,15 +739,13 @@ class Hub:
             job = self._jobs.get()
             if job is None:
                 return  # close_advisor
-            decision, model_input, game_id, apply, alive = job
+            decision, model_input, game_id, apply, alive, _ = job
             with self.cond:
                 wanted = alive()
                 advisor = self.advisor
-            if not wanted:  # its game or declaration has passed: the scorer is not asked
-                with self.cond:
-                    self._reads_open -= 1
-                    self.cond.notify_all()
-                continue
+                if not wanted:  # its game or declaration has passed: the scorer is not asked
+                    self._forget(job)
+                    continue
             if advisor is None:
                 read: dict[str, Any] = {"unavailable": "the advisor stopped earlier in this session"}
             else:
@@ -712,7 +764,10 @@ class Hub:
                     read = {"unavailable": f"the read failed ({type(exc).__name__})"}
             with self.cond:
                 try:
-                    apply(read)
+                    if alive():
+                        apply(read)
+                    else:  # it passed while being read: its row says it was not read
+                        job[5]()
                 except Exception:  # noqa: BLE001
                     traceback.print_exc()
                 self._reads_open -= 1
