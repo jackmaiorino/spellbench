@@ -172,6 +172,8 @@ def test_the_committed_board_reproduces_under_the_pinned_assets(tmp_path: Path) 
     folder = tmp_path / "benchmarks" / BOARD.name
     folder.mkdir(parents=True)
     shutil.copyfile(BOARD / "benchmark.json", folder / "benchmark.json")
+    # The published run is part of what prepare reads: its blocks are the ones the schedule leaves out.
+    shutil.copytree(BOARD / "runs", folder / "runs")
     shutil.copyfile(os.environ["SPELLBENCH_PINNED_LOCAL"], folder.parent / "local.json")
     names = definition.placeholder_names(definition.load_benchmark(folder))
     environ = {key: value for key, value in os.environ.items()

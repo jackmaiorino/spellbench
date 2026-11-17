@@ -927,9 +927,9 @@ def excluded_runs(benchmark_dir: Path, benchmark: Benchmark | None = None) -> tu
     return (*listed, *generated)
 
 
-def excluded_run_names(benchmark_dir: Path) -> frozenset[str]:
+def excluded_run_names(benchmark_dir: Path, benchmark: Benchmark | None = None) -> frozenset[str]:
     """The runs excluded from measurement (:func:`excluded_runs`)."""
-    return frozenset(run for run, _ in excluded_runs(benchmark_dir))
+    return frozenset(run for run, _ in excluded_runs(benchmark_dir, benchmark))
 
 
 def placeholder_names(benchmark: Benchmark) -> tuple[str, ...]:

@@ -68,7 +68,8 @@ WINS_NEEDED = 2
 HUMAN = session.HUMAN
 HUMAN_STARTUP_MS = 4 * 3_600_000  # the person's seat start waits for "next game" (relay.py)
 GAMES_NAME, MATCHES_NAME, CONFIG_NAME, DIAGNOSTICS_NAME = "games.jsonl", "matches.json", "match-config.json", "diagnostics.jsonl"
-_PANEL_KEYS = ("opponent_panel", "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs", "ladder")
+_PANEL_KEYS = ("opponent_panel", "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs", "ladder",
+               "export_blocks")  # a match plays the board's own engine; export blocks are a rated run's matter
 
 
 # ---------------------------------------------------------------------------

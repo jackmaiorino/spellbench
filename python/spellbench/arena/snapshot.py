@@ -120,6 +120,10 @@ def _forms_of(source_config: TournamentConfig, expected: Mapping[str, dict[str, 
     return {form for form, wanted in expected.items() if wanted is not None and terms == wanted}
 
 
+def _blocks(count: int) -> str:
+    return f"{count} block" if count == 1 else f"{count} blocks"
+
+
 def required_matchups(config: TournamentConfig) -> tuple[tuple[str, str], ...]:
     names = sorted(bot.name for bot in config.bots)
     if config.ladder is not None:
@@ -430,11 +434,12 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
         assert export is not None
         document["evaluation"]["export_blocks"] = {"version": export.evaluation_version, "bots": sorted(export.bots),
             "extensions": list(export.extensions), "matchups": len(export_pairs)}
+        others = len(chosen) - len(export_pairs)
         document["notes"].append(
-            f"Evaluation versions by block: the {len(export_pairs)} blocks of {', '.join(sorted(export.bots))} were "
-            f"played under {export.evaluation_version} (extensions: {', '.join(export.extensions)}); the other "
-            f"{len(chosen) - len(export_pairs)} blocks under {config.evaluation_version} "
-            f"(extensions: {', '.join(config.extensions)}).")
+            f"Evaluation versions by block: {export.evaluation_version} (extensions: "
+            f"{', '.join(export.extensions) or 'none'}) for the {_blocks(len(export_pairs))} of "
+            f"{', '.join(sorted(export.bots))}; {config.evaluation_version} (extensions: "
+            f"{', '.join(config.extensions) or 'none'}) for the other {_blocks(others)}.")
     if pending:
         # Listed, not rated: these roster entries have no compatible panel block yet.
         document["evaluation"]["pending"] = sorted(pending)

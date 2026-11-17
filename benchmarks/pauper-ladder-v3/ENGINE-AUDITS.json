@@ -39,7 +39,7 @@
   }
  },
  "engine_bytes": {
-  "rule": "The board pins the engine inputs by sha256 (evaluation_engine_inputs and the files named by the engine command). The placeholders resolve to an export of spellbench bb20077 for the adapter files, the pinned python.exe, the pinned catalog and the pinned bridge. Before `bench commit`, run `spellbench bench prepare benchmarks/pauper-ladder-v3 --check` from a clean checkout of the default branch, with the pinned python.exe and with every placeholder resolved from benchmarks/local.json: it must print OK. The check prepares the definition again and compares the bytes, so the engine identity, the nine bot identities and the 18 matchups are the committed ones; it refuses any placeholder of the definition that is also set in the process environment (usually MTG_KERNEL_V2_BRIDGE and MTG_KERNEL_PUBLIC_CATALOG; remove MTG_KERNEL_V2_SOURCE too), and the builtin bot identities hash the interpreter and the checkout's builtin bot sources. Drive `bench commit` and `bench run` the same way. A commitment cannot be redone.",
+  "rule": "The board pins the engine inputs by sha256 (evaluation_engine_inputs and the files named by the engine command). The placeholders resolve to an export of spellbench bb20077 for the adapter files, the pinned python.exe, the pinned catalog and the pinned bridge. Before `bench commit`, run `spellbench bench prepare benchmarks/pauper-ladder-v3 --check` from a clean checkout of the default branch, with the pinned python.exe and with every placeholder resolved from benchmarks/local.json: it must print OK. The check prepares the definition again and compares the bytes, so both engine identities (the base form's and the export blocks'), the nine bot identities and the schedule are the committed ones; it refuses any placeholder of the definition that is also set in the process environment (usually MTG_KERNEL_V2_BRIDGE and MTG_KERNEL_PUBLIC_CATALOG; remove MTG_KERNEL_V2_SOURCE too), and the builtin bot identities hash the interpreter and the checkout's builtin bot sources. Drive `bench commit` and `bench run` the same way. A commitment cannot be redone.",
   "prepare_check": "`bench prepare --check` on this definition, 2026-11-15, in a scratch copy with the pinned python.exe and the bridge, catalog and source variables removed from the process: OK (the committed bytes are the prepared bytes). With the bridge and catalog variables set it refused; under another interpreter it reported the two builtin bot identities as different. Rerun it from a clean checkout of the default branch before `bench commit`.",
   "evaluation_engine_identity": "afbc4836322ef52011594819a5de0b87a2a8a39350b8a9cd1762020c5ab424ad",
   "inputs_sha256": {
@@ -59,7 +59,7 @@
  },
  "board": {
   "games": "15 rung matchups (7 rungs, band 3) plus 3 entrant matchups of chains-a-c4-u1048576 (Basilisk 2) against g115, oh2-r2s1-b512 and oh2-r2s1-b512-argmax: 18 blocks of 64 seat-swapped pairs, one pair per ordered pairing of the eight decks, 128 games a block, 2,304 games",
-  "deferred": "oh2-r2s1-b512-s4a-16k-k4 is in deferred_entrants: it stays in the roster, bench prepare schedules none of its blocks, and the board lists it as pending until its own entrant-only run. Its placement on pauper-ladder-v2 is a record of that board and not a rating here.",
+  "search_entrant": "oh2-r2s1-b512-s4a-16k-k4 is not deferred any more: its three blocks are this board's export blocks (export_blocks below, evaluation pauper-ladder-v3.1.0), played in one entrant-only committed run. The board lists it as pending until that run is published. Its placement on pauper-ladder-v2 is a record of that board and not a rating here.",
   "validity": "Enforced by code (unit spellbench-validity/v1 in benchmark.json, docs/design/2026-11-15-validity-unit.md). Every denominator is the scheduled count. Per block: at least 125 of 128 games natural and at least 63 of 64 pairs complete. Per bot: at least 97% of its scheduled games natural. Per ordered deck pairing over the run: at least 33 of 36 games natural (90%, one game always allowed). Forfeits of any cause, halts, truncations and games not played count against natural. `bench run` writes the verdict and the tables into the manifest. A failing run is published in full and revealed, is not rated, shows no rating, is excluded by its own record, and is never topped up or replaced: bench prepare does not schedule its matchups again under this evaluation. `bench compose` applies the unit again to the blocks it combines.",
   "number": "A rating is Elo against the reference bots over every ordered pairing of the eight decks. Unequal decks pull scores toward even, so the scale is this board's own: no v3 number is compared with a pauper-ladder-v2 or pauper-grid-v1 number. Per-deck ratings are not published (deck_slices false).",
   "infoset_off": {
@@ -259,6 +259,109 @@
    },
    "date": "2026-11-15"
   }
+ },
+ "export_blocks": {
+  "what": "The board's second set of evaluation conditions (benchmark.json export_blocks): the blocks of the bots listed here are played with the information-set export on, on a bridge built with the exporter fix, and are labelled with their own evaluation version. Every other block keeps the conditions and the receipt above, version 3.0.0, and its published blocks are not replayed.",
+  "evaluation_version": "pauper-ladder-v3.1.0",
+  "bots": [
+   "oh2-r2s1-b512-s4a-16k-k4"
+  ],
+  "engine": {
+   "name": "mtg-kernel",
+   "source_revision": "e8fcb804f4522455b48b9185414f367698bf83de",
+   "built_commit": "e8fcb804f4522455b48b9185414f367698bf83de, the merge of mtg-kernel#722 into release/ladder-v2-4fccd3ebc (tree a12f3d45, equal to the pull request head's)",
+   "against_the_base_engine": "three files differ from d11d986d9, all under mtg-kernel/src/infoset_v1 (export.rs, projection.rs, tests.rs): the exporter fix of mtg-kernel#713",
+   "build": "the base bridge's procedure (same profile variables, --locked, toolchain 1.94.1); the build is not bit-reproducible across checkout paths, so the file is pinned by its hash"
+  },
+  "pinned_files": {
+   "agent_bridge_v1.exe": {
+    "sha256": "6589101cb72dcfae7ee91a3d825f733aed6f5243cad1389c4c5bb42d009ca6b1",
+    "bytes": 79482368
+   },
+   "spellbench_qualify_v1.exe": {
+    "sha256": "a027f21ee7e8947b72f9b221ac5daed19a8f259e16fd0ce1d540bb4651f42d09",
+    "bytes": 84009984
+   },
+   "unchanged": "the scorer, catalog, interpreter and adapter bytes are the base form's (pinned_files and engine_bytes above); the engine command is kernel_engine_infoset_v2.py from the same adapter export, with kernel_engine_v2.py and kernel_g6_digest.py added to the inputs"
+  },
+  "evaluation_engine_identity": "8abce7a05e7bd8ddf9330702e66288abda8286824a270902d450f23b73be7c52",
+  "extensions": [
+   "x_kernel_flat_v4",
+   "x_public_history_v1",
+   "x_kernel_infoset_v1"
+  ],
+  "evidence": {
+   "bridge_equality_without_the_export": {
+    "what": "Published games of run 2026-11-15 replayed from the run's config and revealed secret on the pinned export bridge with the published command unchanged (plain adapter, no export, --source-revision d11d986d9), each ledger row compared with the published row. game_digest chains the whole engine traffic of a game.",
+    "tool": "a replay through the arena's own game loop (runner.play_games) on the run's recorded config and revealed secret, with only the named files replaced",
+    "games": 768,
+    "of_the_runs_games": 2304,
+    "coverage": "64 ordered deck pairings, 12 games each; 18 blocks, 42 or more each; all 8 bots; 128647 decisions",
+    "result": "768 of 768 rows equal in every field, game_digest included, except the bots' registry ids (seats[].bot_id, winner_bot_id), which hash local file paths",
+    "control": "56 published games on the published bridge through the same tool: the same two fields differ and nothing else; 56 more on the export bridge with the replayed rows kept: bot_id and winner_bot_id are the only differing values",
+    "date": "2026-11-16"
+   },
+   "export_replay_gate": {
+    "what": "The same published games replayed under the export-block conditions (information-set adapter, x_kernel_infoset_v1 on, --source-revision e8fcb804) on the pinned export bridge, each row compared with the published row, which was played without the export on the base bridge.",
+    "tool": "the same replay, with the run's config changed in exactly three places (the adapter, the value after --source-revision, and x_kernel_infoset_v1 added to the extensions)",
+    "games": 384,
+    "coverage": "64 ordered deck pairings (4 to 36 games each), 18 blocks (18 or more each), all 8 bots, 144 games in the off-mirror pairings of Faeries with Rally or CawGates, where mtg-kernel#713 halted",
+    "result": "384 of 384 rows equal to the published row in every field except game_digest (it chains the traffic, which carries the export) and the path-derived registry ids; 384 natural, 0 halted",
+    "base_bridge_under_the_same_command": {
+     "games": 128,
+     "equal_in_every_field_game_digest_included": 126,
+     "base_bridge_halts_with_the_713_fault_and_the_export_bridge_ends_naturally": 2,
+     "other_differences": 0
+    },
+    "date": "2026-11-17"
+   },
+   "unrated_dry_run": {
+    "what": "Unrated: the search entrant's three blocks on the export-block conditions and the pinned export bridge, judged by the board's validity unit. Unrated games are never promoted. Only endings, validity and timing are recorded from it: who won is written nowhere and used for nothing.",
+    "games": 384,
+    "natural": 384,
+    "halted": 0,
+    "truncated": 0,
+    "forfeit": 0,
+    "validity_verdict": "pass",
+    "per_block": {
+     "g115 v oh2-r2s1-b512-s4a-16k-k4": "128 of 128 natural, 64 of 64 pairs",
+     "oh2-r2s1-b512 v oh2-r2s1-b512-s4a-16k-k4": "128 of 128 natural, 64 of 64 pairs",
+     "oh2-r2s1-b512-argmax v oh2-r2s1-b512-s4a-16k-k4": "128 of 128 natural, 64 of 64 pairs"
+    },
+    "ordered_pairings": "64 pairings, 6 games each; lowest 6 natural",
+    "validator": "pass, 78318 decisions, 0 violations",
+    "timing": "9 h 11 min of play for 384 games with 2 workers on 8 performance-core threads after 525 s of qualification (41.7 games an hour)",
+    "date": "2026-11-16"
+   },
+   "exporter_fix": "mtg-kernel#722: two regression tests; with the author's scratch bridge 5dac8236, built from the pull request's first commit 3c0d31091 (the merged head differs by one line in the new branch and by tests): 100 lockstep games of seeded random play on four decks, 99 byte-equal to the natural end and 1 where the base bridge halts with the fault after 135 identical lines; the 756-game off-mirror Faeries sweep with the export on, 756 natural; the 18 games that halted before the fix, 18 natural. The two entries above are the measurements on the pinned file.",
+   "audits_on_the_export_bridge": {
+    "history_two_world": {
+     "tool": "integrations/mtg_kernel/audit_history_two_world_v2.py --seeds 7 11 23",
+     "result": "pass",
+     "games": 48,
+     "natural_endings": 48,
+     "differences": 0
+    },
+    "check_engine_v2": {
+     "tool": "integrations/mtg_kernel/check_engine_v2.py",
+     "result": "pass",
+     "without extensions": "every record (trace_sha256 included) equal to the base bridge's own run of the same check; only the recorded bridge hash differs",
+     "with x_kernel_flat_v4 and x_public_history_v1": "every record (trace_sha256 included) equal to the base bridge's own run of the same check; only the recorded bridge hash differs"
+    },
+    "check_private_preview_v2": {
+     "tool": "integrations/mtg_kernel/check_private_preview_v2.py",
+     "result": "pass",
+     "against_the_base_bridge": "output equal to the base bridge's own run of the same check, the recorded bridge hash aside"
+    },
+    "adapter_tests": {
+     "tool": "pytest integrations/mtg_kernel with the export bridge and the pinned catalog in the environment",
+     "result": "pass",
+     "tests": "297 passed, 12 skipped"
+    }
+   }
+  },
+  "validity": "The same unit (spellbench-validity/v1), by code. The entrant-only run: each block at least 125 of 128 natural and 63 of 64 complete pairs; the entrant 373 of 384, each opponent 125 of 128; each ordered deck pairing 5 of 6. A halted or truncated game breaks its pair, so two such games in different pairs fail a block. The composed snapshot is judged as a whole (21 blocks; each ordered deck pairing 38 of 42). A failing run is revealed and recorded as excluded; its blocks are not played again under this version, and a base block that failed stays barred.",
+  "snapshot": "A snapshot that holds blocks of both forms has schema spellbench-snapshot/v2: its top level is the base form's contract and engine facts, and one object, export_blocks, carries the export form's contract, engine facts and matchups. A snapshot without an export-form block is written as before, to the byte. A new snapshot refits every rating over all 21 blocks."
  },
  "rule": "Rerun every audit above on the pinned binaries, and replace this receipt, whenever the engine behind this board changes. The board rates no games on an engine without a passing receipt."
 }

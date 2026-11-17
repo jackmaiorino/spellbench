@@ -903,9 +903,9 @@ class TournamentConfig:
         if export_blocks is not None:
             if rating_anchor in export_blocks.bots:
                 raise TournamentError(f"{context}.export_blocks.bots: the rating anchor plays the base form")
-            if set(native_id_audits) - set(export_blocks.extensions):
-                raise TournamentError(f"{context}.export_blocks.extensions: must keep every extension that "
-                                      "native_id_audits names")
+            if set(extensions) - set(export_blocks.extensions):
+                raise TournamentError(f"{context}.export_blocks.extensions: must keep every extension of the "
+                                      "board, so a bot sees in an export block what it sees in the others")
         workers = _req_uint(
             value.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1, maximum=MAX_WORKERS
         )

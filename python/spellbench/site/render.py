@@ -1294,10 +1294,12 @@ def _export_blocks_line(evaluation: Mapping[str, Any]) -> str:
     export = evaluation.get("export_blocks")
     if not export:
         return ""
-    return (f'<p class="export-blocks">Evaluation versions by block: the {_e(str(export["matchups"]))} blocks of '
-            f'{", ".join(_e(name) for name in export["bots"])} were played under {_e(export["version"])} '
-            f'(extensions: {", ".join(_e(name) for name in export["extensions"])}); every other block under '
-            f'{_e(str(evaluation.get("version")))}.</p>')
+    count = export["matchups"]
+    blocks = f"{count} block" if count == 1 else f"{count} blocks"
+    return (f'<p class="export-blocks">Evaluation versions by block: {_e(export["version"])} (extensions: '
+            f'{", ".join(_e(name) for name in export["extensions"]) or "none"}) for the {_e(blocks)} of '
+            f'{", ".join(_e(name) for name in export["bots"])}; {_e(str(evaluation.get("version")))} for every '
+            "other block.</p>")
 
 
 def _newer_runs_note(newer_runs: Sequence[Mapping[str, Any]]) -> str:

@@ -75,9 +75,11 @@ plays its blocks under the board's `export_blocks`, evaluation 3.1.0: the
 information-set adapter `kernel_engine_infoset_v2.py` (placeholder
 `MTG_KERNEL_V2_INFOSET_ENGINE`) with `x_kernel_infoset_v1`, on the bridge
 built from mtg-kernel e8fcb804, the exporter fix (placeholder
-`MTG_KERNEL_V2_EXPORT_BRIDGE`, sha256 6589101c...), with the same scorer,
-catalog, interpreter and adapter bytes. A run is one of the two forms, and a
-snapshot records which blocks were played under which.
+`MTG_KERNEL_V2_EXPORT_BRIDGE`, sha256 6589101c...). The scorer, catalog and
+interpreter are the same, and the adapter files come from the same export;
+the plain adapter and `kernel_g6_digest.py` join the export form's engine
+inputs. A run is one of the two forms, and a snapshot records which blocks
+were played under which.
 Its rule for a committed definition: `spellbench
 bench prepare benchmarks/pauper-ladder-v3 --check`, run from a clean
 checkout of the default branch with the pinned `python.exe` and with every

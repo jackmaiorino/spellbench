@@ -17,17 +17,21 @@ from typing import Any
 
 import pytest
 
-from arena_helpers import FAKE_ENGINE, builtin
+from arena_helpers import FAKE_ENGINE, TEST_RUN_SECRET, builtin
 from spellbench.arena import snapshot, store
 from spellbench.arena.config import BASE_FORM, EXPORT_FORM, TournamentConfig, TournamentError
+from spellbench.arena.schedule import preflight, schedule
 from spellbench.arena.validate import validate_tournament_dir
 from spellbench.bench import definition, panel, run as bench_run
+from spellbench.human import match
 from spellbench.site import render
+from spellbench.site.build import build_site
 from test_arena_validity import UNIT
 from test_ladder import completed, copied  # noqa: F401 - completed is a fixture
 from test_panel import play, value, write_definition
 from test_site_render import BENCH
 
+REPO = Path(__file__).resolve().parents[2]
 ENTRANT, EXPORT_VERSION = "cached-llm", "fixture-v1-export"
 HEX = "0123456789abcdef" * 4
 
@@ -77,6 +81,38 @@ def test_a_board_config_resolves_to_one_form_at_a_time(completed, tmp_path: Path
     assert contracts[EXPORT_FORM]["evaluation_version"] == EXPORT_VERSION
     with pytest.raises(snapshot.SnapshotError, match="one contract for each form"):
         snapshot.contract(board)
+    # The whole board is two engines, so nothing schedules or starts it: a caller takes one form first.
+    for play_it in (lambda: schedule(board, TEST_RUN_SECRET), lambda: preflight(board, TEST_RUN_SECRET)):
+        with pytest.raises(TournamentError, match="a board with export blocks is not one run"):
+            play_it()
+    assert len(schedule(board.as_form(EXPORT_FORM), TEST_RUN_SECRET)) == len(schedule(before, TEST_RUN_SECRET))
+    # A roster without the export bots is one form again.
+    assert snapshot.without_entrants(board, (ENTRANT,)).export_blocks is None
+    two = TournamentConfig.from_json({**board.to_json(), "export_blocks": {
+        **board.export_blocks.to_json(), "bots": [ENTRANT, "first"]}})
+    assert snapshot.without_entrants(two, (ENTRANT,)).export_blocks.bots == ("first",)
+
+
+def test_the_export_form_keeps_the_boards_extensions() -> None:
+    board = json.loads((REPO / "benchmarks/pauper-ladder-v3/snapshots/2026-11-15/config.json").read_bytes())
+    export = {"evaluation_version": "pauper-ladder-v3.1.0", "bots": ["chains-a-c4-u1048576"],
+              "engine": {"command": ["engine"]}, "extensions": [*board["extensions"], "x_kernel_infoset_v1"]}
+    assert TournamentConfig.from_json({**board, "export_blocks": export}).export_blocks.extensions[-1] == "x_kernel_infoset_v1"
+    export["extensions"] = ["x_kernel_infoset_v1", board["extensions"][0]]  # drops one the other blocks have
+    with pytest.raises(TournamentError, match="must keep every extension of the board"):
+        TournamentConfig.from_json({**board, "export_blocks": export})
+
+
+def test_human_play_takes_the_boards_own_engine(completed, tmp_path: Path) -> None:  # noqa: F811
+    """A match against a person is built from the whole board; it plays the board's engine, without the panel
+    fields and without the export blocks."""
+    directory = copied(completed, tmp_path)
+    _with_export_blocks(directory, tmp_path)
+    whole = replace(definition.load_benchmark(directory), evaluation_targets=None, evaluation_matchups=None)
+    source = whole.tournament_config(str(tmp_path / "run"))
+    assert source["export_blocks"]["bots"] == [ENTRANT]
+    doc, _ = match.match_config(source, players=("uniform", "first"), bank_ms=600_000, run_dir=tmp_path / "run")
+    assert "export_blocks" not in doc and doc["engine"]["command"][-1] == str(FAKE_ENGINE)
 
 
 @pytest.mark.parametrize("change, message", [
@@ -180,9 +216,16 @@ def test_the_published_blocks_stay_and_only_the_export_block_is_played(completed
     assert leaderboard["evaluation"]["version"] == "fixture-v1"
     assert leaderboard["evaluation"]["export_blocks"] == {"version": EXPORT_VERSION, "bots": [ENTRANT],
                                                            "extensions": [], "matchups": 1}
-    assert any(note.startswith("Evaluation versions by block: the 1 blocks of cached-llm were played under "
-                               "fixture-v1-export") for note in leaderboard["notes"])
+    assert ("Evaluation versions by block: fixture-v1-export (extensions: none) for the 1 block of cached-llm; "
+            "fixture-v1 (extensions: none) for the other 2 blocks.") in leaderboard["notes"]
     assert {row["name"] for row in leaderboard["rows"]} == {"first", "uniform", "heuristic", ENTRANT}
+
+    # The site builds from it, and the board page says which block was played under which version.
+    shutil.copytree(directory, tmp_path / "benchmarks" / directory.name)
+    build_site(tmp_path / "benchmarks", tmp_path / "site")
+    page = (tmp_path / "site" / "b" / directory.name / "index.html").read_text(encoding="utf-8")
+    assert ('<p class="export-blocks">Evaluation versions by block: fixture-v1-export (extensions: none) for the '
+            "1 block of cached-llm; fixture-v1 for every other block.</p>") in page
 
     # A tampered export object does not recompute, and the earlier snapshot still validates byte for byte.
     body = json.loads((composed / "manifest.json").read_bytes())
@@ -230,6 +273,13 @@ def test_prepare_replaces_a_stale_schedule_that_mixes_the_forms(completed, tmp_p
     # refused wherever it is loaded (bench commit and bench run load it first).
     with pytest.raises(definition.BenchmarkError, match="mixes blocks of the export form"):
         definition.load_benchmark(directory)
+    # The definition's excluded runs still count while its schedule is stale: with the only run excluded, every
+    # block is missing, which is a mix, and prepare says so and does not take the excluded run as played.
+    stale = json.loads((directory / "benchmark.json").read_bytes())
+    write_definition(directory, {**stale, "excluded_runs": [{"run": "2026-10-01", "reason": "left out for the test"}]})
+    with pytest.raises(definition.BenchmarkError, match="the missing blocks mix the export form and the base form"):
+        panel.prepare_benchmark(directory)
+    write_definition(directory, stale)
     assert panel.prepare_benchmark(directory) == (ENTRANT, "heuristic")
     assert definition.load_benchmark(directory).evaluation_matchups == ((ENTRANT, "heuristic"),)
 
@@ -329,7 +379,7 @@ def test_the_board_page_says_which_blocks_used_which_evaluation_version() -> Non
                   "export_blocks": {"version": "board-1.1.0", "bots": ["searcher"], "extensions": ["x_a_v1", "x_b_v1"],
                                     "matchups": 3}}
     page = render.render_benchmark({**BENCH, "evaluation": evaluation})
-    assert ('<p class="export-blocks">Evaluation versions by block: the 3 blocks of searcher were played under '
-            "board-1.1.0 (extensions: x_a_v1, x_b_v1); every other block under board-1.0.0.</p>") in page
+    assert ('<p class="export-blocks">Evaluation versions by block: board-1.1.0 (extensions: x_a_v1, x_b_v1) for '
+            "the 3 blocks of searcher; board-1.0.0 for every other block.</p>") in page
     plain = {key: item for key, item in evaluation.items() if key != "export_blocks"}
     assert "export-blocks" not in render.render_benchmark({**BENCH, "evaluation": plain})

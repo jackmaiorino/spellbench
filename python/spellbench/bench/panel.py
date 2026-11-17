@@ -40,9 +40,11 @@ def full_config(benchmark: definition.Benchmark) -> TournamentConfig:
     return TournamentConfig.from_json(replace(benchmark, evaluation_targets=None, evaluation_matchups=None).tournament_config("snapshot"))
 
 
-def sources(directory: Path) -> list[snapshot.Source]:
+def sources(directory: Path, benchmark: definition.Benchmark | None = None) -> list[snapshot.Source]:
+    """The published runs of ``directory`` that may be measured. ``benchmark`` is the definition whose
+    ``excluded_runs`` apply; without it the folder's file is read, and a file that does not load names none."""
     found = []
-    excluded = definition.excluded_run_names(directory)
+    excluded = definition.excluded_run_names(directory, benchmark)
     for run_dir in definition.published_runs(directory):
         if run_dir.name in excluded:
             continue  # kept published, never measured: listed in benchmark.excluded_runs, or its own
@@ -200,7 +202,7 @@ def _prepared(directory: Path, *, unrated: bool, environ: Mapping[str, str]) -> 
     raw.pop("evaluation_matchups", None)  # a shard names blocks of the previous targets
     updated = definition.parse_benchmark(raw)
     desired = full_config(updated)
-    found = sources(directory)
+    found = sources(directory, updated)  # the parsed definition: a stale schedule must not hide its exclusions
     dropped = snapshot.dropped_ladder_blocks(desired, found)
     if dropped:
         raise definition.BenchmarkError("the ladder would drop rated rung matchups it has played: " + ", ".join(

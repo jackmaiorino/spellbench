@@ -175,6 +175,7 @@ def preflight(config: TournamentConfig, run_secret: RunSecret, *, pin: EnginePin
     here, before anything is written, instead of turning every game into a forfeit or
     a halt. ``pin`` is shared with the run's per-game engine processes when given.
     """
+    _one_form(config)
     pin = EnginePin() if pin is None else pin
     pairs = config.preflight_deck_pairs()
     with _engine(config) as engine:
@@ -388,8 +389,17 @@ def _preflight_bot(config: TournamentConfig, hello: EnvHelloOk, rules: Rules, sp
 # ---------------------------------------------------------------------------
 
 
+def _one_form(config: TournamentConfig) -> None:
+    """A run is one form. A board's whole config with export blocks names two engines; whoever plays or schedules
+    it must take one form first (``TournamentConfig.as_form``, or a definition's schedule), so no path can play
+    an export block under the base conditions or the reverse."""
+    if config.export_blocks is not None:
+        raise TournamentError("config.export_blocks: a board with export blocks is not one run; play one form")
+
+
 def schedule(config: TournamentConfig, run_secret: RunSecret) -> list[GameContext]:
     """Every game of the round robin, in schedule (ledger) order."""
+    _one_form(config)
     games: list[GameContext] = []
     matchups = matchup_indexes(len(config.bots), include_self_play=config.include_self_play)
     if config.matchups is not None:
