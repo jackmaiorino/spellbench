@@ -255,7 +255,10 @@ snapshot shows win rates by deck and a rating of the decks as description. Its f
 games (the 15 rung blocks and Basilisk 2 against g115, oh2-r2s1-b512 and its
 argmax version, 18 blocks of 128), every game ended naturally, and the run
 passed the validity unit on every block, bot and deck pairing. The search
-entrant `oh2-r2s1-b512-s4a-16k-k4` is pending on v3. Not in v3: the
+entrant `oh2-r2s1-b512-s4a-16k-k4` was rated by run 2026-11-17: its three
+blocks against g115, oh2-r2s1-b512 and its argmax version under evaluation
+3.1.0, 384 games, every game ended naturally, validity passed. Snapshot
+2026-11-18 fits all 21 blocks together. Not in v3: the
 Terror deck and mulligans (a later version). Rated play still asks
 graveyard order one card at a time, which training does not ask. Blocks
 without the information-set export (`x_kernel_infoset_v1`) are evaluation
@@ -266,6 +269,7 @@ blocks reads it. The blocks of a bot that needs it, the search entrant, are
 evaluation 3.1.0 (the board's `export_blocks`): the same decks, pairings,
 clock and validity unit with the export on, on a bridge built with the
 exporter fix. A snapshot says which blocks were played under which version.
+[Rated snapshot, evaluations 3.0.0 and 3.1.0](benchmarks/pauper-ladder-v3/snapshots/2026-11-18/LEADERBOARD.md)
 [Rated snapshot, evaluation 3.0.0, engine d11d986d9](benchmarks/pauper-ladder-v3/snapshots/2026-11-15/LEADERBOARD.md)
 
 `pauper-grid-v1` plays the ladder's rungs on every pairing of the eight

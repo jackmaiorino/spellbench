@@ -713,7 +713,8 @@ def test_this_repositorys_top_table_is_its_headline_boards_latest_rated_snapshot
             assert [round(row.lower * 1000), round(row.upper * 1000)] == [
                 end - 1_000_000 for end in expected["ci95_elo_milli"]]
     pending = build._headline_view(headline, [definition.load_benchmark(benchmarks / headline)], {headline: run}, True)["pending"]
-    assert pending == run.manifest["pending"] and not set(pending) & {row.name for row in table.rows}
+    # A snapshot with no pending bot writes no "pending" key; the build reads it as none.
+    assert pending == run.manifest.get("pending", []) and not set(pending) & {row.name for row in table.rows}
 
 
 def test_the_cli_builds_the_site(tree: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

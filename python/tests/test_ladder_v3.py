@@ -96,11 +96,13 @@ def test_the_search_entrants_blocks_are_export_blocks_and_the_published_blocks_k
     assert export.extensions == (*benchmark.extensions, "x_kernel_infoset_v1")
     assert export.evaluation_engine_identity and export.evaluation_engine_identity != benchmark.evaluation_engine_identity
     assert all("evaluation_identity" in bot for bot in raw["bots"])
-    # The definition schedules the entrant's three blocks and nothing else: one run, one form.
-    assert sorted(map(sorted, raw["evaluation_matchups"])) == [sorted((rung, SEARCH_ENTRANT)) for rung in RUNGS[-3:]]
-    run = TournamentConfig.from_json(benchmark.tournament_config("runs/check"))
+    # Every block is played: the definition schedules nothing. The rated run of the entrant's three blocks was one
+    # run of the export form.
+    assert "evaluation_matchups" not in raw and raw["evaluation_targets"] == []
+    run = TournamentConfig.from_json(store.read_json(BOARD / "runs" / "2026-11-17" / "config.json"))
     assert run.export_blocks is None and run.evaluation_version == "pauper-ladder-v3.1.0"
     assert run.extensions == export.extensions and run.evaluation_engine_identity == export.evaluation_engine_identity
+    assert sorted(map(sorted, run.matchups)) == [sorted((rung, SEARCH_ENTRANT)) for rung in RUNGS[-3:]]
     assert len(schedule(run, TEST_RUN_SECRET)) == 3 * 128
     # The published run is still a source of the base form: its contract is the board's base contract, unchanged.
     board = panel.full_config(benchmark)
@@ -110,6 +112,11 @@ def test_the_search_entrants_blocks_are_export_blocks_and_the_published_blocks_k
     assert store.read_json(BOARD / "snapshots" / "2026-11-15" / "manifest.json")["contract"] == contracts["base"]
     assert snapshot.contract(run) == contracts["export"] != contracts["base"]
     assert all(board.form_of(pair) == ("export" if SEARCH_ENTRANT in pair else "base") for pair in board.matchups)
+    # The snapshot after it holds both forms: the base contract at the top level, the export form's in its object.
+    both = store.read_json(BOARD / "snapshots" / "2026-11-18" / "manifest.json")
+    assert both["schema"] == "spellbench-snapshot/v2" and both["contract"] == contracts["base"]
+    assert both["export_blocks"]["contract"] == contracts["export"]
+    assert sorted(map(sorted, both["export_blocks"]["matchups"])) == sorted(map(sorted, run.matchups))
 
 
 def test_the_board_text_follows_the_wording_rules() -> None:
