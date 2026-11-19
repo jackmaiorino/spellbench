@@ -351,3 +351,16 @@ def test_the_graveyard_order_option_needs_the_manabrew_client_and_is_said_in_eve
     plain = Hub(real_action_stops=True)
     plain.game_start(start)
     assert GRAVEYARD_ORDER_NOTE not in [line["text"] for line in plain.log]
+
+
+def test_the_scripted_clients_own_stops_reach_its_pass() -> None:
+    """``--self-stops`` used to be read and dropped: every pass aimed at the default stops."""
+    from spellbench.human.manabrew.fake_client import answer
+
+    prompt = {"input": {"type": "chooseAction", "actions": []}}
+    players = [{"id": "player-0", "status": "playing"}, {"id": "player-1", "status": "playing"}]
+    view = {"step": "endOfTurn", "activePlayerId": "player-1", "players": players, "stack": []}
+    default = answer(prompt, view=view, me="player-0", pass_mode="stops")
+    assert default["until"] == {"playerId": "player-0", "phase": "main1", "throughCombat": False}
+    mine = answer(prompt, view=view, me="player-0", pass_mode="stops", self_stops=("upkeep", "main1"))
+    assert mine["until"] == {"playerId": "player-0", "phase": "upkeep", "throughCombat": False}
