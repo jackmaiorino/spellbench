@@ -4,11 +4,16 @@ The engine asks the owner for the graveyard order one card at a time: Balustrade
 decisions. With the option the London human engine answers a pure graveyard ordering for the person's seat itself (the
 first card the prompt would have listed, every time) and poses nothing; the other seat is asked as before.
 
-Offline tests: what counts as a pure graveyard ordering, the order it gets, and that no card of the catalog decks reads
-graveyard order. Tests against the real London bridge (set MTG_KERNEL_LONDON_HUMAN_BRIDGE and MTG_KERNEL_PUBLIC_CATALOG;
-skipped otherwise): a Spy mirror in which the person mills their whole library is never asked to order, the game ends
-naturally, the bridge receives exactly the native steps of the game in which the person takes the first candidate of
-every ordering decision by hand, and every message addressed to the other seat is byte-identical in the two games.
+Offline tests: what counts as a pure graveyard ordering, the order it gets, and the audit that no card of the decks
+reads graveyard order: the deck cards whose rules text mentions a graveyard are a pinned, hand-audited list, so a new
+one fails the test until someone has read it (a text pattern is only the second line; it is a heuristic). Tests against
+the real London bridge (set MTG_KERNEL_LONDON_HUMAN_BRIDGE and MTG_KERNEL_PUBLIC_CATALOG; skipped otherwise): the
+bridge catalog's decks hold no card outside the audited pool; a Spy mirror in which the person mills their whole
+library is never asked to order and ends naturally; the bridge receives exactly the native steps of the game in which
+the person takes the first candidate of every ordering decision by hand, and every decision addressed to the other
+seat, its model input included, is byte-identical in the two games. A settled ordering is not a step or a decision of
+the game: the settled game's counts are lower by exactly the prompts not posed, so under a step or decision cap the
+two games can end at different points.
 """
 from __future__ import annotations
 
@@ -33,7 +38,7 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parents[1]))
 sys.path.insert(0, str(HERE.parents[3] / "python"))
 
-from kernel_engine_london_human_v1 import HISTORY, KernelEngine, NativePeer, settle_graveyard_order  # noqa: E402
+from kernel_engine_london_human_v1 import FLAT, HISTORY, KernelEngine, NativePeer, settle_graveyard_order  # noqa: E402
 from kernel_order_v2 import TriggerOrder  # noqa: E402,F401
 from kernel_selection_order_v2 import SelectionOrder  # noqa: E402
 from spellbench import wire  # noqa: E402
@@ -83,11 +88,20 @@ def test_library_order_and_everything_else_is_left_to_the_person() -> None:
 
 # -- no deck card reads graveyard order ------------------------------------------------------------------------------
 
-# Rules text that makes the order of a graveyard matter (Nether Shadow, Ashen Ghoul, Phyrexian Furnace, Shallow Grave,
-# Death Spark, Corpse Dance and their kind). A deck card that matches must be excluded from the automatic order (or
-# the option left off for that deck) before it joins the pool.
+# The audit. Every card of the eight decks whose rules text mentions a graveyard, read by hand on 2026-11-19: none
+# reads the ORDER of a graveyard (they mill, flash back, return or exile a chosen card, exile a whole graveyard or
+# count its cards). A card that joins or leaves this list fails the test below: read the new card, and if it reads
+# graveyard order, exclude that case from the automatic order before adding it here.
+AUDITED_GRAVEYARD_CARDS = frozenset({
+    "Balustrade Spy", "Blood Fountain", "Dread Return", "Eviscerator's Insight", "Faithless Looting", "Fiery Temper",
+    "Ichor Wellspring", "Lava Dart", "Lembas", "Lotleth Giant", "Masked Vandal", "Nihil Spellbomb", "Prismatic Strands",
+    "Pulse of Murasa", "Sacred Cat", "Sneaky Snacker", "Thraben Charm", "Winding Way"})
+
+# A heuristic second line: rules text that makes the order of a graveyard matter (Nether Shadow, Ashen Ghoul,
+# Phyrexian Furnace, Shallow Grave, Death Spark, Corpse Dance and their kind). It cannot be complete; the audited list
+# above is the guard.
 ORDER_SENSITIVE = re.compile(
-    r"top (\w+ )?card (of|in) (your|a|their|that player's|target player's|an opponent's) graveyard"
+    r"top (\w+ ){0,3}cards? (of|in|from) [^.]{0,30}graveyard"
     r"|bottom (\w+ )?card of [^.]*graveyard"
     r"|\b(above|below|beneath)\b[^.]*\bgraveyard"
     r"|graveyard[^.]*\b(above|below|beneath|in order|order of|most recently)\b"
@@ -99,6 +113,8 @@ def test_the_pattern_knows_the_cards_that_do_read_graveyard_order() -> None:
                  "graveyard, you may put Nether Shadow onto the battlefield.",
                  "Exile the bottom card of target player's graveyard.",
                  "Return the top creature card of your graveyard to the battlefield.",
+                 "Exile the top two cards of target player's graveyard.",
+                 "Return the top card from your graveyard to your hand.",
                  "if a creature card is directly above Death Spark in your graveyard"):
         assert ORDER_SENSITIVE.search(text), text
     for text in ("Flashback {R}{R}", "Return target creature card from your graveyard to the battlefield.",
@@ -107,8 +123,7 @@ def test_the_pattern_knows_the_cards_that_do_read_graveyard_order() -> None:
         assert not ORDER_SENSITIVE.search(text), text
 
 
-def test_no_card_of_the_training_decks_reads_graveyard_order() -> None:
-    texts = json.loads((MANABREW / "cards.json").read_text(encoding="utf-8"))
+def deck_card_names() -> set[str]:
     pool = json.loads((MANABREW / "pauper_decks.json").read_text(encoding="utf-8"))
     names: set[str] = set()
 
@@ -123,8 +138,19 @@ def test_no_card_of_the_training_decks_reads_graveyard_order() -> None:
                 walk(item)
 
     walk(pool)
+    return names
+
+
+def test_the_deck_cards_that_mention_a_graveyard_are_the_audited_ones_and_none_reads_its_order() -> None:
+    texts = json.loads((MANABREW / "cards.json").read_text(encoding="utf-8"))
+    names = deck_card_names()
     assert len(names) > 80 and "Balustrade Spy" in names
-    assert not [name for name in names if name not in texts], "a deck card has no rules text to check"
+    missing = sorted(name for name in names if not str((texts.get(name) or {}).get("text") or "").strip())
+    assert missing == [], f"deck cards with no rules text to read: {missing}"
+    mentioning = {name for name in names if "graveyard" in str(texts[name].get("text") or "").lower()}
+    assert mentioning == AUDITED_GRAVEYARD_CARDS, (
+        "the deck cards that mention a graveyard changed; read the new ones before this list is updated: "
+        f"new {sorted(mentioning - AUDITED_GRAVEYARD_CARDS)}, gone {sorted(AUDITED_GRAVEYARD_CARDS - mentioning)}")
     reading = sorted(name for name in names if ORDER_SENSITIVE.search(texts[name].get("text") or ""))
     assert reading == [], f"these deck cards read graveyard order; exclude them from the automatic order: {reading}"
 
@@ -145,6 +171,14 @@ class RecordingPeer(NativePeer):
         return super().request(value)
 
 
+@needs_bridge
+def test_the_bridge_catalogs_decks_hold_no_card_outside_the_audited_pool() -> None:
+    catalog = json.loads(Path(CATALOG).read_bytes())
+    in_catalog = {row["name"] for entry in catalog["catalog"] for row in entry["decklist"]}
+    assert len(catalog["catalog"]) == 8 and in_catalog
+    assert sorted(in_catalog - deck_card_names()) == [], "the bridge plays a card the graveyard audit never saw"
+
+
 class World:
     def __init__(self, seed: int, *, settle: bool) -> None:
         self.catalog = json.loads(Path(CATALOG).read_bytes())
@@ -154,7 +188,7 @@ class World:
         self.serial = 0
         rules = {"opponent_decklist": "visible", "mulligan": "london", "starting_player": "host_assigned",
                  "starting_seat": "p0", "card_name_domain": card_name_domain(r["name"] for r in rows),
-                 "extensions": [HISTORY], "probe": False}
+                 "extensions": [FLAT, HISTORY], "probe": False}
         self.current = self.send({"request_type": "reset", "game_id": f"graveyard-order-{seed}", "format": "pauper-bo1",
                                   "seats": [{"seat": s, "deck": {"catalog_id": "Spy", "deck_id": deck_id(rows)}}
                                             for s in ("p0", "p1")],
@@ -188,7 +222,8 @@ def play(seed: int, *, settle: bool, limit: int = 6000) -> dict:
     person's, so the two games (asked and not asked) take the same answers."""
     world = World(seed, settle=settle)
     rng = random.Random(seed)
-    out = {"ordering_prompts": 0, "largest_mill": 0, "bot_messages": [], "library_after_mill": None}
+    out = {"ordering_prompts": 0, "ordering_groups": 0, "largest_mill": 0, "bot_messages": [],
+           "library_after_mill": None}
     try:
         steps = 0
         while world.current["response_type"] == "decision" and steps < limit:
@@ -201,6 +236,7 @@ def play(seed: int, *, settle: bool, limit: int = 6000) -> dict:
                 out["bot_messages"].append(wire.canonical_json_dumps(sd))
             if seat == "p0" and graveyard_ordering(sd):
                 out["ordering_prompts"] += 1
+                out["ordering_groups"] += semantics[0]["position"] == 0
                 out["largest_mill"] = max(out["largest_mill"], semantics[0]["count"])
                 world.answer(0)
                 continue
@@ -220,6 +256,7 @@ def play(seed: int, *, settle: bool, limit: int = 6000) -> dict:
             if library == 0 and out["library_after_mill"] is None:
                 out["library_after_mill"] = 0
         out["end"] = {key: world.current.get(key) for key in ("response_type", "outcome", "classification", "reason")}
+        out["counts"] = {key: world.current.get(key) for key in ("step_count", "decision_count")}
         out["native_steps"] = list(world.peer.steps)
         out["settled"] = list(getattr(world.engine, "graveyard_orders_settled", []))
         return out
@@ -252,4 +289,16 @@ def test_the_settled_game_is_the_game_of_a_person_who_takes_the_first_card_every
     assert asked["settled"] == []
     assert asked["native_steps"] == settled["native_steps"]  # the bridge got the same game
     assert asked["bot_messages"] == settled["bot_messages"]  # and the other seat was shown the same, byte for byte
+    assert any(FLAT.encode() in message for message in settled["bot_messages"])  # its model input included
     assert asked["end"] == settled["end"]
+
+
+@needs_bridge
+def test_a_settled_ordering_is_not_a_step_or_a_decision_of_the_game() -> None:
+    """The two games are the same game below the caps only: the settled one has taken fewer steps and decisions, by
+    exactly the ordering prompts and groups it did not pose, so a step or decision cap is reached later in it."""
+    seed, settled = whole_library_seed()
+    asked = play(seed, settle=False)
+    assert asked["ordering_prompts"] > 0 and asked["ordering_groups"] == len(settled["settled"])
+    assert asked["counts"]["step_count"] - settled["counts"]["step_count"] == asked["ordering_prompts"]
+    assert asked["counts"]["decision_count"] - settled["counts"]["decision_count"] == asked["ordering_groups"]

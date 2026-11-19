@@ -53,8 +53,9 @@ without the option whenever the person passes at the new windows, bit for bit. W
 Host behaviour with the option: a stop or pass-until the client sets in any of the six steps is taken in that step
 (without it, the nearest step with a window); a window in which the person has only mana abilities is sent to the
 client, whose AUTOPASS countdown or Full control answers it (`--keep-mana-autopass` keeps the session passing those
-itself); a window with nothing but passing is passed by the session; the advisor shows no numbers at a priority window
-in the six steps.
+itself); a window with nothing but passing is passed by the session. The advisor shows no numbers at a priority window
+in the six steps or while the person's own object is on top of the stack. It still reads one kind of new window: a
+second action of the person's in one combat priority round, which the bot's surface does not have either.
 
 These games are unrated and never training data, like every game on this board.
 
@@ -76,6 +77,13 @@ id). That covers a mill and the order of several discarded cards after the perso
 cards to discard, the order of cards put on top of a library, and every other choice stay the person's.
 
 Nothing else moves: the bridge receives exactly the native steps of the game in which the person takes the first
-candidate of every ordering decision by hand, so the bot is shown the same messages, byte for byte. The bot's seat is
-still asked for the order of its own mill, as on every board that uses this bridge. Leave the option out to be asked
-card by card.
+candidate of every ordering decision by hand, so the bot is shown the same decisions, byte for byte. One difference
+remains: a settled ordering is not a step or a decision of the game, so the game's step and decision counts are lower
+by the prompts not posed, and a game that runs into a step or decision cap reaches it later than the by-hand game
+would. The bot's seat is still asked for the order of its own mill, as on every board that uses this bridge. Leave the
+option out to be asked card by card.
+
+The audit behind "no card reads graveyard order" is a pinned list in
+`integrations/mtg_kernel/london_human/tests/test_graveyard_order_v1.py`: the 18 deck cards whose rules text mentions a
+graveyard, each read by hand. A deck change that adds one fails that test until the new card has been read. The text
+pattern beside it is a heuristic only.
