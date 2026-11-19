@@ -257,7 +257,9 @@ FULL_PRIORITY_NOTE = ("Full priority: you get priority in every step, and while 
 GRAVEYARD_ORDER_NOTE = ("Graveyard order: cards that go to your graveyard together (a mill, a discard of several "
                         "cards, the rest of a look) are ordered for you, by name, and so are the cards one look puts "
                         "into your hand. No card in these decks reads graveyard order.")
-# Where the order of the cards one look (an arrangement) sends there is read by nothing: the session answers it.
+# Destinations whose order no card of these decks uses (a hand has none; the graveyard audit covers the other):
+# the session answers the order of the cards one look (an arrangement) sends there. The other seat still sees the
+# graveyard in the order answered, exactly as when the person takes the first card listed by hand.
 UNORDERED_DESTINATIONS = frozenset({"graveyard", "hand"})
 PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the new seven are drawn, then asks Keep or "
                  "Mulligan on the smaller hand (real tables ask Keep or Mulligan first, then bottom).")
@@ -268,8 +270,8 @@ class Hub:
     ``plan`` (a step of a combat plan the person made), ``single`` (one candidate) or ``auto_pass`` (the session
     declined for the person: a priority pass at which only passing or mana was possible or no stop applies, or the
     no-attackers answer to a declaration that a hold they set runs past) or ``auto_order`` (with
-    ``auto_graveyard_order``: the order of cards that one look puts into the person's graveyard or hand, where no
-    order exists that anything reads; the first card listed is taken)."""
+    ``auto_graveyard_order``: the order of cards that one look puts into the person's graveyard or hand, an order
+    no card of these decks uses; the first card listed is taken)."""
 
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
                  opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False,
@@ -940,7 +942,7 @@ class Hub:
         semantic = chosen.get("semantic") or {}
         me = (self.game or {}).get("seat")
         if semantic.get("kind") == "arrange_card":
-            # where this card of the look goes: the order within a destination nothing reads is settled later
+            # where this card of the look goes (``_settled_order`` answers the order within the graveyard and hand)
             group = (decision.get("group") or {}).get("group_id")
             if self._arranged_group != group:
                 self._arranged_group, self._arranged = group, {}
