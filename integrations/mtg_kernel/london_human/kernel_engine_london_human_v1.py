@@ -161,6 +161,12 @@ def error(request_id, code, message):
             "error": {"code": code, "message": message}}
 
 
+def native_window_seats(person_seat, first_seat):
+    """The bridge's seat list for the person's seat of the reset request. The bridge's p0 is the starting seat
+    (``reset`` hands it the seats in turn order), so the person is its p0 exactly when they play first."""
+    return ["p0" if person_seat == first_seat else "p1"]
+
+
 def alias_flat(response):
     """The pinned helper modules (combat, arrangement, order, selection order) read the model input's row map
     under its V4 key. The bridge sends it as x_kernel_flat_v7; this process keeps an internal alias of the same
@@ -209,10 +215,14 @@ class NativePeer:
 class KernelEngine:
     known_cards = False
 
-    def __init__(self, peer, catalog, *, source_revision=None, known_cards=False):
+    def __init__(self, peer, catalog, *, source_revision=None, known_cards=False, engine_windows_seat=None):
         # known_cards needs a bridge that exports public history: `known` then
         # follows the Section 6.7 update table instead of the current look.
         self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
+        # The seat of a person (p0 or p1 of the reset request), or None. The
+        # bridge gives that seat every engine priority window; the other seat
+        # keeps the windows its model trained on.
+        self.engine_windows_seat = engine_windows_seat
         native = peer.request({"request_type": "hello"})
         if native["response_type"] != "hello_ok":
             raise ProjectionError("native bridge did not handshake")
@@ -320,10 +330,21 @@ class KernelEngine:
         self.native_group = None
         self.history = PublicHistory()
         seats = request["seats"] if first == "p0" else list(reversed(request["seats"]))
-        self.current = self.peer.request({"request_type": "reset", "game_id": self.game, "format": "pauper-bo1",
+        native = {"request_type": "reset", "game_id": self.game, "format": "pauper-bo1",
             "seats": [{"seat": f"p{i}", "deck": {"catalog_id": entry["deck"]["catalog_id"]}} for i, entry in enumerate(seats)],
             "game_seed": int.from_bytes(hmac.new(secret, b"spellbench-kernel-v2/rng", hashlib.sha256).digest()[:8], "little"),
-            "max_decisions": (1 << 53) - 1, "max_steps": (1 << 53) - 1})
+            "max_decisions": (1 << 53) - 1, "max_steps": (1 << 53) - 1}
+        if self.engine_windows_seat is not None:
+            # Sent only when asked for: a bridge without the feature refuses the field, so a session never plays
+            # without the windows it promised.
+            native["engine_window_seats"] = native_window_seats(self.engine_windows_seat, first)
+        self.current = self.peer.request(native)
+        if self.current.get("response_type") == "error":
+            self.game = self.pending = None
+            print(f"kernel_engine_london_human_v1: the bridge refused the reset: {self.current.get('error')}",
+                  file=sys.stderr, flush=True)
+            return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows need a "
+                         "bridge built with them)")
         self.absorb_history()
         return self.respond(rid)
 
@@ -586,6 +607,10 @@ def main():
     parser.add_argument("--source-revision")
     parser.add_argument("--known-cards", action="store_true",
                         help="declare known_cards and track Section 6.7 knowledge (needs a history-exporting bridge)")
+    parser.add_argument("--engine-windows-seat", choices=("p0", "p1"),
+                        help="the seat of a person: the bridge gives it every engine priority window (upkeep, draw, "
+                             "beginning of combat, combat damage, end of combat, end step, its own spell on the "
+                             "stack); the other seat keeps the windows its model trained on")
     args = parser.parse_args()
     if args.known_cards:
         # The Section 6.7 knowledge tracker has not been taught the pregame's draws and bottoms; the London human
@@ -594,7 +619,7 @@ def main():
     peer = NativePeer(args.bridge)
     try:
         engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision,
-                             known_cards=args.known_cards)
+                             known_cards=args.known_cards, engine_windows_seat=args.engine_windows_seat)
         while True:
             try:
                 payload = wire.read_line(sys.stdin.buffer)

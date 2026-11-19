@@ -27,3 +27,33 @@ its bridge and its bots are not touched.
 - A seat sees its own hand during the pregame (`players[].hand`) and only a count of the other's.
 - The human's relay drops the model input of both generations (`DROPPED_EXTENSIONS`); the public history never names a
   card the viewer could not see.
+
+## Full priority for the person (`--full-priority`)
+
+By default both seats have the priority windows the bots trained on: the two main phases, declare attackers and
+declare blockers, with one action per combat priority round and no second action on one's own fresh spell. A person
+could not act in the opponent's end step or in their own upkeep.
+
+`python -m spellbench.human --client manabrew --full-priority` gives the person's seat every priority window the rules
+have: upkeep, draw, beginning of combat, combat damage, end of combat and the end step of either turn, and priority
+while their own spell or ability is on the stack. Each game's engine is started with `--engine-windows-seat` (the
+person's seat), and the bridge is asked for `engine_window_seats` in its reset. A bridge built without the feature
+refuses that reset, so a session never plays without the windows it promised.
+
+The bot's seat is unchanged, by construction: its decisions, its legal actions and its model input are those of a game
+without the option whenever the person passes at the new windows, bit for bit. What follows from that:
+
+- The bot does not respond to anything the person does in the six new steps. Its priority there is passed for it, as
+  it always was, because its model never had a priority decision in those steps. An instant or a flash creature cast
+  in the bot's end step or in the person's own upkeep cannot be countered.
+- In the main phases and the declare steps the bot responds as before. When the person holds priority and puts several
+  objects on the stack, the bot's first window comes after all of them.
+- The person is no longer held to one action per combat priority round. The bot still is.
+
+Host behaviour with the option: a stop or pass-until the client sets in any of the six steps is taken in that step
+(without it, the nearest step with a window); a window in which the person has only mana abilities is sent to the
+client, whose AUTOPASS countdown or Full control answers it (`--keep-mana-autopass` keeps the session passing those
+itself); a window with nothing but passing is passed by the session; the advisor shows no numbers at a priority window
+in the six steps.
+
+These games are unrated and never training data, like every game on this board.
