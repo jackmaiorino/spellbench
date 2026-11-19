@@ -2,8 +2,9 @@
 the person's seat every priority window the rules have, so a stop the client sets in upkeep, draw, beginning of combat,
 combat damage, end of combat or the end step is taken in that step; a window with only mana abilities goes to the client
 (its AUTOPASS countdown or Full control answers it); a window with nothing but passing is still passed by the session;
-the advisor shows no numbers at a window the bot's model never trained on; and each game's engine is told the person's
-seat. Without the option nothing changes. Display and human flow only: the bot's seat sees none of this."""
+the advisor shows no numbers at a priority window in those six steps or with the person's own object on top of the
+stack (it still reads a second action in one combat priority round, which the bot's surface also lacks); and each
+game's engine is told the person's seat. Without the option nothing changes. Display and human flow only: the bot's seat sees none of this."""
 
 from __future__ import annotations
 
@@ -13,8 +14,8 @@ from pathlib import Path
 import pytest
 
 from spellbench.human import session
-from spellbench.human.server import (ENGINE_PRIORITY_STEPS, FULL_PRIORITY_STEPS, NEW_PRIORITY_STEPS, STEP_ORDER,
-                                     UNTRAINED_READ, Hub, reachable_step)
+from spellbench.human.server import (ENGINE_PRIORITY_STEPS, FULL_PRIORITY_STEPS, NEW_PRIORITY_STEPS, OWN_STACK_READ,
+                                     STEP_ORDER, UNTRAINED_READ, Hub, reachable_step)
 
 from test_human_flow import at, pass_priority, until
 from test_human_stops import BOLT, MANA, ME, MY_SPELL, OPP, PASS, SPELL_ON_STACK, decision, how
@@ -76,6 +77,37 @@ def test_my_own_upkeep_stop_reaches_my_upkeep_through_the_opponents_whole_turn()
     for step in FULL_PRIORITY_STEPS:
         assert how(hub, at([PASS, BOLT], phase=step, active=OPP, turn=4)) == "auto_pass", step
     assert how(hub, at([PASS, BOLT], phase="upkeep", active=ME, turn=5)) == "human"
+
+
+def test_a_stop_whose_step_comes_up_with_nothing_to_do_is_used_up_there() -> None:
+    """The step of a hold is reached even when the person can only pass in it: the hold ends there and the next
+    window with something to do is asked, instead of the hold running on to the same step of a later turn."""
+    hub = full_hub()
+    pass_priority(hub, at([PASS, BOLT], phase="postcombat_main", turn=3), until(ME, "upkeep", through=True))
+    for step in FULL_PRIORITY_STEPS:
+        assert how(hub, at([PASS], phase=step, active=OPP, turn=4)) == "single", step
+    assert hub.hold is not None
+    assert how(hub, at([PASS], phase="upkeep", active=ME, turn=5)) == "single"  # my upkeep: nothing but passing
+    assert hub.hold is None
+    assert how(hub, at([PASS, BOLT], phase="draw", active=ME, turn=5)) == "human"
+    # the same with only mana at the stop, passed by the session
+    hub = full_hub(client_autopass=False)
+    pass_priority(hub, at([PASS, BOLT], phase="postcombat_main", turn=3), until(ME, "upkeep", through=True))
+    assert how(hub, at([PASS, MANA], phase="upkeep", active=ME, turn=5)) == "auto_pass"
+    assert hub.hold is None
+    assert how(hub, at([PASS, BOLT], phase="upkeep", active=OPP, turn=6)) == "human"
+
+
+def test_a_stop_reached_after_turns_of_nothing_but_passing_is_still_reached_in_its_own_turn() -> None:
+    hub = full_hub()
+    pass_priority(hub, at([PASS, BOLT], phase="postcombat_main", active=OPP, turn=2), until(OPP, "upkeep"))
+    assert how(hub, at([PASS], phase="end_step", active=OPP, turn=2)) == "single"  # behind the stop: their NEXT turn
+    for step in FULL_PRIORITY_STEPS:
+        assert how(hub, at([PASS], phase=step, active=ME, turn=3)) == "single", step
+    assert hub.hold is not None
+    assert how(hub, at([PASS], phase="upkeep", active=OPP, turn=4)) == "single"  # reached, nothing to do
+    assert hub.hold is None
+    assert how(hub, at([PASS, BOLT], phase="draw", active=OPP, turn=4)) == "human"
 
 
 def test_without_the_option_the_stop_is_still_moved_to_the_nearest_window() -> None:
@@ -187,6 +219,36 @@ def test_the_advisor_shows_no_numbers_at_a_window_its_model_never_trained_on(ste
     assert hub.advice["unavailable"] == UNTRAINED_READ and "reading" not in hub.advice
 
 
+@pytest.mark.parametrize("opposing_below", [False, True])
+def test_the_advisor_shows_no_numbers_while_the_persons_own_object_is_on_top_of_the_stack(opposing_below: bool) -> None:
+    from spellbench.human import text
+
+    stack = [MY_SPELL] if not opposing_below else (
+        [MY_SPELL, SPELL_ON_STACK] if text.STACK_TOP_FIRST else [SPELL_ON_STACK, MY_SPELL])
+    hub = full_hub(advisor=Reader())
+    hub._queue_read = lambda *args, **kwargs: pytest.fail("an own-stack window was sent to the advisor")
+    request = at([PASS, BOLT], phase="precombat_main", stack=stack)
+    assert text.stack_top(request["observation"]["stack"])["controller_seat"] == ME
+    with hub.cond:
+        hub._begin(request, {})
+    assert hub.advice["unavailable"] == OWN_STACK_READ
+
+
+def test_the_advisor_reads_a_response_to_the_opponents_spell_and_everything_without_the_option() -> None:
+    queued: list[tuple] = []
+    hub = full_hub(advisor=Reader())
+    hub._queue_read = lambda *args, **kwargs: queued.append(args)
+    with hub.cond:
+        hub._begin(at([PASS, BOLT], phase="precombat_main", active=OPP, turn=4, stack=[SPELL_ON_STACK]), {})
+    assert hub.advice.get("reading") is True and len(queued) == 1
+    plain = Hub(real_action_stops=True, advisor=Reader())  # no full priority: the surface has no such window to mark
+    plain.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    plain._queue_read = lambda *args, **kwargs: queued.append(args)
+    with plain.cond:
+        plain._begin(at([PASS, BOLT], phase="precombat_main", stack=[MY_SPELL]), {})
+    assert plain.advice.get("reading") is True and len(queued) == 2
+
+
 @pytest.mark.parametrize("step", ENGINE_PRIORITY_STEPS)
 def test_the_advisor_still_reads_the_windows_the_bot_has_too(step: str) -> None:
     hub = full_hub(advisor=Reader())
@@ -257,3 +319,35 @@ def test_the_scripted_client_takes_an_action_only_in_the_steps_it_is_told() -> N
     spell_only = {"input": {"type": "chooseAction", "actions": [{"id": "a1", "type": "cast", "label": "Cast Lightning Bolt"}]}}
     assert answer(spell_only, view={**view, "step": "main1", "activePlayerId": "player-0"}, **held)["type"] == "pass"
     assert answer(spell_only, view=view, **held) == {"type": "act", "actionId": "a1"}
+
+
+# -- cards going to the person's own graveyard are ordered for them ------------------------------------------------------
+
+
+def test_each_picked_game_can_name_the_seat_whose_graveyard_is_ordered_for_it(tmp_path) -> None:
+    doc = session.picked_game_config(BASE, human_deck="Spy", bot_deck="Spy", human_first=False, run_dir=tmp_path,
+                                     opponent="bot", auto_graveyard_order=True)
+    assert doc["engine"]["command"] == ["python", "engine.py", "--bridge", "b", "--graveyard-order-seat", "p1"]
+    both = session.picked_game_config(BASE, human_deck="Spy", bot_deck="Spy", human_first=True, run_dir=tmp_path,
+                                      opponent="bot", full_priority=True, auto_graveyard_order=True)
+    assert both["engine"]["command"][-4:] == ["--engine-windows-seat", "p0", "--graveyard-order-seat", "p0"]
+
+
+def test_the_graveyard_order_option_needs_the_manabrew_client_and_is_said_in_every_game(tmp_path, capsys) -> None:
+    import json
+
+    from spellbench.human.server import GRAVEYARD_ORDER_NOTE
+
+    with pytest.raises(SystemExit):
+        session.main(["--local", "x", "--out", "y", "--auto-graveyard-order"])
+    assert "--auto-graveyard-order" in capsys.readouterr().err
+    start = {"game_id": "g-7", "seat": ME, "own_deck": {"name": "Spy"}, "opponent_deck": {"name": "Spy"}}
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True, log_dir=tmp_path)
+    hub.game_start(start)
+    assert [line["text"] for line in hub.log].count(GRAVEYARD_ORDER_NOTE) == 1
+    hub._log_file.flush()
+    header = json.loads((tmp_path / f"g-7.{ME}.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert header["auto_graveyard_order"] is True and "full_priority" not in header
+    plain = Hub(real_action_stops=True)
+    plain.game_start(start)
+    assert GRAVEYARD_ORDER_NOTE not in [line["text"] for line in plain.log]

@@ -246,15 +246,20 @@ class OneGame(Exception):
 
 
 def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, human_first: bool,
-                       run_dir: Path, opponent: str, full_priority: bool = False) -> dict[str, Any]:
+                       run_dir: Path, opponent: str, full_priority: bool = False,
+                       auto_graveyard_order: bool = False) -> dict[str, Any]:
     """One game with the decks the person picked: a one-pair run whose first game puts the person in seat p0
     (``human_first``) or p1, with the person's deck in that seat; the hook stops the run after that game.
     ``full_priority``: the engine of this game is told the person's seat (``--engine-windows-seat``), which it gives
-    every priority window; the engine must be one that takes the argument (the London human engine)."""
+    every priority window; ``auto_graveyard_order``: likewise ``--graveyard-order-seat``, the seat that is not asked
+    to order cards going to its own graveyard. The engine must be one that takes the arguments (the London human
+    engine)."""
     doc = copy.deepcopy(base)
-    if full_priority:
-        doc["engine"] = {**doc["engine"], "command": [*doc["engine"]["command"], "--engine-windows-seat",
-                                                        "p0" if human_first else "p1"]}
+    seat = "p0" if human_first else "p1"
+    extra = (["--engine-windows-seat", seat] if full_priority else []) + (
+        ["--graveyard-order-seat", seat] if auto_graveyard_order else [])
+    if extra:
+        doc["engine"] = {**doc["engine"], "command": [*doc["engine"]["command"], *extra]}
     doc["tournament_dir"] = str(run_dir)
     doc.pop("deck_pool", None)
     doc.pop("deck_pairing", None)
@@ -313,7 +318,8 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
             run_name = f"{name}-g{played + 1:02d}"
             run_dir = out / "runs" / run_name
             doc = picked_game_config(base, human_deck=human, bot_deck=bot, human_first=human_first, run_dir=run_dir,
-                                     opponent=args.opponent, full_priority=args.full_priority)
+                                     opponent=args.opponent, full_priority=args.full_priority,
+                                     auto_graveyard_order=args.auto_graveyard_order)
             (out / "runs" / f"{run_name}.config.json").write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
             with picks.open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps({"game": played + 1, "run": run_name, "human_deck": human, "bot_deck": bot,
@@ -403,14 +409,20 @@ def main(argv: list[str] | None = None) -> int:
                              "spell is on the stack; stops are taken in the step they name. The bot keeps the windows "
                              "it trained on: it does not respond to what you do in those six steps. Windows with only "
                              "mana abilities go to the client (its AUTOPASS countdown or Full control answers them)")
+    parser.add_argument("--auto-graveyard-order", action="store_true",
+                        help="manabrew, London human engine: you are not asked to order cards that go to your own "
+                             "graveyard together (Balustrade Spy milling your library, a discard of several cards); "
+                             "they are ordered by card name. No card of the eight training decks reads graveyard "
+                             "order. The bot is asked as before. Leave the option out to be asked card by card")
     parser.add_argument("--keep-mana-autopass", action="store_true",
                         help="with --full-priority: the session keeps passing windows with only mana abilities itself "
                              "(no client countdown; the client's Full control then has nothing to act on)")
     args = parser.parse_args(argv)
     if args.pace < 0:
         parser.error("--pace must be 0 or more")
-    if args.full_priority and args.client != "manabrew":
-        parser.error("--full-priority needs --client manabrew (the engine is told the person's seat for each game)")
+    if (args.full_priority or args.auto_graveyard_order) and args.client != "manabrew":
+        parser.error("--full-priority and --auto-graveyard-order need --client manabrew (the engine is told the "
+                     "person's seat for each game)")
     if args.keep_mana_autopass and not args.full_priority:
         parser.error("--keep-mana-autopass only goes with --full-priority")
     if args.exclude_decks:
@@ -469,6 +481,7 @@ def main(argv: list[str] | None = None) -> int:
               label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank",
               record_root=None if args.no_record else out / "engine-records" / "hot",
               real_action_stops=args.client == "manabrew", advisor=advisor, full_priority=args.full_priority,
+              auto_graveyard_order=args.auto_graveyard_order,
               client_autopass=args.full_priority and not args.keep_mana_autopass)
     server = make_server(hub, port=args.port)
     host, port = server.server_address[:2]

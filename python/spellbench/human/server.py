@@ -62,6 +62,7 @@ FULL_PRIORITY_STEPS = tuple(step for step in STEP_ORDER if step not in ("untap",
 # The steps only full priority opens. The bot's model never had a priority decision in them.
 NEW_PRIORITY_STEPS = frozenset(FULL_PRIORITY_STEPS) - frozenset(ENGINE_PRIORITY_STEPS)
 UNTRAINED_READ = "not read: the model never had priority in this step in training"
+OWN_STACK_READ = "not read: the model was never asked while its own spell or ability was on top of the stack"
 
 
 def reachable_step(step: str, steps: tuple[str, ...] = ENGINE_PRIORITY_STEPS) -> str:
@@ -253,6 +254,8 @@ FULL_PRIORITY_NOTE = ("Full priority: you get priority in every step, and while 
                       "plays as it trained: it does NOT respond to anything you do in upkeep, draw, beginning of "
                       "combat, combat damage, end of combat or the end step (so a spell you cast there cannot be "
                       "countered). In the main phases and the declare steps it responds as always.")
+GRAVEYARD_ORDER_NOTE = ("Graveyard order: cards that go to your graveyard together (a mill, a discard of several "
+                        "cards) are ordered for you, by name. No card in these decks reads graveyard order.")
 PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the new seven are drawn, then asks Keep or "
                  "Mulligan on the smaller hand (real tables ask Keep or Mulligan first, then bottom).")
 
@@ -266,8 +269,11 @@ class Hub:
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
                  opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False,
                  banner: str | None = None, advisor: Advisor | None = None, full_priority: bool = False,
-                 client_autopass: bool = False) -> None:
+                 client_autopass: bool = False, auto_graveyard_order: bool = False) -> None:
         self.cond = threading.Condition()
+        # True: the engine orders cards going to the person's own graveyard together without asking (the session
+        # told it the person's seat). Only said in the log here; nothing in this class answers such a prompt.
+        self.auto_graveyard_order = auto_graveyard_order
         # True: the engine gives the person's seat every priority window (upkeep, draw, beginning of combat, combat
         # damage, end of combat, the end step, and their own spell on the stack), so a stop set in any of those steps
         # is taken there. The bot's seat is unchanged. False: the engine's trained windows only.
@@ -418,6 +424,8 @@ class Hub:
                 self._note("game", ADVISED_NOTE.format(label=self.advisor_identity["label"]))
             if self.full_priority:
                 self._note("game", FULL_PRIORITY_NOTE)
+            if self.auto_graveyard_order:
+                self._note("game", GRAVEYARD_ORDER_NOTE)
             self.plan = self.skip = self.game_over = None
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
             self.hold = self.auto_attack_group = self.forced_attack_group = self.passed_at = self.pending_key = None
@@ -442,7 +450,8 @@ class Hub:
                              "bot_name": "Human", "own_deck": own, "opponent_deck": opp, "time_control": request.get("time_control"),
                              "label": self.label, "banner": self.banner, "stops": self.stops,
                              "advisor": self.advisor_identity,
-                             **({"full_priority": True} if self.full_priority else {})})
+                             **({"full_priority": True} if self.full_priority else {}),
+                             **({"auto_graveyard_order": True} if self.auto_graveyard_order else {})})
             self._bump()
 
     def game_end(self, request: Mapping[str, Any]) -> None:
@@ -607,6 +616,12 @@ class Hub:
             # A window only full priority opens: the model's numbers here would come from an input it never trained
             # on, so none are shown.
             return {**advice, "unavailable": UNTRAINED_READ}
+        top = text.stack_top((decision.get("observation") or {}).get("stack"))
+        if (self.full_priority and (decision.get("context") or {}).get("kind") == "priority" and top is not None
+                and top.get("controller_seat") == (self.game or {}).get("seat")):
+            # The person's own object on top of the stack: with full priority this is nearly always a window the bot's
+            # surface passes (holding priority). The few it does offer are not told apart here; none is read.
+            return {**advice, "unavailable": OWN_STACK_READ}
         seq, game = self.seq, (self.game or {}).get("game_id")
         texts = {c["id"]: c["text"] for c in self.pending["candidates"]}
         question = advice.get("question")
@@ -1045,6 +1060,11 @@ class Hub:
 
     def _automatic(self, decision: Mapping[str, Any]) -> tuple[str, int | None]:
         candidates = decision.get("candidates") or []
+        if self.hold is not None and (decision.get("context") or {}).get("kind") == "priority":
+            # Every priority the engine gives the person moves the hold along (its turn is found, it is reached or
+            # lost), also one answered below without asking: a window with nothing but passing, or with only mana.
+            # Otherwise a hold whose step came up with nothing to do there would stay ahead for another turn.
+            self._hold_unreached(decision.get("observation") or {})
         if len(candidates) == 1:
             semantic = candidates[0].get("semantic") or {}
             if semantic.get("kind") == "declare_attack" and semantic.get("defender") is not None:

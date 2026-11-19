@@ -57,3 +57,25 @@ itself); a window with nothing but passing is passed by the session; the advisor
 in the six steps.
 
 These games are unrated and never training data, like every game on this board.
+
+New windows are ordinary decisions: each one the person is given (also one the session passes for them) counts
+toward the game's step and decision caps, and the engine's own decision counters in the person's and the bot's
+observations advance with them. Those counters are not model input. Everything else of the bot's decisions is
+unchanged, as above.
+
+## Graveyard order for the person (`--auto-graveyard-order`)
+
+The engine asks a seat for the order in which cards that go to its graveyard together are put there, one card at a
+time: Balustrade Spy milling a library is dozens of decisions. No card of the eight catalog decks reads graveyard
+order (a test checks every deck card's rules text for it).
+
+`python -m spellbench.human --client manabrew --auto-graveyard-order` starts each game's engine with
+`--graveyard-order-seat` (the person's seat). For that seat the London human engine answers a pure graveyard ordering
+itself and poses nothing: each position takes the first card the prompt would have listed (card name, then object
+id). That covers a mill and the order of several discarded cards after the person has chosen them; choosing which
+cards to discard, the order of cards put on top of a library, and every other choice stay the person's.
+
+Nothing else moves: the bridge receives exactly the native steps of the game in which the person takes the first
+candidate of every ordering decision by hand, so the bot is shown the same messages, byte for byte. The bot's seat is
+still asked for the order of its own mill, as on every board that uses this bridge. Leave the option out to be asked
+card by card.
