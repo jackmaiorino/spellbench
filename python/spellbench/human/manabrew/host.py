@@ -15,6 +15,9 @@ with display pacing (``--pace``, on by default in a session) each stays long eno
 stack's changes are drawn.
 The engine gives priority in only some steps (main phases, attackers, blockers), so a pass-until aimed at any other step
 (the opponent's end step is the client's default stop) is taken at the nearest window instead, and the log says so.
+A session started with ``--full-priority`` differs in both: the engine gives the person's seat every priority window
+(the bot's seat is unchanged), so a pass-until is taken in the step it names, and a window with only mana abilities is
+sent to the client, whose AUTOPASS countdown or Full control then answers it.
 
 The person's seat: a person who leaves the table mid-game concedes at once; one whose connection drops has the table's
 reconnect timeout (the same on the relay and here) to come back, and one who goes between the relay's GameStarted and

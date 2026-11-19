@@ -91,9 +91,15 @@ def pass_output(view: Mapping[str, Any] | None, me: str, mode: str = "plain",
 
 def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[str, ...] = (), *,
            view: Mapping[str, Any] | None = None, me: str = "player-0", pass_mode: str = "plain",
-           attack: bool = True, passive: bool = False, opening: dict[str, int] | None = None) -> dict[str, Any] | None:
+           attack: bool = True, passive: bool = False, opening: dict[str, int] | None = None,
+           take_steps: tuple[str, ...] = (), lands_only: bool = False,
+           self_stops: tuple[str, ...] = DEFAULT_SELF_STOPS) -> dict[str, Any] | None:
     """The scripted answer. ``take``: texts of actions to prefer (any action whose label or description contains one,
-    case-insensitively, is taken before anything else); ``avoid``: texts of actions never taken. ``view``: the latest
+    case-insensitively, is taken before anything else), in any step or, with ``take_steps`` (``"endOfTurn"``, or
+    ``"opponent:endOfTurn"`` and ``"self:upkeep"`` for one player's turn), only in those steps of the latest
+    gameView; ``avoid``: texts of actions never taken; ``lands_only``: besides ``take``, play lands and cast nothing (a
+    person who keeps their spells for the windows in ``take_steps``); ``self_stops``: the person's own phase stops,
+    which the pass controls aim at. ``view``: the latest
     gameView and ``me`` the person's player id, which the pass controls (``pass_mode``) read; ``attack``: whether to
     attack with everything; ``passive``: take no action but those in ``take`` (a person who only passes). ``opening``
     (a mutable ``{"mulligans": N}``) scripts the London opening: the first N keep-or-mulligan prompts answer
@@ -113,10 +119,15 @@ def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[s
                    if not any(t.lower() in action_text(a).lower() for t in avoid)]
         wanted = [a for a in actions if a.get("type") != "undoMana" and not a.get("isManaAbility")
                   and any(t.lower() in action_text(a).lower() for t in take)]
+        if take_steps:
+            step = (view or {}).get("step")
+            whose = "self" if (view or {}).get("activePlayerId") == me else "opponent"
+            if step not in take_steps and f"{whose}:{step}" not in take_steps:
+                wanted = []
         lands = [a for a in actions if a.get("type") == "cast" and str(a.get("label", "")).startswith("Play ")]
         spells = [a for a in actions if a.get("type") == "cast" and a not in lands]
-        pick = (wanted or ([] if passive else lands or spells) or [None])[0]
-        return {"type": "act", "actionId": pick["id"]} if pick else pass_output(view, me, pass_mode)
+        pick = (wanted or ([] if passive else lands or ([] if lands_only else spells)) or [None])[0]
+        return {"type": "act", "actionId": pick["id"]} if pick else pass_output(view, me, pass_mode, self_stops)
     if kind == "chooseBoardTargets":
         chosen = (data.get("candidates") or [])[:max(1, data.get("minTargets") or 0)]
         return {"type": "boardTargets", "chosen": chosen}
@@ -152,6 +163,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--deck", default="Rally", help="the training deck to pick at the table")
     parser.add_argument("--take", default="", help="comma-separated texts of actions to take whenever offered "
                         "(for example the ninjutsu activation of a card)")
+    parser.add_argument("--take-steps", default="",
+                        help="comma-separated steps (StepKind names, or self:STEP and opponent:STEP for one player's "
+                        "turn) in which --take applies; elsewhere those actions are not preferred. Default: any step")
     parser.add_argument("--avoid", default="", help="comma-separated texts of actions never to take")
     parser.add_argument("--pass-mode", choices=("plain", "stops", "end-turn"), default="plain",
                         help="what a pass sends: plain (no target), stops (Space: run to the next stop) or end-turn "
@@ -160,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="the client's own phase stops (StepKind names), for --pass-mode stops and end-turn")
     parser.add_argument("--no-attack", action="store_true", help="declare no attackers")
     parser.add_argument("--passive", action="store_true", help="play no land and cast no spell: only pass (and take --take)")
+    parser.add_argument("--lands-only", action="store_true", help="play lands but cast no spell except those in --take")
     parser.add_argument("--concede-game", type=int, default=0,
                         help="concede this game (1, 2, ...) after --concede-after answered prompts")
     parser.add_argument("--concede-after", type=int, default=3)
@@ -177,6 +192,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     take = tuple(t for t in args.take.split(",") if t)
     avoid = tuple(t for t in args.avoid.split(",") if t)
+    take_steps = tuple(t for t in args.take_steps.split(",") if t)
     self_stops = tuple(t for t in args.self_stops.split(",") if t)
     latest_view: dict[str, Any] | None = None
     out = args.out.open("w", encoding="utf-8") if args.out else None
@@ -253,7 +269,8 @@ def main(argv: list[str] | None = None) -> int:
                     send({"type": "ListRooms"})
                     continue
                 output = answer(prompt, take, avoid, view=latest_view, me=slot, pass_mode=args.pass_mode,
-                                attack=not args.no_attack, passive=args.passive, opening=opening)
+                                attack=not args.no_attack, passive=args.passive, opening=opening,
+                                take_steps=take_steps, lands_only=args.lands_only, self_stops=self_stops)
                 if output is not None and output.get("type") == "pass" and (output.get("until") or output.get("exhaustStack")):
                     print(f"pass with {json.dumps({k: v for k, v in output.items() if k != 'type'})}", flush=True)
                 if output is not None:

@@ -40,7 +40,7 @@ from kernel_semantics_london_human_v1 import ordinary_semantic
 from kernel_combat_v2 import native_block_plan, BlockDeclaration, legacy_block_assignment, native_block_pick
 from kernel_arrangement_v2 import native_arrangement, native_arrangement_binding, native_arrangement_pick
 from kernel_order_v2 import TriggerOrder
-from kernel_selection_order_v2 import native_selection_order
+from kernel_selection_order_v2 import SelectionOrder, native_selection_order
 
 FLAT = "x_kernel_flat_v7"
 BRIDGE_FLAGS = ["--x-kernel-flat-v7", "--pauper-london-human-v1", "--private-v2-support"]
@@ -161,6 +161,24 @@ def error(request_id, code, message):
             "error": {"code": code, "message": message}}
 
 
+def native_window_seats(person_seat, first_seat):
+    """The bridge's seat list for the person's seat of the reset request. The bridge's p0 is the starting seat
+    (``reset`` hands it the seats in turn order), so the person is its p0 exactly when they play first."""
+    return ["p0" if person_seat == first_seat else "p1"]
+
+
+def settle_graveyard_order(plan):
+    """Finish a pure graveyard ordering for a seat that is not asked: each remaining position takes the first card
+    the prompt would have listed (card name, then object id), which is what answering the first candidate every time
+    gives. True when ``plan`` was such an ordering (cards going to their owner's graveyard together, nothing left to
+    select) and is now complete; False, with the plan untouched, for anything else."""
+    if not isinstance(plan, SelectionOrder) or plan.destination != "graveyard" or plan.selecting:
+        return False
+    while not plan.choose(0):
+        pass
+    return True
+
+
 def alias_flat(response):
     """The pinned helper modules (combat, arrangement, order, selection order) read the model input's row map
     under its V4 key. The bridge sends it as x_kernel_flat_v7; this process keeps an internal alias of the same
@@ -209,10 +227,19 @@ class NativePeer:
 class KernelEngine:
     known_cards = False
 
-    def __init__(self, peer, catalog, *, source_revision=None, known_cards=False):
+    def __init__(self, peer, catalog, *, source_revision=None, known_cards=False, engine_windows_seat=None,
+                 graveyard_order_seat=None):
         # known_cards needs a bridge that exports public history: `known` then
         # follows the Section 6.7 update table instead of the current look.
         self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
+        # The seat of a person (p0 or p1 of the reset request), or None. The
+        # bridge gives that seat every engine priority window; the other seat
+        # keeps the windows its model trained on.
+        self.engine_windows_seat = engine_windows_seat
+        # The seat of a person who is not asked to order cards going to their own graveyard together (a mill, a
+        # discard of several cards): `settle_graveyard_order` answers for them. The other seat is asked as before.
+        self.graveyard_order_seat = graveyard_order_seat
+        self.graveyard_orders_settled = []  # this game's orderings settled for that seat: the number of cards in each
         native = peer.request({"request_type": "hello"})
         if native["response_type"] != "hello_ok":
             raise ProjectionError("native bridge did not handshake")
@@ -314,16 +341,28 @@ class KernelEngine:
         self.answered, self.completed = 0, 0
         self.seat_steps, self.group_ids = {"p0": 0, "p1": 0}, {"p0": 0, "p1": 0}
         self.buffer = self.previews = None
+        self.graveyard_orders_settled = []
         secret = bytes.fromhex(request["game_secret"])
         first = rules["starting_seat"]
         self.projection = LondonHumanProjection(self.catalog, secret, first_seat=first, keywords=True)
         self.native_group = None
         self.history = PublicHistory()
         seats = request["seats"] if first == "p0" else list(reversed(request["seats"]))
-        self.current = self.peer.request({"request_type": "reset", "game_id": self.game, "format": "pauper-bo1",
+        native = {"request_type": "reset", "game_id": self.game, "format": "pauper-bo1",
             "seats": [{"seat": f"p{i}", "deck": {"catalog_id": entry["deck"]["catalog_id"]}} for i, entry in enumerate(seats)],
             "game_seed": int.from_bytes(hmac.new(secret, b"spellbench-kernel-v2/rng", hashlib.sha256).digest()[:8], "little"),
-            "max_decisions": (1 << 53) - 1, "max_steps": (1 << 53) - 1})
+            "max_decisions": (1 << 53) - 1, "max_steps": (1 << 53) - 1}
+        if self.engine_windows_seat is not None:
+            # Sent only when asked for: a bridge without the feature refuses the field, so a session never plays
+            # without the windows it promised.
+            native["engine_window_seats"] = native_window_seats(self.engine_windows_seat, first)
+        self.current = self.peer.request(native)
+        if self.current.get("response_type") == "error":
+            self.game = self.pending = None
+            print(f"kernel_engine_london_human_v1: the bridge refused the reset: {self.current.get('error')}",
+                  file=sys.stderr, flush=True)
+            return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows need a "
+                         "bridge built with them)")
         self.absorb_history()
         return self.respond(rid)
 
@@ -526,6 +565,13 @@ class KernelEngine:
                 self.root = deepcopy(self.current)
             if self.buffer is not None:
                 self.previews = PreviewCache()
+        if actor == self.graveyard_order_seat and settle_graveyard_order(self.buffer):
+            # Nothing is posed: the same native picks go to the bridge as if the seat had taken the first candidate
+            # of every ordering decision, so the game and what the other seat sees are those of that game.
+            self.graveyard_orders_settled.append(self.buffer.count)
+            self.commit_buffer()
+            self.buffer = self.previews = None
+            return self.respond(rid)
         if self.buffer:
             semantics = self.buffer.semantics()
             if isinstance(self.buffer, BlockDeclaration):
@@ -586,6 +632,14 @@ def main():
     parser.add_argument("--source-revision")
     parser.add_argument("--known-cards", action="store_true",
                         help="declare known_cards and track Section 6.7 knowledge (needs a history-exporting bridge)")
+    parser.add_argument("--engine-windows-seat", choices=("p0", "p1"),
+                        help="the seat of a person: the bridge gives it every engine priority window (upkeep, draw, "
+                             "beginning of combat, combat damage, end of combat, end step, its own spell on the "
+                             "stack); the other seat keeps the windows its model trained on")
+    parser.add_argument("--graveyard-order-seat", choices=("p0", "p1"),
+                        help="the seat of a person: it is not asked to order cards that go to its own graveyard "
+                             "together (a mill, a discard of several cards); they are ordered by card name. No "
+                             "card of the eight catalog decks reads graveyard order. The other seat is asked as before")
     args = parser.parse_args()
     if args.known_cards:
         # The Section 6.7 knowledge tracker has not been taught the pregame's draws and bottoms; the London human
@@ -594,7 +648,8 @@ def main():
     peer = NativePeer(args.bridge)
     try:
         engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision,
-                             known_cards=args.known_cards)
+                             known_cards=args.known_cards, engine_windows_seat=args.engine_windows_seat,
+                             graveyard_order_seat=args.graveyard_order_seat)
         while True:
             try:
                 payload = wire.read_line(sys.stdin.buffer)

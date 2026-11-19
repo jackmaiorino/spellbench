@@ -27,3 +27,71 @@ its bridge and its bots are not touched.
 - A seat sees its own hand during the pregame (`players[].hand`) and only a count of the other's.
 - The human's relay drops the model input of both generations (`DROPPED_EXTENSIONS`); the public history never names a
   card the viewer could not see.
+
+## Full priority for the person (`--full-priority`)
+
+By default both seats have the priority windows the bots trained on: the two main phases, declare attackers and
+declare blockers, with one action per combat priority round and no second action on one's own fresh spell. A person
+could not act in the opponent's end step or in their own upkeep.
+
+`python -m spellbench.human --client manabrew --full-priority` gives the person's seat every priority window the rules
+have: upkeep, draw, beginning of combat, combat damage, end of combat and the end step of either turn, and priority
+while their own spell or ability is on the stack. Each game's engine is started with `--engine-windows-seat` (the
+person's seat), and the bridge is asked for `engine_window_seats` in its reset. A bridge built without the feature
+refuses that reset, so a session never plays without the windows it promised.
+
+The bot's seat is unchanged, by construction: its decisions, its legal actions and its model input are those of a game
+without the option whenever the person passes at the new windows, bit for bit. What follows from that:
+
+- The bot does not respond to anything the person does in the six new steps. Its priority there is passed for it, as
+  it always was, because its model never had a priority decision in those steps. An instant or a flash creature cast
+  in the bot's end step or in the person's own upkeep cannot be countered.
+- In the main phases and the declare steps the bot responds as before. When the person holds priority and puts several
+  objects on the stack, the bot's first window comes after all of them.
+- The person is no longer held to one action per combat priority round. The bot still is.
+
+Host behaviour with the option: a stop or pass-until the client sets in any of the six steps is taken in that step
+(without it, the nearest step with a window); a window in which the person has only mana abilities is sent to the
+client, whose AUTOPASS countdown or Full control answers it (`--keep-mana-autopass` keeps the session passing those
+itself); a window with nothing but passing is passed by the session. The advisor shows no numbers at a priority window
+in the six steps or while the person's own object is on top of the stack. It still reads one kind of new window: a
+second action of the person's in one combat priority round, which the bot's surface does not have either.
+
+These games are unrated and never training data, like every game on this board.
+
+New windows are ordinary decisions: each one the person is given (also one the session passes for them) counts
+toward the game's step and decision caps, and the engine's own decision counters in the person's and the bot's
+observations advance with them. Those counters are not model input. Everything else of the bot's decisions is
+unchanged, as above.
+
+## Graveyard order for the person (`--auto-graveyard-order`)
+
+The engine asks a seat for the order in which cards that go to its graveyard together are put there, one card at a
+time: Balustrade Spy milling a library is dozens of decisions. No card of the eight catalog decks reads graveyard
+order (a test checks every deck card's rules text for it).
+
+`python -m spellbench.human --client manabrew --auto-graveyard-order` starts each game's engine with
+`--graveyard-order-seat` (the person's seat). For that seat the London human engine answers a pure graveyard ordering
+itself and poses nothing: each position takes the first card the prompt would have listed (card name, then object
+id). That covers a mill and the order of several discarded cards after the person has chosen them; choosing which
+cards to discard, the order of cards put on top of a library, and every other choice stay the person's.
+
+One more ordering is answered, by the session instead of the engine wrapper: when one look sends cards to several
+places (Winding Way: the chosen kind to the hand, the rest to the graveyard), the engine asks for the order of the
+cards within each place. The session takes the first card listed for the person's graveyard and their hand (a
+hand has no order, and no card in these decks uses graveyard order) and records the answer as `auto_order`. The
+bot still sees the graveyard in the order answered, exactly as when the person takes the first card by hand. The order of cards going back on top of or
+under a library (Lead the Stampede) is still asked. These answers are ordinary steps of the game.
+
+Nothing else moves: the bridge receives exactly the native steps of the game in which the person takes the first
+candidate of every ordering decision by hand, so the bot is shown the same decisions, byte for byte. One difference
+remains: a settled ordering is not a step or a decision of the game, so the game's step and decision counts are lower
+by the prompts not posed, and a game that runs into a step or decision cap reaches it later than the by-hand game
+would. The bot's seat is still asked for the order of its own mill, as on every board that uses this bridge. Leave the
+option out to be asked card by card.
+
+The audit behind "no card reads graveyard order" is a pinned list in
+`integrations/mtg_kernel/london_human/tests/test_graveyard_order_v1.py`: the 18 deck cards whose rules text mentions a
+graveyard, each read by hand. A deck change that adds one fails that test until the new card has been read. The text
+pattern beside it is a heuristic only. The list is checked against the deck lists the client and the catalog file
+carry, not against the decks compiled into a bridge build.
