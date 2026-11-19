@@ -86,4 +86,5 @@ option out to be asked card by card.
 The audit behind "no card reads graveyard order" is a pinned list in
 `integrations/mtg_kernel/london_human/tests/test_graveyard_order_v1.py`: the 18 deck cards whose rules text mentions a
 graveyard, each read by hand. A deck change that adds one fails that test until the new card has been read. The text
-pattern beside it is a heuristic only.
+pattern beside it is a heuristic only. The list is checked against the deck lists the client and the catalog file
+carry, not against the decks compiled into a bridge build.

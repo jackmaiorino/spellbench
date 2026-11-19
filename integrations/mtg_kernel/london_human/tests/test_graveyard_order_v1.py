@@ -8,7 +8,8 @@ Offline tests: what counts as a pure graveyard ordering, the order it gets, and 
 reads graveyard order: the deck cards whose rules text mentions a graveyard are a pinned, hand-audited list, so a new
 one fails the test until someone has read it (a text pattern is only the second line; it is a heuristic). Tests against
 the real London bridge (set MTG_KERNEL_LONDON_HUMAN_BRIDGE and MTG_KERNEL_PUBLIC_CATALOG; skipped otherwise): the
-bridge catalog's decks hold no card outside the audited pool; a Spy mirror in which the person mills their whole
+decks of the supplied catalog file (the export the engine wrapper checks deck ids against; this is not a reading of
+the decks compiled into the bridge) hold no card outside the audited pool; a Spy mirror in which the person mills their whole
 library is never asked to order and ends naturally; the bridge receives exactly the native steps of the game in which
 the person takes the first candidate of every ordering decision by hand, and every decision addressed to the other
 seat, its model input included, is byte-identical in the two games. A settled ordering is not a step or a decision of
@@ -172,11 +173,13 @@ class RecordingPeer(NativePeer):
 
 
 @needs_bridge
-def test_the_bridge_catalogs_decks_hold_no_card_outside_the_audited_pool() -> None:
+def test_the_supplied_catalog_files_decks_hold_no_card_outside_the_audited_pool() -> None:
+    """The catalog FILE the session is given, not the bridge binary: the bridge picks its compiled decks by catalog
+    id and nothing here reads them, so a bridge whose compiled decks differ from this file is not caught."""
     catalog = json.loads(Path(CATALOG).read_bytes())
     in_catalog = {row["name"] for entry in catalog["catalog"] for row in entry["decklist"]}
     assert len(catalog["catalog"]) == 8 and in_catalog
-    assert sorted(in_catalog - deck_card_names()) == [], "the bridge plays a card the graveyard audit never saw"
+    assert sorted(in_catalog - deck_card_names()) == [], "the catalog lists a card the graveyard audit never saw"
 
 
 class World:
