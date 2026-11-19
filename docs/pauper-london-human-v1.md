@@ -76,6 +76,12 @@ itself and poses nothing: each position takes the first card the prompt would ha
 id). That covers a mill and the order of several discarded cards after the person has chosen them; choosing which
 cards to discard, the order of cards put on top of a library, and every other choice stay the person's.
 
+One more ordering is answered, by the session instead of the engine wrapper: when one look sends cards to several
+places (Winding Way: the chosen kind to the hand, the rest to the graveyard), the engine asks for the order of the
+cards within each place. The session takes the first card listed for a place nothing reads the order of, the
+person's graveyard and their hand, and records the answer as `auto_order`. The order of cards going back on top of or
+under a library (Lead the Stampede) is still asked. These answers are ordinary steps of the game.
+
 Nothing else moves: the bridge receives exactly the native steps of the game in which the person takes the first
 candidate of every ordering decision by hand, so the bot is shown the same decisions, byte for byte. One difference
 remains: a settled ordering is not a step or a decision of the game, so the game's step and decision counts are lower

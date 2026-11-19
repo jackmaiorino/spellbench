@@ -7,7 +7,7 @@ plan) at once, so the page sees only real decisions. Everything else waits for t
 relay sends it as a header, the page carries it from its URL.
 
 Each answered decision of the human seat is appended to ``<log_dir>/<game_id>.<seat>.jsonl`` (``LOG_SCHEMA``),
-with how it was answered (``human``, ``plan``, ``single``, ``auto_pass``) and the wall time it took.
+with how it was answered (``human``, ``plan``, ``single``, ``auto_pass``, ``auto_order``) and the wall time it took.
 
 Mana: the kernel engine declares ``engine_autopay``, and its autopay spends only lands and plain tap-for-mana
 sources. A spell affordable only with mana from a costed source (an Eldrazi Spawn's sacrifice, a Treasure) is not
@@ -255,7 +255,10 @@ FULL_PRIORITY_NOTE = ("Full priority: you get priority in every step, and while 
                       "combat, combat damage, end of combat or the end step (so a spell you cast there cannot be "
                       "countered). In the main phases and the declare steps it responds as always.")
 GRAVEYARD_ORDER_NOTE = ("Graveyard order: cards that go to your graveyard together (a mill, a discard of several "
-                        "cards) are ordered for you, by name. No card in these decks reads graveyard order.")
+                        "cards, the rest of a look) are ordered for you, by name, and so are the cards one look puts "
+                        "into your hand. No card in these decks reads graveyard order.")
+# Where the order of the cards one look (an arrangement) sends there is read by nothing: the session answers it.
+UNORDERED_DESTINATIONS = frozenset({"graveyard", "hand"})
 PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the new seven are drawn, then asks Keep or "
                  "Mulligan on the smaller hand (real tables ask Keep or Mulligan first, then bottom).")
 
@@ -264,7 +267,9 @@ class Hub:
     """All session state, guarded by one condition variable. A decision is answered ``human`` (the person chose),
     ``plan`` (a step of a combat plan the person made), ``single`` (one candidate) or ``auto_pass`` (the session
     declined for the person: a priority pass at which only passing or mana was possible or no stop applies, or the
-    no-attackers answer to a declaration that a hold they set runs past)."""
+    no-attackers answer to a declaration that a hold they set runs past) or ``auto_order`` (with
+    ``auto_graveyard_order``: the order of cards that one look puts into the person's graveyard or hand, where no
+    order exists that anything reads; the first card listed is taken)."""
 
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
                  opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False,
@@ -272,8 +277,12 @@ class Hub:
                  client_autopass: bool = False, auto_graveyard_order: bool = False) -> None:
         self.cond = threading.Condition()
         # True: the engine orders cards going to the person's own graveyard together without asking (the session
-        # told it the person's seat). Only said in the log here; nothing in this class answers such a prompt.
+        # told it the person's seat), and this class answers the order of the cards one look puts into their
+        # graveyard or hand (``_settled_order``).
         self.auto_graveyard_order = auto_graveyard_order
+        # The arrangement under way: its group id and where the person sent each card of it (``_conclude``).
+        self._arranged_group: Any = None
+        self._arranged: dict[Any, str] = {}
         # True: the engine gives the person's seat every priority window (upkeep, draw, beginning of combat, combat
         # damage, end of combat, the end step, and their own spell on the stack), so a stop set in any of those steps
         # is taken there. The bot's seat is unchanged. False: the engine's trained windows only.
@@ -427,6 +436,7 @@ class Hub:
             if self.auto_graveyard_order:
                 self._note("game", GRAVEYARD_ORDER_NOTE)
             self.plan = self.skip = self.game_over = None
+            self._arranged_group, self._arranged = None, {}
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
             self.hold = self.auto_attack_group = self.forced_attack_group = self.passed_at = self.pending_key = None
             self.passed_keys = set()
@@ -929,7 +939,14 @@ class Hub:
         chosen = next(c for c in decision["candidates"] if c["candidate_id"] == candidate_id)
         semantic = chosen.get("semantic") or {}
         me = (self.game or {}).get("seat")
-        if semantic.get("kind") not in NARRATED_KINDS and how != "plan" and len(decision["candidates"]) > 1:
+        if semantic.get("kind") == "arrange_card":
+            # where this card of the look goes: the order within a destination nothing reads is settled later
+            group = (decision.get("group") or {}).get("group_id")
+            if self._arranged_group != group:
+                self._arranged_group, self._arranged = group, {}
+            self._arranged[(semantic.get("card") or {}).get("object_id")] = str(semantic.get("destination"))
+        if (semantic.get("kind") not in NARRATED_KINDS and how not in ("plan", "auto_order")
+                and len(decision["candidates"]) > 1):
             label = chosen_text or text.candidate(semantic, me)
             self._note("you", f"You choose: {label}", depth=1, facts=[("choice", me)])
         record = {"kind": "decision", "step": decision.get("seat_step"), "candidate_id": candidate_id,
@@ -1074,6 +1091,9 @@ class Hub:
         planned = self._from_plan(decision)
         if planned is not None:
             return "plan", planned
+        settled = self._settled_order(decision)
+        if settled is not None:
+            return "auto_order", settled
         declined = self._decline_attack(decision)
         if declined is not None:
             return "auto_pass", declined  # a hold the person set runs past this turn's attack: no attackers
@@ -1090,6 +1110,25 @@ class Hub:
             return "auto_pass", passing  # mana is paid automatically; floating it alone does nothing
         real = self.real_action_stops and bool(real_actions(candidates))
         return ("human", None) if self._stops_here(decision, real) else ("auto_pass", passing)
+
+    def _settled_order(self, decision: Mapping[str, Any]) -> int | None:
+        """The first candidate of an ordering the person is not asked (``auto_graveyard_order``), or ``None``. Only
+        the ordering step of an arrangement (a look that sends cards to several places) whose candidates all go to
+        the person's graveyard or hand: the destinations are those the person gave the cards earlier in the same
+        group, so a card with no recorded destination, or one going to the top or bottom of a library, is asked."""
+        if not self.auto_graveyard_order:
+            return None
+        candidates = decision.get("candidates") or []
+        semantics = [c.get("semantic") or {} for c in candidates]
+        if not semantics or any(s.get("kind") != "order_pick" or s.get("purpose") != "arrangement" for s in semantics):
+            return None
+        if (decision.get("group") or {}).get("group_id") != self._arranged_group:
+            return None
+        destinations = {self._arranged.get(((s.get("item") or {}).get("object") or {}).get("object_id"))
+                        for s in semantics}
+        if not destinations <= UNORDERED_DESTINATIONS:
+            return None
+        return candidates[0]["candidate_id"]
 
     def _stops_here(self, decision: Mapping[str, Any], real: bool = False) -> bool:
         """Whether this priority goes to the person. ``real``: they have a legal action besides passing and mana

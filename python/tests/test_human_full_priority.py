@@ -364,3 +364,91 @@ def test_the_scripted_clients_own_stops_reach_its_pass() -> None:
     assert default["until"] == {"playerId": "player-0", "phase": "main1", "throughCombat": False}
     mine = answer(prompt, view=view, me="player-0", pass_mode="stops", self_stops=("upkeep", "main1"))
     assert mine["until"] == {"playerId": "player-0", "phase": "upkeep", "throughCombat": False}
+
+
+# -- the order of the cards one look sends to the graveyard or the hand ------------------------------------------------
+
+
+def look_card(name: str, object_id: str) -> dict:
+    return {"object_id": object_id, "card_name": name, "zone": "library", "owner_seat": ME, "controller_seat": ME}
+
+
+def arrange(card: dict, destinations: list[str], index: int, count: int, group: int = 7) -> dict:
+    d = decision([])
+    d["candidates"] = [{"candidate_id": i, "display_text": None, "semantic": {
+        "kind": "arrange_card", "source": None, "purpose": "dig", "card": card, "card_index": index, "card_count": count,
+        "destination": destination}} for i, destination in enumerate(destinations)]
+    d["context"] = {"kind": "choice", "source": None, "purpose": None, "text": None, "rewind": False}
+    d["group"] = {"group_id": group, "substep_index": index, "substep_count": 2 * count - 1}
+    return d
+
+
+def order(cards: list[dict], position: int, count: int, group: int = 7, purpose: str = "arrangement") -> dict:
+    d = decision([])
+    d["candidates"] = [{"candidate_id": i, "display_text": None, "semantic": {
+        "kind": "order_pick", "source": None, "purpose": purpose, "item": {"object": card}, "position": position,
+        "count": count}} for i, card in enumerate(cards)]
+    d["context"] = {"kind": "choice", "source": None, "purpose": None, "text": None, "rewind": False}
+    d["group"] = {"group_id": group, "substep_index": count + position, "substep_count": 2 * count - 1}
+    return d
+
+
+def answer_now(hub: Hub, request: dict, candidate_id: int | None = None) -> str:
+    """Take a decision in as the session does; one the person would be asked is answered with ``candidate_id``."""
+    with hub.cond:
+        how, auto = hub._begin(request, {})
+        if auto is None:
+            assert candidate_id is not None, "the person was asked"
+            hub.pending = None
+            how, auto = "human", candidate_id
+        hub._conclude(request, how, auto, None, 0.0)
+    return how
+
+
+WALL, WILDLING, STAMPEDE, SPY = (look_card("Wall of Roots", "o-w"), look_card("Sagu Wildling", "o-s"),
+                                 look_card("Lead the Stampede", "o-l"), look_card("Balustrade Spy", "o-b"))
+
+
+def winding_way(hub: Hub) -> list[str]:
+    """Winding Way: three creatures to the hand, the rest to the graveyard, then the order of all four."""
+    hows = [answer_now(hub, arrange(WALL, ["hand"], 0, 4)), answer_now(hub, arrange(WILDLING, ["hand"], 1, 4)),
+            answer_now(hub, arrange(STAMPEDE, ["graveyard"], 2, 4)), answer_now(hub, arrange(SPY, ["hand"], 3, 4))]
+    hows.append(answer_now(hub, order([STAMPEDE], 0, 4)))                    # the graveyard's one card
+    hows.append(answer_now(hub, order([SPY, WILDLING, WALL], 1, 4), 0))      # the three for the hand
+    hows.append(answer_now(hub, order([WILDLING, WALL], 2, 4), 0))
+    return hows
+
+
+def test_the_order_of_cards_one_look_sends_to_the_graveyard_or_hand_is_not_asked() -> None:
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    assert winding_way(hub) == ["single"] * 5 + ["auto_order", "auto_order"]
+    assert hub.pending is None
+    assert not [line for line in hub.log if "You choose" in line["text"]]  # the session's pick is not the person's
+
+
+def test_without_the_option_the_same_look_asks_its_order() -> None:
+    hub = Hub(real_action_stops=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    assert winding_way(hub) == ["single"] * 5 + ["human", "human"]
+
+
+def test_the_order_of_cards_going_back_on_a_library_is_always_the_persons() -> None:
+    """Lead the Stampede: the rest goes to the bottom in an order the person chooses. Also asked: an ordering whose
+    cards have no recorded destination, one of another group, and any ordering that is not an arrangement's."""
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    answer_now(hub, arrange(WALL, ["hand", "bottom"], 0, 3), 1)
+    answer_now(hub, arrange(WILDLING, ["hand", "bottom"], 1, 3), 1)
+    answer_now(hub, arrange(SPY, ["hand", "bottom"], 2, 3), 0)
+    assert answer_now(hub, order([WILDLING, WALL], 0, 3), 0) == "human"       # two for the bottom
+    assert answer_now(hub, order([WILDLING, WALL], 0, 3, group=8), 0) == "human"  # another group: nothing recorded
+    assert answer_now(hub, order([WILDLING, WALL], 0, 2, purpose="library_top"), 0) == "human"
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    assert answer_now(hub, order([SPY, WALL], 0, 4), 0) == "human"            # no destinations known at all
+    mixed = Hub(real_action_stops=True, auto_graveyard_order=True)
+    mixed.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    answer_now(mixed, arrange(WALL, ["graveyard", "bottom"], 0, 2), 0)
+    answer_now(mixed, arrange(SPY, ["graveyard", "bottom"], 1, 2), 1)
+    assert answer_now(mixed, order([SPY, WALL], 0, 2), 0) == "human"          # a card of it goes to the library
