@@ -31,7 +31,7 @@ TOKEN_ENV = "HUMAN_SEAT_TOKEN"
 # The model's input tensor is large and means nothing to a person; everything else is forwarded unchanged. A session
 # with an advisor (``advisor.py``) asks for it at hello: its own scorer reads it, and the server takes it out of the
 # decision before anything of the person's view sees it.
-DROPPED_EXTENSIONS = ("x_kernel_flat_v4", "x_kernel_flat_v7")
+DROPPED_EXTENSIONS = ("x_kernel_flat_v4", "x_kernel_flat_v7", "x_advisor_line_v1")
 
 
 class Relay:
