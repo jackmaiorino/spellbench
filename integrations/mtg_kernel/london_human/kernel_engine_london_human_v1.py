@@ -581,6 +581,20 @@ class KernelEngine:
         own choice as a protocol semantic (the client's words come from it), read from the person's own model input
         on the clone. Nothing else of the clone is kept: no counts, no opponent choice, no timing."""
         started = time.perf_counter()
+        try:
+            steps, stop, result, ids = self._play_line(started)
+        except (ProjectionError, ValueError, KeyError, IndexError, TypeError) as exc:
+            # The line never touches the game: whatever fails in it ends the line, never the game.
+            print(f"kernel_engine_london_human_v1: planned line stopped: {type(exc).__name__}: {exc}",
+                  file=sys.stderr, flush=True)
+            steps, stop, result, ids = [], "unavailable", None, []
+        if self.line_timing is not None:
+            with open(self.line_timing, "a", encoding="utf-8") as stream:
+                stream.write(json.dumps({"game": self.game, "step": self.current["step"], "choices": len(ids),
+                                         "stop": stop, "seconds": round(time.perf_counter() - started, 6)}) + "\n")
+        return {"schema": LINE_SCHEMA, "steps": steps, "stop": stop, "result": result}
+
+    def _play_line(self, started):
         projection = deepcopy(self.projection)  # the clone's objects never enter the game's own projection
         root, view = self.current, self.current
         ids, steps, stop, result = [], [], "bound", None
@@ -591,6 +605,8 @@ class KernelEngine:
                 break
             raw = json.loads(view["extensions"]["x_kernel_v5"]["observation_json"])
             support = view["extensions"]["x_kernel_v2_support"]
+            if view is not root:
+                projection.project(raw, support, None)  # the clone view's objects, as the game's own views are
             steps.append(ordinary_semantic(view["candidates"][pick]["semantic"], raw, support, projection,
                                            view["group"], candidate_id=pick))
             ids.append(pick)
@@ -612,11 +628,7 @@ class KernelEngine:
             if time.perf_counter() - started > self.line_seconds:
                 stop = "time"
                 break
-        if self.line_timing is not None:
-            with open(self.line_timing, "a", encoding="utf-8") as stream:
-                stream.write(json.dumps({"game": self.game, "step": root["step"], "choices": len(ids), "stop": stop,
-                                         "seconds": round(time.perf_counter() - started, 6)}) + "\n")
-        return {"schema": LINE_SCHEMA, "steps": steps, "stop": stop, "result": result}
+        return steps, stop, result, ids
 
     def _line_pick(self, view):
         """The scorer's top row (the first of the highest, as the panel orders them) of a native decision of the
