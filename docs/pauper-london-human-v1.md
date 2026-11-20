@@ -77,8 +77,10 @@ asks nobody where it cannot:
 - **A game in which no card of either deck list reads graveyard order** (every game of the eight decks today): each
   game's engine is started with `--auto-graveyard-order` and asks the bridge for the training rule
   (`auto_graveyard_order` on its reset). Neither the person nor the bot is asked; the graveyard ends up in the order
-  training produced. The bot's decisions are byte for byte those of a game without the option up to the first
-  ordering it would have been asked.
+  training produced. The one ordering the protocol itself adds, the order of the cards of a multi-card discard after
+  they have been chosen, is completed by the engine for both seats with the first card listed (the completion the
+  bot's own proposals for the discard are scored with). The bot's decisions are byte for byte those of a game
+  without the option up to the first ordering it would have been asked.
 - **A game with such a card:** both players are asked, as the rules say. The person orders each batch in one step.
   The bot is asked as before, card by card through its model.
 - Which cards read graveyard order is data: `python/spellbench/human/graveyard_order_cards_v1.json`, with its audit

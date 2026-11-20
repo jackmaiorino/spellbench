@@ -38,7 +38,9 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parents[1]))
 sys.path.insert(0, str(HERE.parents[3] / "python"))
 
-from kernel_engine_london_human_v1 import FLAT, HISTORY, KernelEngine, NativePeer, graveyard_readers  # noqa: E402
+from kernel_engine_london_human_v1 import (FLAT, HISTORY, KernelEngine, NativePeer, graveyard_readers,  # noqa: E402
+                                           settle_graveyard_order)
+from kernel_selection_order_v2 import SelectionOrder  # noqa: E402
 from spellbench import wire  # noqa: E402
 from spellbench.digests import card_name_domain, deck_id  # noqa: E402
 from spellbench.human import graveyard_order  # noqa: E402
@@ -104,6 +106,28 @@ def test_a_reader_in_either_deck_list_makes_the_game_order_relevant() -> None:
     assert graveyard_readers(decks, [seat("A"), seat("B")]) == ["Gurmag Angler"]
     assert graveyard_readers(decks, [seat("B"), seat("A")]) == ["Gurmag Angler"]
     assert graveyard_order.readers(["Gurmag Angler", "Gurmag Angler", "Island"]) == ["Gurmag Angler"]
+
+
+def names_to_cards(names: list[str]) -> list[dict]:
+    return [{"object_id": f"o{i:02d}", "card_name": name} for i, name in enumerate(names)]
+
+
+def test_the_ordering_step_after_a_discard_is_settled_in_the_order_the_prompt_lists_the_cards() -> None:
+    hand = names_to_cards(["Fiery Temper", "Mountain", "Lava Dart", "Faithless Looting"])
+    plan = SelectionOrder(hand, source=None, count=2, destination="graveyard", select=True, selection_purpose="discard")
+    assert settle_graveyard_order(plan) is False and plan.selecting  # choosing the cards is the seat's own decision
+    plan.choose(1)
+    assert plan.choose(0) is False  # both chosen; the order of the two is the protocol's extra step
+    assert settle_graveyard_order(plan) is True
+    assert plan.result() == {"graveyard": ("o03", "o00")}  # Faithless Looting, then Fiery Temper: first listed
+
+
+def test_library_orders_and_anything_else_are_never_settled() -> None:
+    top = SelectionOrder(names_to_cards(["Island", "Brainstorm", "Ponder"]), source=None, count=3, destination="top",
+                         select=False)
+    assert settle_graveyard_order(top) is False and top.order == []
+    for other in (None, object(), {"destination": "graveyard"}):
+        assert settle_graveyard_order(other) is False
 
 
 # -- against the real bridge ---------------------------------------------------------------------------------------
@@ -236,6 +260,6 @@ def test_both_seats_decisions_are_byte_identical_up_to_the_first_ordering_the_ol
         off = play(seed, auto=False, stop_at_first_ordering=True)
         on = play(seed, auto=True, limit=len(off["decisions"]))
         assert on["decisions"] == off["decisions"], f"seed {seed}: a decision before the first ordering differs"
-        assert any(FLAT in d for d in on["decisions"])  # model input included
+        assert any(FLAT in d.decode() for d in on["decisions"])  # model input included
         compared += len(off["decisions"])
     assert compared > 200, compared

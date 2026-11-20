@@ -40,7 +40,7 @@ from kernel_semantics_london_human_v1 import ordinary_semantic
 from kernel_combat_v2 import native_block_plan, BlockDeclaration, legacy_block_assignment, native_block_pick
 from kernel_arrangement_v2 import native_arrangement, native_arrangement_binding, native_arrangement_pick
 from kernel_order_v2 import TriggerOrder
-from kernel_selection_order_v2 import native_selection_order
+from kernel_selection_order_v2 import SelectionOrder, native_selection_order
 from spellbench.human import graveyard_order
 
 FLAT = "x_kernel_flat_v7"
@@ -166,6 +166,19 @@ def native_window_seats(person_seat, first_seat):
     """The bridge's seat list for the person's seat of the reset request. The bridge's p0 is the starting seat
     (``reset`` hands it the seats in turn order), so the person is its p0 exactly when they play first."""
     return ["p0" if person_seat == first_seat else "p1"]
+
+
+def settle_graveyard_order(plan):
+    """Finish the ordering step of cards going to a graveyard together that nobody is asked in a game without a
+    reader: the step the protocol adds after a multi-card discard (the engine's own batch orderings, a mill above
+    all, are already gone under the training rule). Each position takes the first card listed, which is the
+    completion the bot's own proposals for the discard were scored with. True when ``plan`` was such an ordering
+    (cards bound for a graveyard, nothing left to select) and is now complete; False, untouched, otherwise."""
+    if not isinstance(plan, SelectionOrder) or plan.destination != "graveyard" or plan.selecting:
+        return False
+    while not plan.choose(0):
+        pass
+    return True
 
 
 def graveyard_readers(decks, seats):
@@ -576,6 +589,12 @@ class KernelEngine:
                 self.root = deepcopy(self.current)
             if self.buffer is not None:
                 self.previews = PreviewCache()
+        if (self.graveyard_order or {}).get("how") == "settled" and settle_graveyard_order(self.buffer):
+            # Either seat: nothing is posed, and the bridge gets the native picks of a seat that took the first
+            # candidate of every ordering substep.
+            self.commit_buffer()
+            self.buffer = self.previews = None
+            return self.respond(rid)
         if self.buffer:
             semantics = self.buffer.semantics()
             if isinstance(self.buffer, BlockDeclaration):
