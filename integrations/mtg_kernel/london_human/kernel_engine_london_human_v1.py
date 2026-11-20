@@ -17,6 +17,7 @@ import hmac
 import json
 import subprocess
 import sys
+import threading
 import time
 import zlib
 from collections import OrderedDict
@@ -56,17 +57,20 @@ PREVIEW_CACHE_BYTES = 16 * 1024 * 1024  # response lines; parsed views take seve
 LINE = "x_advisor_line_v1"
 LINE_SCHEMA = "spellbench-advisor-line/v1"
 LINE_STEPS = 8         # the person's choices in one line at most: the line's only bound
-# The line scorer's answer timeout (seconds). A scorer that does not answer in time is dropped for the session and
-# the lines end "unavailable": the person's decision waits at most this long for one choice of a line.
+# The line scorer's time for all the reads of one line (seconds), the whole exchange (writing the request included)
+# supervised from outside it. A scorer that runs past it is dropped for the session (closed off the decision's path)
+# and the lines end "unavailable". The scorer reads only the person's own model input, which is the same whatever the
+# opponent holds, so this deadline depends on no hidden card. The bridge is the game's own process and has no such
+# deadline: a bridge that hangs hangs the game with or without the line.
 LINE_SCORER_TIMEOUT_S = 2.0
 # Why a line ends. From the bridge: the opponent decides something other than a bare priority pass; the next step
-# would show a hidden card (a draw, a mill, a search, a look or reveal, the opponent's hand changing); it would draw
-# a random outcome; the turn ends; the game ends (with the result for the person: this turn, or a later one); the
-# game ends without a result. From the planner: the next choice is a grouped one (blocks, a card order, a trigger
+# would show a hidden card (a draw, a mill, a search, a look or reveal, the opponent's hand changing) or draw a random
+# outcome, one reason "unseen" for both (which one a resolution produces can depend on the hidden cards); the turn
+# ends; the game ends (with the result for the person: this turn, or a later one); the game ends without a result. From the planner: the next choice is a grouped one (blocks, a card order, a trigger
 # order), which the line does not play; the bound of choices; the scorer cannot read the next choice or is gone.
 # No wall-clock bound: how long the clone takes depends on whether the opponent's windows were posed, which depends on
 # their hidden hand, so time never decides what the line shows.
-LINE_STOPS = ("opponent_decision", "hidden", "chance", "turn_ends", "game_end", "game_end_later_turn", "no_result",
+LINE_STOPS = ("opponent_decision", "unseen", "turn_ends", "game_end", "game_end_later_turn", "no_result",
               "grouped", "bound", "unreadable", "unavailable")
 ARRANGEMENTS = ("scry", "look_select", "look", "reveal_partition", "mill", "put_on_top", "discard_order")
 
@@ -585,6 +589,7 @@ class KernelEngine:
         from the person's own model input on the clone. Nothing else of the clone is kept: no counts, no opponent
         choice, no timing."""
         started = time.perf_counter()
+        self._line_budget = LINE_SCORER_TIMEOUT_S
         try:
             steps, stop, result, ids = self._play_line()
         except (ProjectionError, ValueError, KeyError, IndexError, TypeError, OSError) as exc:
@@ -641,14 +646,29 @@ class KernelEngine:
         if self.line_scorer is None:
             return None
         decision = {"candidates": view["candidates"], "acting_seat": self.line_seat, "seat_step": 0}
-        try:
-            read = self.line_scorer.read(f"line:{self.game}", decision, view["extensions"].get(FLAT))
-        except AdvisorError as exc:
-            print(f"kernel_engine_london_human_v1: the planned line's scorer stopped: {exc}", file=sys.stderr,
+        scorer, box = self.line_scorer, {}
+
+        def exchange():
+            try:
+                box["read"] = scorer.read(f"line:{self.game}", decision, view["extensions"].get(FLAT))
+            except Exception as exc:  # noqa: BLE001 - any failure of the scorer drops it
+                box["error"] = exc
+
+        # The whole exchange (writing the request, reading the answer) runs in a thread of its own, so a scorer that
+        # stops reading cannot hold the decision past the line's budget.
+        worker = threading.Thread(target=exchange, daemon=True, name="planned-line-scorer")
+        began = time.monotonic()
+        worker.start()
+        worker.join(max(0.0, self._line_budget))
+        self._line_budget -= time.monotonic() - began
+        if worker.is_alive() or "error" in box:
+            why = box.get("error") or f"no answer within the line's {LINE_SCORER_TIMEOUT_S:g} s"
+            print(f"kernel_engine_london_human_v1: the planned line's scorer is dropped: {why}", file=sys.stderr,
                   flush=True)
-            self.line_scorer.close()
             self.line_scorer = None
+            threading.Thread(target=scorer.close, daemon=True, name="planned-line-scorer-close").start()
             return None
+        read = box["read"]
         if "unavailable" in read or not read.get("rows"):
             return None
         top = max(read["rows"], key=lambda row: row["p"])  # max keeps the first of equal rows

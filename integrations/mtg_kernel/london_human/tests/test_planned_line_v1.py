@@ -16,6 +16,7 @@ import json
 import os
 import random
 import sys
+import threading
 import time
 from collections import Counter
 from pathlib import Path
@@ -149,7 +150,7 @@ def test_the_line_is_on_the_persons_ordinary_decisions_only_and_the_game_is_the_
             on.close()
             off.close()
     print(f"lines {lined}, person decisions without one {unlined_person}, stops {dict(stops)}, results {dict(results)}")
-    assert lined > 100 and {"opponent_decision", "turn_ends", "hidden"} <= set(stops), dict(stops)
+    assert lined > 100 and {"opponent_decision", "turn_ends", "unseen"} <= set(stops), dict(stops)
 
 
 @needs_bridge
@@ -229,10 +230,32 @@ def test_what_a_line_shows_never_depends_on_time_and_its_failures_end_only_the_l
 
         class Failing(FirstNotPass):
             def read(self, game_id, decision, extension):
-                raise engine_module.AdvisorError("the scorer did not answer within 2 s")
+                raise engine_module.AdvisorError("the scorer answered something else")
 
         world.engine.line_scorer = Failing()
         assert world.engine.planned_line()["stop"] == "unavailable" and world.engine.line_scorer is None
+
+        class Stalled(FirstNotPass):
+            """Stops answering (as a scorer that stops reading its input blocks the request's write)."""
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.release, self.closed = threading.Event(), threading.Event()
+
+            def read(self, game_id, decision, extension):
+                self.release.wait(30)
+                return super().read(game_id, decision, extension)
+
+            def close(self) -> None:
+                self.closed.set()
+
+        stalled = Stalled()
+        world.engine.line_scorer = stalled
+        started = time.monotonic()
+        assert world.engine.planned_line()["stop"] == "unavailable"
+        assert time.monotonic() - started < engine_module.LINE_SCORER_TIMEOUT_S + 1.0
+        assert world.engine.line_scorer is None and stalled.closed.wait(5)
+        stalled.release.set()
     finally:
         world.close()
 

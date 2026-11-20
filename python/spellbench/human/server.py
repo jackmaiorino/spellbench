@@ -71,8 +71,7 @@ LINE_SCHEMA = "spellbench-advisor-line/v1"
 LINE_TITLE = "Bot's line (its top choice at each step), if the opponent does not respond"
 LINE_ENDS = {
     "opponent_decision": "then the opponent has a choice to make",
-    "hidden": "then a hidden card would be seen (a draw, a look, a reveal)",
-    "chance": "then something random would happen",
+    "unseen": "then a hidden card or a random outcome would be seen (a draw, a search, a look, a shuffle)",
     "turn_ends": "then the turn ends",
     "grouped": "then a choice the line does not play (blockers, an order)",
     "no_result": "then the game ends without a result",
