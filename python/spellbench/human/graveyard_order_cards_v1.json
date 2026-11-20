@@ -1,6 +1,6 @@
 {
  "schema": "spellbench-graveyard-order-cards/v1",
- "audit": "2026-11-19, by reading each card's rules text (python/spellbench/human/manabrew/cards.json) and the engine's implementation note (mtg-kernel engine.rs, RuntimeRulesV1). A card is a reader when its rules or this engine's implementation of it depend on the order of cards in a graveyard. A card that joins a deck pool is read and added to one of the two lists below before it is played; the test python/tests/test_human_graveyard_order.py fails until it is.",
+ "audit": "2026-11-19, by reading each card's rules text (python/spellbench/human/manabrew/cards.json) and the engine's implementation note (mtg-kernel engine.rs, RuntimeRulesV1). A card is a reader when its rules or this engine's implementation of it depend on the order of cards in a graveyard. A card that joins a deck pool is read and added to one of the two lists below before it is played; the test integrations/mtg_kernel/london_human/tests/test_graveyard_order_v1.py fails until it is (it also checks that the catalog the engine reads holds the client's decks card for card).",
  "readers": {
   "Gurmag Angler": "Delve: this engine exiles the oldest graveyard cards first (mana::delve_payment_plan), and it refuses its graveyard rule for a game with a Delve card. In no deck of the eight-deck pool."
  },
@@ -8,14 +8,14 @@
   "Balustrade Spy": "mills a target player until a land; no order read",
   "Blood Fountain": "returns chosen creature cards",
   "Dread Return": "returns a chosen creature card; flashback",
-  "Eviscerator's Insight": "looks at the top cards of a library; puts the rest into the graveyard",
+  "Eviscerator's Insight": "draws two; flashback from the graveyard (sacrifice an artifact or creature as a cost)",
   "Faithless Looting": "discards; flashback",
   "Fiery Temper": "madness",
   "Ichor Wellspring": "draws when it goes to the graveyard",
   "Lava Dart": "flashback by sacrificing a Mountain",
   "Lembas": "shuffled into the library from the graveyard",
   "Lotleth Giant": "counts creature cards in a graveyard",
-  "Masked Vandal": "exiles a chosen card from an opponent's graveyard",
+  "Masked Vandal": "may exile a chosen creature card from your own graveyard",
   "Nihil Spellbomb": "exiles a whole graveyard",
   "Prismatic Strands": "flashback by tapping a white creature",
   "Pulse of Murasa": "returns a chosen creature or land card",

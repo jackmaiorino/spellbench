@@ -365,6 +365,22 @@ def test_a_game_with_a_reader_says_both_players_order_and_why(tmp_path) -> None:
     assert any("matters in this game (Gurmag Angler)" in line and "one step" in line for line in texts)
 
 
+def test_the_session_reads_relevance_from_the_engines_catalog(tmp_path) -> None:
+    import json
+
+    catalog = {"catalog": [{"catalog_id": "Spy", "decklist": [{"name": "Balustrade Spy", "count": 4}]},
+                           {"catalog_id": "Delve", "decklist": [{"name": "Gurmag Angler", "count": 4}]}]}
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(catalog), encoding="utf-8")
+    doc = {"engine": {"command": ["python", "engine.py", "--bridge", "b", "--catalog", str(path)]}}
+    decks = session.engine_catalog(doc)
+    from spellbench.human import graveyard_order
+    assert graveyard_order.game_readers(decks, ["Spy", "Spy"]) == []
+    assert graveyard_order.game_readers(decks, ["Spy", "Delve"]) == ["Gurmag Angler"]
+    with pytest.raises(SystemExit):
+        session.engine_catalog({"engine": {"command": ["python", "engine.py"]}})
+
+
 def test_the_session_finds_no_reader_in_any_pair_of_the_training_decks() -> None:
     from spellbench.human import graveyard_order
     from spellbench.human.manabrew import decks

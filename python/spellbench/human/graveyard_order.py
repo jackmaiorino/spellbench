@@ -35,6 +35,17 @@ def readers(names: Iterable[str]) -> list[str]:
     return sorted(set(names) & set(cards()["readers"]))
 
 
+def catalog_decks(catalog: dict) -> dict[str, list[str]]:
+    """The card names of each deck of a public catalog document (``{"catalog": [{"catalog_id", "decklist"}]}``), the
+    file the engine wrapper checks deck ids against and the session reads too, so both decide relevance alike."""
+    return {entry["catalog_id"]: [row["name"] for row in entry["decklist"]] for entry in catalog["catalog"]}
+
+
+def game_readers(decks: dict[str, list[str]], deck_ids: Iterable[str]) -> list[str]:
+    """The reader cards of a game played with the decks ``deck_ids`` (``catalog_decks``)."""
+    return readers(name for deck in deck_ids for name in decks[deck])
+
+
 def audited(name: str) -> bool:
     data = cards()
     return name in data["readers"] or name in data["not_readers"]

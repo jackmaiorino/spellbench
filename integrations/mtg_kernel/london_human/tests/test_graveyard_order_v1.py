@@ -32,6 +32,7 @@ BRIDGE = os.environ.get("MTG_KERNEL_LONDON_HUMAN_BRIDGE")
 CATALOG = os.environ.get("MTG_KERNEL_PUBLIC_CATALOG")
 needs_bridge = pytest.mark.skipif(not (BRIDGE and CATALOG and Path(BRIDGE).exists()),
                                   reason="needs the London bridge and the public catalog")
+needs_catalog = pytest.mark.skipif(not (CATALOG and Path(CATALOG).exists()), reason="needs the public catalog")
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
@@ -97,6 +98,18 @@ def test_every_deck_card_that_mentions_a_graveyard_is_audited_and_none_of_the_ei
     assert graveyard_order.readers(names) == []  # no game of the eight decks is order-relevant today
     flagged = sorted(name for name in data["not_readers"] if ORDER_SENSITIVE.search(texts[name].get("text") or ""))
     assert flagged == [], f"listed as not reading graveyard order, but the text pattern flags: {flagged}"
+
+
+@needs_catalog
+def test_the_catalog_the_engine_reads_has_the_clients_decks_card_for_card_and_no_reader() -> None:
+    """The wrapper and the session decide relevance from the catalog file; the audit above reads the client's deck
+    lists. They agree deck by deck (a card moved between decks is caught), and the catalog holds no reader."""
+    catalog = graveyard_order.catalog_decks(json.loads(Path(CATALOG).read_bytes()))
+    pool = json.loads((MANABREW / "pauper_decks.json").read_text(encoding="utf-8"))["decks"]
+    assert sorted(catalog) == sorted(pool)
+    for deck, names in catalog.items():
+        assert set(names) == {row["name"] for row in pool[deck]}, deck
+        assert graveyard_order.game_readers(catalog, [deck]) == [], deck
 
 
 def test_a_reader_in_either_deck_list_makes_the_game_order_relevant() -> None:
@@ -250,6 +263,29 @@ def test_with_the_rule_neither_seat_orders_a_graveyard_batch_and_spy_mirrors_end
         off = play(seed, auto=False)
         asked += sum(off["graveyard_orderings"].values())
     assert asked > 20, f"the same games without the rule posed only {asked} graveyard orderings"
+
+
+@needs_bridge
+def test_a_game_the_data_calls_order_free_but_the_engine_refuses_is_not_played(monkeypatch) -> None:
+    """The engine's own check (Delve) refused the rule although the data lists no reader: the session already said
+    nobody is asked, so the wrapper refuses the game instead of asking anyway. Simulated by the bridge's answer."""
+    require_the_rule()
+    original = NativePeer.request
+
+    def refusing(self, value):
+        answer = original(self, value)
+        if value.get("request_type") == "reset" and value.get("auto_graveyard_order"):
+            answer["extensions"]["x_kernel_v2_support"]["graveyard_order"] = "asked"
+        return answer
+
+    monkeypatch.setattr(NativePeer, "request", refusing)
+    world = World(1, auto=True)
+    try:
+        assert world.current["response_type"] == "error", world.current
+        assert "does not list it" in world.current["error"]["message"]
+        assert world.engine.game is None
+    finally:
+        world.close()
 
 
 @needs_bridge

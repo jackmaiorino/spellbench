@@ -183,7 +183,8 @@ def settle_graveyard_order(plan):
 
 def graveyard_readers(decks, seats):
     """The cards of the two seats' deck lists that read graveyard order (``spellbench.human.graveyard_order``)."""
-    return graveyard_order.readers(row["name"] for entry in seats for row in decks[entry["deck"]["catalog_id"]])
+    names = {catalog: [row["name"] for row in rows] for catalog, rows in decks.items()}
+    return graveyard_order.game_readers(names, [entry["deck"]["catalog_id"] for entry in seats])
 
 
 def alias_flat(response):
@@ -382,11 +383,14 @@ class KernelEngine:
             elif support.get("graveyard_order") == "settled" or self.current.get("response_type") != "decision":
                 self.graveyard_order = {"how": "settled", "readers": []}
             else:
-                # The engine found a reader the card data does not list (its own check, Delve): both seats are
-                # asked. The data needs the card.
-                self.graveyard_order = {"how": "asked", "readers": ["(a card the engine reads as a reader)"]}
-                print("kernel_engine_london_human_v1: the bridge refused the graveyard rule; both seats are asked. "
-                      "graveyard_order_cards_v1.json lacks a reader card of this game.", file=sys.stderr, flush=True)
+                # The engine found a reader the card data does not list (its own check, Delve). The session decided
+                # from the same data that nobody is asked, so the game is not played: the data needs the card.
+                self.game = self.pending = None
+                print("kernel_engine_london_human_v1: the bridge refused the graveyard rule for a game the card data "
+                      "calls order-free; graveyard_order_cards_v1.json lacks a reader card of this game",
+                      file=sys.stderr, flush=True)
+                return error(rid, "unsupported_rule", "a card of this game reads graveyard order but the card data "
+                             "does not list it (graveyard_order_cards_v1.json); the game is not played")
         self.absorb_history()
         return self.respond(rid)
 

@@ -241,6 +241,16 @@ def pick_note(start: Mapping[str, Any], human: str) -> str:
     return f"Deck note: {what}, so you are dealt {human} instead."
 
 
+def engine_catalog(doc: dict[str, Any]) -> dict[str, list[str]]:
+    """The deck lists of the catalog file the board's engine is started with (its ``--catalog`` argument): the
+    file the London human engine decides graveyard-order relevance from, read here so the session decides alike."""
+    command = list((doc.get("engine") or {}).get("command") or [])
+    if "--catalog" not in command[:-1]:
+        raise SystemExit("--auto-graveyard-order needs an engine started with --catalog (the London human engine)")
+    path = Path(command[command.index("--catalog") + 1])
+    return graveyard_order.catalog_decks(json.loads(path.read_text(encoding="utf-8")))
+
+
 class OneGame(Exception):
     """Raised by the per-game hook: a picked game is the first game of a one-pair run."""
 
@@ -285,6 +295,7 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
     from .manabrew import decks as pool, host as manabrew_host
 
     rotation = [d.strip() for d in args.decks.split(",")] if args.decks else list(pool.ORDER)
+    catalog = engine_catalog(base) if args.auto_graveyard_order else {}
     plan = DeckPlan(rotation, args.opponent_deck, list(pool.ORDER), random.Random(f"{name}:opponent-deck"))
     played = 0
 
@@ -321,7 +332,7 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                                      opponent=args.opponent, full_priority=args.full_priority,
                                      auto_graveyard_order=args.auto_graveyard_order)
             if args.auto_graveyard_order:
-                hub.set_graveyard_readers(graveyard_order.readers(pool.card_names(human) + pool.card_names(bot)))
+                hub.set_graveyard_readers(graveyard_order.game_readers(catalog, [human, bot]))
             (out / "runs" / f"{run_name}.config.json").write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
             with picks.open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps({"game": played + 1, "run": run_name, "human_deck": human, "bot_deck": bot,
