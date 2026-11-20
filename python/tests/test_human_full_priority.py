@@ -446,6 +446,20 @@ def test_a_game_the_engine_refuses_at_reset_is_ended_at_the_table_with_the_reaso
     assert calls[-1] == ("close", "")
     assert not (tmp_path / "runs" / "s.ends.jsonl").exists()
 
+    # A failure after the game began at the play server (the arena's record check, before the result callback) is
+    # not a refusal: it is raised through the usual cleanup, and the client is not told the game never started.
+    calls.clear()
+    hub = Hub(opponent="bot")
+
+    def began_then_failed(*args, **kwargs):
+        hub.game_start({"game_id": "g-1", "seat": "p0", "own_deck": {"name": "Spy"}, "opponent_deck": {"name": "Spy"}})
+        raise runner.TournamentError("game g-1: engine identity differs from preflight")
+
+    monkeypatch.setattr(runner, "run_tournament", began_then_failed)
+    with pytest.raises(runner.TournamentError):
+        session.play_picked_games(args, base, hub, Server(), threading.Event(), out=tmp_path, name="s2", shown="bot")
+    assert [kind for kind, _ in calls if kind == "refuse"] == [] and calls[-1] == ("close", "")
+
 
 def test_the_session_finds_no_reader_in_any_pair_of_the_training_decks() -> None:
     from spellbench.human import graveyard_order

@@ -353,14 +353,15 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                 closer(row)
                 raise OneGame()
 
+            before = (hub.game or {}).get("game_id")  # the last game the play server began (None: none yet)
             try:
                 runner.run_tournament(runner.TournamentConfig.from_json(doc), run_secret=RunSecret.generate(),
                                       allocation=Allocation.unmeasured(1), on_game=after_game)
             except OneGame:
                 pass
             except runner.TournamentError as exc:
-                if ledger:
-                    raise
+                if ledger or (hub.game or {}).get("game_id") != before:
+                    raise  # this game began (a later failure, such as a record check): the usual cleanup path
                 # The arena refused the game before it began (the engine refused it at reset, such as a card that
                 # reads graveyard order and is missing from the card data): the person's game at the table is ended
                 # with the reason, nothing is recorded, and the session ends (the same refusal would come again).
