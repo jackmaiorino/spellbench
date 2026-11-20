@@ -64,34 +64,34 @@ toward the game's step and decision caps, and the engine's own decision counters
 observations advance with them. Those counters are not model input. Everything else of the bot's decisions is
 unchanged, as above.
 
-## Graveyard order for the person (`--auto-graveyard-order`)
+## Graveyard order (`--auto-graveyard-order`)
 
-The engine asks a seat for the order in which cards that go to its graveyard together are put there, one card at a
-time: Balustrade Spy milling a library is dozens of decisions. No card of the eight catalog decks reads graveyard
-order (a test checks every deck card's rules text for it).
+Graveyard order is a real rule (CR 404.3): the owner of cards put into a graveyard at once orders them, and the engine
+asks one card at a time (Balustrade Spy milling a library is dozens of decisions). Every training episode of the bots'
+lineages runs the engine's rule `resolution-boundary-v1`: that order is never asked, and the cards keep the order the
+effect put them there (a mill: library order, top first).
 
-`python -m spellbench.human --client manabrew --auto-graveyard-order` starts each game's engine with
-`--graveyard-order-seat` (the person's seat). For that seat the London human engine answers a pure graveyard ordering
-itself and poses nothing: each position takes the first card the prompt would have listed (card name, then object
-id). That covers a mill and the order of several discarded cards after the person has chosen them; choosing which
-cards to discard, the order of cards put on top of a library, and every other choice stay the person's.
+`python -m spellbench.human --client manabrew --auto-graveyard-order` mirrors the rule where it can have an effect and
+asks nobody where it cannot:
 
-One more ordering is answered, by the session instead of the engine wrapper: when one look sends cards to several
-places (Winding Way: the chosen kind to the hand, the rest to the graveyard), the engine asks for the order of the
-cards within each place. The session takes the first card listed for the person's graveyard and their hand (a
-hand has no order, and no card in these decks uses graveyard order) and records the answer as `auto_order`. The
-bot still sees the graveyard in the order answered, exactly as when the person takes the first card by hand. The order of cards going back on top of or
-under a library (Lead the Stampede) is still asked. These answers are ordinary steps of the game.
+- **A game in which no card of either deck list reads graveyard order** (every game of the eight decks today): each
+  game's engine is started with `--auto-graveyard-order` and asks the bridge for the training rule
+  (`auto_graveyard_order` on its reset). Neither the person nor the bot is asked; the graveyard ends up in the order
+  training produced. The bot's decisions are byte for byte those of a game without the option up to the first
+  ordering it would have been asked.
+- **A game with such a card:** both players are asked, as the rules say. The person orders each batch in one step.
+  The bot is asked as before, card by card through its model.
+- Which cards read graveyard order is data: `python/spellbench/human/graveyard_order_cards_v1.json`, with its audit
+  note. Readers today: Gurmag Angler (Delve; this engine exiles the oldest cards first), in no deck of the pool. Every
+  deck card whose rules text mentions a graveyard is listed as a reader or a non-reader with the reason;
+  `integrations/mtg_kernel/london_human/tests/test_graveyard_order_v1.py` fails when a deck card that mentions a
+  graveyard is in neither list. The engine keeps its own check (it refuses the rule for a game with a Delve card);
+  if it refuses where the data saw no reader, both players are asked and the engine says so on stderr.
+- **Card orderings the person is still asked** (the order of cards going back on a library, the cards of a look,
+  graveyard orders in a game with a reader) are one `reorder` step in the client, whose description says what the
+  first card means. The order of cards one look puts into the person's hand is never asked (a hand has no order),
+  nor, in a game without a reader, the order of a look's cards going to the graveyard; the session takes the first
+  card listed and records the answer as `auto_order`.
 
-Nothing else moves: the bridge receives exactly the native steps of the game in which the person takes the first
-candidate of every ordering decision by hand, so the bot is shown the same decisions, byte for byte. One difference
-remains: a settled ordering is not a step or a decision of the game, so the game's step and decision counts are lower
-by the prompts not posed, and a game that runs into a step or decision cap reaches it later than the by-hand game
-would. The bot's seat is still asked for the order of its own mill, as on every board that uses this bridge. Leave the
-option out to be asked card by card.
-
-The audit behind "no card reads graveyard order" is a pinned list in
-`integrations/mtg_kernel/london_human/tests/test_graveyard_order_v1.py`: the 18 deck cards whose rules text mentions a
-graveyard, each read by hand. A deck change that adds one fails that test until the new card has been read. The text
-pattern beside it is a heuristic only. The list is checked against the deck lists the client and the catalog file
-carry, not against the decks compiled into a bridge build.
+A bridge without the rule refuses the reset, so a session never plays without what it promised. Leave the option out
+to be asked card by card.

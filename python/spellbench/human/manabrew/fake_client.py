@@ -149,6 +149,8 @@ def answer(prompt: Mapping[str, Any], take: tuple[str, ...] = (), avoid: tuple[s
         return {"type": "colorDecision", "chosenColors": {(data.get("validColors") or ["C"])[0]: 1}}
     if kind == "payManaCost":
         return {"type": "pay", "auto": True}
+    if kind == "reorder":
+        return {"type": "reorderDecision", "orderedIds": [item["id"] for item in data.get("items") or []]}
     return None  # gameOver and anything unknown
 
 

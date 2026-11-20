@@ -25,7 +25,7 @@ include = ["spellbench*"]
 
 [tool.setuptools.package-data]
 "spellbench.site" = ["og-image.png"]
-"spellbench.human" = ["page.html"]
+"spellbench.human" = ["page.html", "graveyard_order_cards_v1.json"]
 
 [tool.uv]
 required-version = ">=0.11.29"

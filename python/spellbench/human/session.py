@@ -36,7 +36,7 @@ from ..arena import engine_records, runner
 from ..arena.allocation import Allocation
 from ..bench import definition
 from ..run_secret import RunSecret
-from . import relay
+from . import graveyard_order, relay
 from .advisor import Advisor, AdvisorError, scorer_argv
 from .server import Hub, make_server
 
@@ -251,13 +251,13 @@ def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, 
     """One game with the decks the person picked: a one-pair run whose first game puts the person in seat p0
     (``human_first``) or p1, with the person's deck in that seat; the hook stops the run after that game.
     ``full_priority``: the engine of this game is told the person's seat (``--engine-windows-seat``), which it gives
-    every priority window; ``auto_graveyard_order``: likewise ``--graveyard-order-seat``, the seat that is not asked
-    to order cards going to its own graveyard. The engine must be one that takes the arguments (the London human
-    engine)."""
+    every priority window; ``auto_graveyard_order``: the engine gets ``--auto-graveyard-order`` (graveyard order
+    settled for both seats in a game in which no card reads it). The engine must be one that takes the arguments
+    (the London human engine)."""
     doc = copy.deepcopy(base)
     seat = "p0" if human_first else "p1"
     extra = (["--engine-windows-seat", seat] if full_priority else []) + (
-        ["--graveyard-order-seat", seat] if auto_graveyard_order else [])
+        ["--auto-graveyard-order"] if auto_graveyard_order else [])
     if extra:
         doc["engine"] = {**doc["engine"], "command": [*doc["engine"]["command"], *extra]}
     doc["tournament_dir"] = str(run_dir)
@@ -320,6 +320,8 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
             doc = picked_game_config(base, human_deck=human, bot_deck=bot, human_first=human_first, run_dir=run_dir,
                                      opponent=args.opponent, full_priority=args.full_priority,
                                      auto_graveyard_order=args.auto_graveyard_order)
+            if args.auto_graveyard_order:
+                hub.set_graveyard_readers(graveyard_order.readers(pool.card_names(human) + pool.card_names(bot)))
             (out / "runs" / f"{run_name}.config.json").write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
             with picks.open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps({"game": played + 1, "run": run_name, "human_deck": human, "bot_deck": bot,
@@ -410,10 +412,13 @@ def main(argv: list[str] | None = None) -> int:
                              "it trained on: it does not respond to what you do in those six steps. Windows with only "
                              "mana abilities go to the client (its AUTOPASS countdown or Full control answers them)")
     parser.add_argument("--auto-graveyard-order", action="store_true",
-                        help="manabrew, London human engine: you are not asked to order cards that go to your own "
-                             "graveyard together (Balustrade Spy milling your library, a discard of several cards); "
-                             "they are ordered by card name. No card of the eight training decks reads graveyard "
-                             "order. The bot is asked as before. Leave the option out to be asked card by card")
+                        help="manabrew, London human engine: in a game in which no card of either deck reads "
+                             "graveyard order (every game of the eight training decks), neither you nor the bot is "
+                             "asked to order cards put into a graveyard together (Balustrade Spy milling a library): "
+                             "they keep the order the effect put them there, the rule the bots trained with. In a game "
+                             "with such a card both players are asked, you in one step. Any other card ordering you are "
+                             "asked (a library order, a put-back) is one step too. Leave the option out to be asked "
+                             "card by card")
     parser.add_argument("--keep-mana-autopass", action="store_true",
                         help="with --full-priority: the session keeps passing windows with only mana abilities itself "
                              "(no client countdown; the client's Full control then has nothing to act on)")

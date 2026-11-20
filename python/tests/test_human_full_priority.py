@@ -324,13 +324,13 @@ def test_the_scripted_client_takes_an_action_only_in_the_steps_it_is_told() -> N
 # -- cards going to the person's own graveyard are ordered for them ------------------------------------------------------
 
 
-def test_each_picked_game_can_name_the_seat_whose_graveyard_is_ordered_for_it(tmp_path) -> None:
+def test_each_picked_game_asks_its_engine_to_settle_graveyard_order(tmp_path) -> None:
     doc = session.picked_game_config(BASE, human_deck="Spy", bot_deck="Spy", human_first=False, run_dir=tmp_path,
                                      opponent="bot", auto_graveyard_order=True)
-    assert doc["engine"]["command"] == ["python", "engine.py", "--bridge", "b", "--graveyard-order-seat", "p1"]
+    assert doc["engine"]["command"] == ["python", "engine.py", "--bridge", "b", "--auto-graveyard-order"]
     both = session.picked_game_config(BASE, human_deck="Spy", bot_deck="Spy", human_first=True, run_dir=tmp_path,
                                       opponent="bot", full_priority=True, auto_graveyard_order=True)
-    assert both["engine"]["command"][-4:] == ["--engine-windows-seat", "p0", "--graveyard-order-seat", "p0"]
+    assert both["engine"]["command"][-3:] == ["--engine-windows-seat", "p0", "--auto-graveyard-order"]
 
 
 def test_the_graveyard_order_option_needs_the_manabrew_client_and_is_said_in_every_game(tmp_path, capsys) -> None:
@@ -351,6 +351,28 @@ def test_the_graveyard_order_option_needs_the_manabrew_client_and_is_said_in_eve
     plain = Hub(real_action_stops=True)
     plain.game_start(start)
     assert GRAVEYARD_ORDER_NOTE not in [line["text"] for line in plain.log]
+
+
+def test_a_game_with_a_reader_says_both_players_order_and_why(tmp_path) -> None:
+    from spellbench.human.server import GRAVEYARD_ORDER_NOTE
+
+    start = {"game_id": "g-8", "seat": ME, "own_deck": {"name": "X"}, "opponent_deck": {"name": "Y"}}
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.set_graveyard_readers(["Gurmag Angler"])
+    hub.game_start(start)
+    texts = [line["text"] for line in hub.log]
+    assert GRAVEYARD_ORDER_NOTE not in texts
+    assert any("matters in this game (Gurmag Angler)" in line and "one step" in line for line in texts)
+
+
+def test_the_session_finds_no_reader_in_any_pair_of_the_training_decks() -> None:
+    from spellbench.human import graveyard_order
+    from spellbench.human.manabrew import decks
+
+    for a in decks.ALL_DECKS:
+        for b in decks.ALL_DECKS:
+            assert graveyard_order.readers(decks.card_names(a) + decks.card_names(b)) == [], (a, b)
+    assert "Balustrade Spy" in decks.card_names("Spy")
 
 
 def test_the_scripted_clients_own_stops_reach_its_pass() -> None:
@@ -452,3 +474,89 @@ def test_the_order_of_cards_going_back_on_a_library_is_always_the_persons() -> N
     answer_now(mixed, arrange(WALL, ["graveyard", "bottom"], 0, 2), 0)
     answer_now(mixed, arrange(SPY, ["graveyard", "bottom"], 1, 2), 1)
     assert answer_now(mixed, order([SPY, WALL], 0, 2), 0) == "human"          # a card of it goes to the library
+
+
+def test_in_a_game_with_a_reader_the_looks_graveyard_order_is_asked_and_the_hand_still_is_not() -> None:
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    hub.set_graveyard_readers(["Gurmag Angler"])
+    answer_now(hub, arrange(WALL, ["hand", "graveyard"], 0, 4), 0)
+    answer_now(hub, arrange(WILDLING, ["hand", "graveyard"], 1, 4), 0)
+    answer_now(hub, arrange(STAMPEDE, ["hand", "graveyard"], 2, 4), 1)
+    answer_now(hub, arrange(SPY, ["hand", "graveyard"], 3, 4), 1)
+    assert answer_now(hub, order([SPY, STAMPEDE], 0, 4), 0) == "human"          # two for the graveyard: asked
+    assert answer_now(hub, order([STAMPEDE], 1, 4)) == "single"
+    assert answer_now(hub, order([WILDLING, WALL], 2, 4), 0) == "auto_order"    # the hand: never asked
+
+
+# -- one step for a card ordering the person is asked ------------------------------------------------------------------
+
+
+MILLED = [look_card("Lotleth Giant", "o-g"), look_card("Dread Return", "o-d"), look_card("Balustrade Spy", "o-b")]
+
+
+def mill_order(cards: list[dict], position: int, count: int = 3, group: int = 9) -> dict:
+    return order(cards, position, count, group=group, purpose="other")
+
+
+def test_a_card_ordering_is_one_reorder_step_and_its_order_answers_every_substep() -> None:
+    from spellbench.human.manabrew import prompts
+
+    from test_human_flow import SEATS
+
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    hub.set_graveyard_readers(["Gurmag Angler"])
+    first = mill_order(MILLED, 0)
+    with hub.cond:
+        hub._begin(first, {})
+    pending = hub.pending
+    assert pending["screen"] == "order" and "put into the graveyard first" in pending["hint"]
+    data, respond = prompts.build(pending, first["observation"], SEATS)
+    assert data["type"] == "reorder" and [item["id"] for item in data["items"]] == ["o-g", "o-d", "o-b"]
+    with pytest.raises(prompts.Rejected):
+        respond({"type": "reorderDecision", "orderedIds": ["o-b", "o-g"]})               # not every card
+    how, plan = respond({"type": "reorderDecision", "orderedIds": ["o-b", "o-g", "o-d"]})
+    assert how == "plan" and plan == {"kind": "order", "cards": ["o-b", "o-g", "o-d"]}
+    assert hub.plan_with(pending["seq"], plan) is None
+    assert hub.answer == 2                                                                 # Balustrade Spy first
+    hub.pending = None
+    second = mill_order([MILLED[0], MILLED[1]], 1)
+    with hub.cond:
+        assert hub._automatic(second) == ("plan", 0)                                       # then Lotleth Giant
+
+
+def test_a_library_order_is_one_step_with_its_own_meaning_and_nothing_changes_without_the_option() -> None:
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    answer_now(hub, arrange(WALL, ["hand", "bottom"], 0, 3), 1)
+    answer_now(hub, arrange(WILDLING, ["hand", "bottom"], 1, 3), 1)
+    answer_now(hub, arrange(SPY, ["hand", "bottom"], 2, 3), 0)
+    request = order([WILDLING, WALL], 0, 3)
+    with hub.cond:
+        hub._begin(request, {})
+    assert hub.pending["screen"] == "order" and "closest to the top of the library" in hub.pending["hint"]
+    plain = Hub(real_action_stops=True)
+    plain.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    with plain.cond:
+        plain._begin(mill_order(MILLED, 0), {})
+    assert plain.pending["screen"] == "generic"
+
+
+def test_trigger_orders_and_put_backs_keep_their_own_screens() -> None:
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    triggers = order(MILLED, 0, 3, purpose="triggers")
+    for c in triggers["candidates"]:
+        c["semantic"]["item"] = {"trigger": {"source": None, "source_name": "x", "ability_index": 0,
+                                             "event_objects": [], "instance": c["candidate_id"], "label": None}}
+    with hub.cond:
+        hub._begin(triggers, {})
+    assert hub.pending["screen"] == "generic"
+
+
+def test_the_scripted_client_keeps_the_offered_order_of_a_reorder_prompt() -> None:
+    from spellbench.human.manabrew.fake_client import answer
+
+    prompt = {"input": {"type": "reorder", "presentation": {"title": "Order"}, "items": [{"id": "o-b"}, {"id": "o-g"}]}}
+    assert answer(prompt) == {"type": "reorderDecision", "orderedIds": ["o-b", "o-g"]}
