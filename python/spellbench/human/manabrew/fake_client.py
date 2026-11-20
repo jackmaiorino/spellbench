@@ -205,6 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     opening = {"mulligans": args.mulligans}
     in_game, conceded = 0, False
     started_room = None
+    start_retries = 0
     deck = {"name": "Placeholder", "format": "pauper", "sideboard": [],
             "cards": [{"identity": {"id": "Swamp", "name": "Swamp", "setCode": "", "cardNumber": ""}, "uris": {},
                        "color": "", "colorIdentity": [], "manaCost": "", "cmc": 0, "types": ["Land"],
@@ -301,6 +302,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"error: {envelope.get('error')}", flush=True)
         elif kind == "Error":
             print(f"relay error: {msg}", flush=True)
+            if msg.get("code") == "players_not_ready" and joined and start_retries < 30:
+                # Started a moment before the host's bot seat was ready: start again shortly (bounded).
+                start_retries += 1
+                time.sleep(1)
+                send({"type": "StartGame", "format": "Pauper"})
     ws.close()
     return 0 if games >= args.games else 1
 
