@@ -244,10 +244,16 @@ def pick_note(start: Mapping[str, Any], human: str) -> str:
 def engine_catalog(doc: dict[str, Any]) -> dict[str, list[str]]:
     """The deck lists of the catalog file the board's engine is started with (its ``--catalog`` argument): the
     file the London human engine decides graveyard-order relevance from, read here so the session decides alike."""
-    command = list((doc.get("engine") or {}).get("command") or [])
-    if "--catalog" not in command[:-1]:
-        raise SystemExit("--auto-graveyard-order needs an engine started with --catalog (the London human engine)")
-    path = Path(command[command.index("--catalog") + 1])
+    command = [str(part) for part in (doc.get("engine") or {}).get("command") or []]
+    # Every argument the engine's parser could read as its catalog: "--catalog", "--catalog=...", and the
+    # abbreviations argparse accepts ("--cat"). Exactly one plain "--catalog PATH" is accepted, so the file read
+    # here is the one the engine reads.
+    named = [i for i, part in enumerate(command)
+             if part.startswith("--") and len(part.split("=", 1)[0]) > 2 and "--catalog".startswith(part.split("=", 1)[0])]
+    if len(named) != 1 or command[named[0]] != "--catalog" or named[0] + 1 >= len(command):
+        raise SystemExit("--auto-graveyard-order needs an engine started with exactly one '--catalog PATH' "
+                         "(the London human engine), so the session reads the catalog the engine reads")
+    path = Path(command[named[0] + 1])
     return graveyard_order.catalog_decks(json.loads(path.read_text(encoding="utf-8")))
 
 
@@ -352,6 +358,17 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                                       allocation=Allocation.unmeasured(1), on_game=after_game)
             except OneGame:
                 pass
+            except runner.TournamentError as exc:
+                if ledger:
+                    raise
+                # The arena refused the game before it began (the engine refused it at reset, such as a card that
+                # reads graveyard order and is missing from the card data): the person's game at the table is ended
+                # with the reason, nothing is recorded, and the session ends (the same refusal would come again).
+                message = (f"This game could not be started and nothing was recorded: {exc}. The session is "
+                           f"ending; it needs fixing before it is started again.")
+                print(f"\n  {message}", flush=True)
+                bridge.refuse_start(message)
+                return 2
             played += 1
             final = next((r for r in reversed(hub.results) if r.get("game_id") == (hub.game or {}).get("game_id")), None)
             ended = person_end(final, ledger[0] if ledger else None)

@@ -88,7 +88,9 @@ asks nobody where it cannot:
   deck card whose rules text mentions a graveyard is listed as a reader or a non-reader with the reason;
   `integrations/mtg_kernel/london_human/tests/test_graveyard_order_v1.py` fails when a deck card that mentions a
   graveyard is in neither list. The engine keeps its own check (it refuses the rule for a game with a Delve card);
-  if it refuses where the data saw no reader, both players are asked and the engine says so on stderr.
+  if it refuses where the data saw no reader, the game is not played: the client is told why, nothing is recorded,
+  and the session ends. Add the card to the data readers before starting again. The session reads relevance from
+  the catalog the engine is started with, so the engine command must name exactly one `--catalog PATH`.
 - **Card orderings the person is still asked** (the order of cards going back on a library, the cards of a look,
   graveyard orders in a game with a reader) are one `reorder` step in the client, whose description says what the
   first card means. The order of cards one look puts into the person's hand is never asked (a hand has no order),

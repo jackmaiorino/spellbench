@@ -697,3 +697,14 @@ def test_a_game_the_session_ended_is_filed_with_its_reason_when_the_ledger_has_a
     natural = dict(final)  # the engine had already ended it: the ledger's natural result stands
     assert session.person_end(natural, {"classification": "natural", "winner": ME, "reason": "game_over"}) is None
     assert natural["reason"] == "game_over" and natural["result"] == "win"
+
+
+def test_a_game_the_session_could_not_start_is_ended_at_the_table_with_the_reason() -> None:
+    """The arena refused the game the person started (before its first view): the client gets the reason as a fatal
+    envelope and the room's game is ended; the hub records nothing."""
+    bridge = bridge_before_the_game()
+    bridge.refuse_start("This game could not be started and nothing was recorded: reason.")
+    fatal = [m["state"] for m in bridge.host.sent if m.get("state", {}).get("kind") == "fatal"]
+    assert fatal and "could not be started" in fatal[0]["message"]
+    assert end_game_sent(bridge, "g-2") and bridge.order is None
+    assert bridge.hub.game is None and bridge.hub.results == []

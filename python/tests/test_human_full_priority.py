@@ -379,6 +379,72 @@ def test_the_session_reads_relevance_from_the_engines_catalog(tmp_path) -> None:
     assert graveyard_order.game_readers(decks, ["Spy", "Delve"]) == ["Gurmag Angler"]
     with pytest.raises(SystemExit):
         session.engine_catalog({"engine": {"command": ["python", "engine.py"]}})
+    # Any other way to name the catalog could make the engine read another file than the session: refused.
+    for extra in (["--catalog", str(path), "--catalog", str(path)], [f"--catalog={path}"], ["--cat", str(path)],
+                  ["--catalog", str(path), f"--catalo={path}"], ["--catalog"]):
+        with pytest.raises(SystemExit):
+            session.engine_catalog({"engine": {"command": ["python", "engine.py", *extra]}})
+
+
+def test_a_game_the_engine_refuses_at_reset_is_ended_at_the_table_with_the_reason(tmp_path, monkeypatch) -> None:
+    """The arena refuses the game before it begins (here: the engine's graveyard-order refusal): the session tells
+    the client why and ends the room's game through the bridge, records nothing, and ends."""
+    import argparse
+    import json
+    import threading
+
+    from spellbench.arena import runner
+    from spellbench.human.manabrew import host
+
+    calls: list[tuple[str, str]] = []
+
+    class FakeBridge:
+        def __init__(self, hub, **kwargs):
+            self.dealt = None
+
+        def start(self):
+            pass
+
+        def next_start(self):
+            return {"human_pick": "Spy", "picked_name": "Spy"}
+
+        def announce(self, text):
+            calls.append(("announce", text))
+
+        def refuse_start(self, message):
+            calls.append(("refuse", message))
+
+        def close(self):
+            calls.append(("close", ""))
+
+    def refused(*args, **kwargs):
+        raise runner.TournamentError("engine reset failed: unsupported_rule: a card of this game reads graveyard "
+                                     "order but the card data does not list it")
+
+    monkeypatch.setattr(host, "Bridge", FakeBridge)
+    monkeypatch.setattr(host, "pool_deck", lambda: ("Spy", []))
+    monkeypatch.setattr(runner.TournamentConfig, "from_json", staticmethod(lambda doc: doc))
+    monkeypatch.setattr(runner, "run_tournament", refused)
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps({"catalog": [{"catalog_id": "Spy", "decklist": [{"name": "Balustrade Spy"}]}]}),
+                       encoding="utf-8")
+    base = {**BASE, "engine": {**BASE["engine"], "command": [*BASE["engine"]["command"], "--catalog", str(catalog)]}}
+    args = argparse.Namespace(decks="Spy", opponent_deck="mirror", games=2, relay_url="ws://127.0.0.1:1", relay_key="k",
+                              room_name="Room", allow_remote_relay=False, pace=False, opponent="bot",
+                              full_priority=False, auto_graveyard_order=True)
+
+    class Server:
+        def shutdown(self):
+            pass
+
+    (tmp_path / "runs").mkdir()
+    code = session.play_picked_games(args, base, Hub(opponent="bot"), Server(), threading.Event(), out=tmp_path,
+                                     name="s", shown="bot")
+    assert code == 2
+    refusals = [m for kind, m in calls if kind == "refuse"]
+    assert len(refusals) == 1 and "does not list it" in refusals[0] and "nothing was recorded" in refusals[0]
+    assert calls[-1] == ("close", "")
+    assert not (tmp_path / "runs" / "s.ends.jsonl").exists()
 
 
 def test_the_session_finds_no_reader_in_any_pair_of_the_training_decks() -> None:
