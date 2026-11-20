@@ -113,7 +113,9 @@ choice at each step), if the opponent does not respond". It is not a search and 
   theirs (blocks, targets, a sacrifice, a discard) ends the line. Nothing about their options reaches the panel.
 - **Hidden cards and chance:** the line stops before a step that would draw, mill, search, look at or reveal a card,
   change the opponent's hand, or draw a random outcome. It also stops when the turn ends, at a grouped choice
-  (blockers, an order), after 8 of the person's choices, or after 200 ms.
+  (blockers, an order), or after 8 of the person's choices. There is no wall-clock bound: the clone's speed depends
+  on whether the opponent's windows were posed, so time never decides what is shown. The line's scorer answers
+  within 2 s or is dropped for the session.
 - **Game end:** "wins this turn if the opponent does not respond" when the line ends the game this turn.
 - **What travels:** the extension `x_advisor_line_v1` on the person's ordinary decisions only (never the bot's, never
   the pregame), enabled only for such a session: the steps, how the line ends, and the result. No counts, no timing.

@@ -55,15 +55,19 @@ PREVIEW_CACHE_BYTES = 16 * 1024 * 1024  # response lines; parsed views take seve
 # The advisor's planned line (human play with an advisor only; ``KernelEngine.planned_line``).
 LINE = "x_advisor_line_v1"
 LINE_SCHEMA = "spellbench-advisor-line/v1"
-LINE_STEPS = 8         # the person's choices in one line at most
-LINE_SECONDS = 0.2     # wall time for one line at most; past it the line ends with "time"
+LINE_STEPS = 8         # the person's choices in one line at most: the line's only bound
+# The line scorer's answer timeout (seconds). A scorer that does not answer in time is dropped for the session and
+# the lines end "unavailable": the person's decision waits at most this long for one choice of a line.
+LINE_SCORER_TIMEOUT_S = 2.0
 # Why a line ends. From the bridge: the opponent decides something other than a bare priority pass; the next step
 # would show a hidden card (a draw, a mill, a search, a look or reveal, the opponent's hand changing); it would draw
 # a random outcome; the turn ends; the game ends (with the result for the person: this turn, or a later one); the
 # game ends without a result. From the planner: the next choice is a grouped one (blocks, a card order, a trigger
-# order), which the line does not play; the bounds; the scorer cannot read the next choice or is gone.
+# order), which the line does not play; the bound of choices; the scorer cannot read the next choice or is gone.
+# No wall-clock bound: how long the clone takes depends on whether the opponent's windows were posed, which depends on
+# their hidden hand, so time never decides what the line shows.
 LINE_STOPS = ("opponent_decision", "hidden", "chance", "turn_ends", "game_end", "game_end_later_turn", "no_result",
-              "grouped", "bound", "time", "unreadable", "unavailable")
+              "grouped", "bound", "unreadable", "unavailable")
 ARRANGEMENTS = ("scry", "look_select", "look", "reveal_partition", "mill", "put_on_top", "discard_order")
 
 
@@ -251,8 +255,7 @@ class KernelEngine:
     known_cards = False
 
     def __init__(self, peer, catalog, *, source_revision=None, known_cards=False, engine_windows_seat=None,
-                 auto_graveyard_order=False, line_seat=None, line_scorer=None, line_seconds=LINE_SECONDS,
-                 line_timing=None):
+                 auto_graveyard_order=False, line_seat=None, line_scorer=None, line_timing=None):
         # known_cards needs a bridge that exports public history: `known` then
         # follows the Section 6.7 update table instead of the current look.
         self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
@@ -267,7 +270,7 @@ class KernelEngine:
         self.graveyard_order = None
         # The advisor's planned line (``planned_line``): the person's seat and a scorer of the wrapper's own (an
         # ``Advisor``, loaded with the advisor's checkpoint), or None. Only a game whose rules enable LINE gets it.
-        self.line_seat, self.line_scorer, self.line_seconds = line_seat, line_scorer, line_seconds
+        self.line_seat, self.line_scorer = line_seat, line_scorer
         # A JSON-lines file each line's cost is written to (measurement only), or None.
         self.line_timing = line_timing
         native = peer.request({"request_type": "hello"})
@@ -577,24 +580,29 @@ class KernelEngine:
         """The advisor's planned line from the person's current decision (an ordinary one, not a grouped choice):
         the model's top choice, played on a clone of the game in the bridge (``private_line``; the game itself is
         never touched), then its top choice at the person's next decision, and so on, the opponent's bare priority
-        passes taken for them, until the bridge or this planner ends it (``LINE_STOPS``). Each step is the person's
-        own choice as a protocol semantic (the client's words come from it), read from the person's own model input
-        on the clone. Nothing else of the clone is kept: no counts, no opponent choice, no timing."""
+        passes taken for them, until the bridge or this planner ends it (``LINE_STOPS``, at most LINE_STEPS
+        choices). Each step is the person's own choice as a protocol semantic (the client's words come from it), read
+        from the person's own model input on the clone. Nothing else of the clone is kept: no counts, no opponent
+        choice, no timing."""
         started = time.perf_counter()
         try:
-            steps, stop, result, ids = self._play_line(started)
-        except (ProjectionError, ValueError, KeyError, IndexError, TypeError) as exc:
-            # The line never touches the game: whatever fails in it ends the line, never the game.
+            steps, stop, result, ids = self._play_line()
+        except (ProjectionError, ValueError, KeyError, IndexError, TypeError, OSError) as exc:
+            # The line never touches the game: whatever fails in it ends the line, never the game. (A bridge that is
+            # gone fails the game's own next request too, with its own message.)
             print(f"kernel_engine_london_human_v1: planned line stopped: {type(exc).__name__}: {exc}",
                   file=sys.stderr, flush=True)
             steps, stop, result, ids = [], "unavailable", None, []
         if self.line_timing is not None:
-            with open(self.line_timing, "a", encoding="utf-8") as stream:
-                stream.write(json.dumps({"game": self.game, "step": self.current["step"], "choices": len(ids),
-                                         "stop": stop, "seconds": round(time.perf_counter() - started, 6)}) + "\n")
+            try:  # a measurement only: a file that cannot be written never stops the game
+                with open(self.line_timing, "a", encoding="utf-8") as stream:
+                    stream.write(json.dumps({"game": self.game, "step": self.current["step"], "choices": len(ids),
+                                             "stop": stop, "seconds": round(time.perf_counter() - started, 6)}) + "\n")
+            except OSError as exc:
+                print(f"kernel_engine_london_human_v1: line timing not written: {exc}", file=sys.stderr, flush=True)
         return {"schema": LINE_SCHEMA, "steps": steps, "stop": stop, "result": result}
 
-    def _play_line(self, started):
+    def _play_line(self):
         projection = deepcopy(self.projection)  # the clone's objects never enter the game's own projection
         root, view = self.current, self.current
         ids, steps, stop, result = [], [], "bound", None
@@ -624,9 +632,6 @@ class KernelEngine:
             if (support.get("at_block_root") is True or support.get("choice", {}).get("purpose") in ARRANGEMENTS
                     or view["candidates"][0]["semantic"]["kind"] == "order_triggers"):
                 stop = "grouped"
-                break
-            if time.perf_counter() - started > self.line_seconds:
-                stop = "time"
                 break
         return steps, stop, result, ids
 
@@ -796,7 +801,7 @@ def main():
         if not isinstance(argv, list) or not argv or not all(isinstance(word, str) for word in argv):
             parser.error("--line-scorer must be a JSON list of strings")
         try:
-            scorer = Advisor(argv, name="planned-line")
+            scorer = Advisor(argv, name="planned-line", answer_timeout_s=LINE_SCORER_TIMEOUT_S)
         except AdvisorError as exc:
             parser.error(f"--line-scorer: {exc}")
     peer = NativePeer(args.bridge)

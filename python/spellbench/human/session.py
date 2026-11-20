@@ -464,9 +464,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="manabrew, London human engine, with --advisor: the advisor panel also shows the model's "
                              "own line from your decision, played forward on a copy of the game: its top choice at "
                              "each of your steps, the opponent's priority passed for them, until the opponent has "
-                             "another choice, a hidden card or a random outcome would be seen, or the turn ends; and "
-                             "whether that line wins this turn. It assumes the opponent does not respond; it is not a "
-                             "search")
+                             "another choice, a hidden card or a random outcome would be seen, or the turn ends (at "
+                             "most 8 of your choices); and whether that line wins this turn. It assumes the opponent "
+                             "does not respond; it is not a search")
     parser.add_argument("--keep-mana-autopass", action="store_true",
                         help="with --full-priority: the session keeps passing windows with only mana abilities itself "
                              "(no client countdown; the client's Full control then has nothing to act on)")

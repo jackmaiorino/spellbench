@@ -61,12 +61,12 @@ class FirstNotPass:
 
 class World:
     def __init__(self, seed: int, *, line: bool, person: str = "Elves", bot: str = "Burn",
-                 seconds: float = 3600.0, line_seat: str | None = PERSON) -> None:
+                 line_seat: str | None = PERSON) -> None:
         self.catalog = json.loads(Path(CATALOG).read_bytes())
         self.peer = NativePeer(BRIDGE)
         self.scorer = FirstNotPass()
         self.engine = KernelEngine(self.peer, self.catalog, engine_windows_seat=PERSON, auto_graveyard_order=True,
-                                   line_seat=line_seat, line_scorer=self.scorer, line_seconds=seconds)
+                                   line_seat=line_seat, line_scorer=self.scorer)
         decks = {e["catalog_id"]: e["decklist"] for e in self.catalog["catalog"]}
         self.serial = 0
         names = [r["name"] for d in (person, bot) for r in decks[d]]
@@ -172,9 +172,75 @@ def test_the_line_is_refused_without_a_line_seat_and_declared_only_with_one() ->
 
 
 @needs_bridge
-def test_a_line_costs_little_and_stops_at_its_time_bound() -> None:
+def test_what_a_line_shows_never_depends_on_time_and_its_failures_end_only_the_line(monkeypatch, tmp_path) -> None:
+    """The same lines whatever the clock says (no wall-clock bound: the clone's speed depends on the opponent's
+    windows, so on their hand); a broken bridge, a failing scorer or an unwritable timing file ends the line, never
+    the game."""
+    import kernel_engine_london_human_v1 as engine_module
+
+    def lines(clock=None) -> list:
+        world = World(3, line=True)
+        rng = random.Random(3)
+        out = []
+        try:
+            if clock is not None:
+                monkeypatch.setattr(engine_module.time, "perf_counter", clock)
+            for _ in range(400):
+                if world.current["response_type"] != "decision":
+                    break
+                sd = world.current["seat_decision"]
+                if LINE in sd["extensions"]:
+                    out.append(sd["extensions"][LINE])
+                world.answer(pick(sd, rng))
+        finally:
+            monkeypatch.undo()
+            world.close()
+        return out
+
+    ticks = iter(range(10**9))
+    assert lines() == lines(lambda: float(next(ticks)))  # each reading a second later: nothing changes
+
+    world = World(4, line=True)
+    rng = random.Random(4)
+    try:
+        world.engine.line_timing = tmp_path / "missing-folder" / "timing.jsonl"  # cannot be written
+        original = world.peer.request
+        failures = iter([BrokenPipeError("bridge pipe"), None, None])
+
+        def flaky(value):
+            if value.get("request_type") == "private_line":
+                failure = next(failures, None)
+                if failure is not None:
+                    raise failure
+            return original(value)
+
+        world.peer.request = flaky
+        seen = []
+        for _ in range(400):
+            if world.current["response_type"] != "decision":
+                break
+            sd = world.current["seat_decision"]
+            if LINE in sd["extensions"]:
+                seen.append(sd["extensions"][LINE]["stop"])
+                if len(seen) >= 6:
+                    break  # stay at this decision of the person's for the scorer failure below
+            world.answer(pick(sd, rng))
+        assert seen[0] == "unavailable" and len(set(seen)) > 1, seen  # the next lines play on
+
+        class Failing(FirstNotPass):
+            def read(self, game_id, decision, extension):
+                raise engine_module.AdvisorError("the scorer did not answer within 2 s")
+
+        world.engine.line_scorer = Failing()
+        assert world.engine.planned_line()["stop"] == "unavailable" and world.engine.line_scorer is None
+    finally:
+        world.close()
+
+
+@needs_bridge
+def test_a_line_costs_little() -> None:
     """Cost of the line at the wrapper (stub scorer: the bridge's clone steps and the wrapper's conversions)."""
-    world = World(2, line=True, seconds=0.2)
+    world = World(2, line=True)
     rng = random.Random(2)
     timings = []
     try:
