@@ -324,13 +324,13 @@ def test_the_scripted_client_takes_an_action_only_in_the_steps_it_is_told() -> N
 # -- cards going to the person's own graveyard are ordered for them ------------------------------------------------------
 
 
-def test_each_picked_game_can_name_the_seat_whose_graveyard_is_ordered_for_it(tmp_path) -> None:
+def test_each_picked_game_asks_its_engine_to_settle_graveyard_order(tmp_path) -> None:
     doc = session.picked_game_config(BASE, human_deck="Spy", bot_deck="Spy", human_first=False, run_dir=tmp_path,
                                      opponent="bot", auto_graveyard_order=True)
-    assert doc["engine"]["command"] == ["python", "engine.py", "--bridge", "b", "--graveyard-order-seat", "p1"]
+    assert doc["engine"]["command"] == ["python", "engine.py", "--bridge", "b", "--auto-graveyard-order"]
     both = session.picked_game_config(BASE, human_deck="Spy", bot_deck="Spy", human_first=True, run_dir=tmp_path,
                                       opponent="bot", full_priority=True, auto_graveyard_order=True)
-    assert both["engine"]["command"][-4:] == ["--engine-windows-seat", "p0", "--graveyard-order-seat", "p0"]
+    assert both["engine"]["command"][-3:] == ["--engine-windows-seat", "p0", "--auto-graveyard-order"]
 
 
 def test_the_graveyard_order_option_needs_the_manabrew_client_and_is_said_in_every_game(tmp_path, capsys) -> None:
@@ -351,6 +351,124 @@ def test_the_graveyard_order_option_needs_the_manabrew_client_and_is_said_in_eve
     plain = Hub(real_action_stops=True)
     plain.game_start(start)
     assert GRAVEYARD_ORDER_NOTE not in [line["text"] for line in plain.log]
+
+
+def test_a_game_with_a_reader_says_both_players_order_and_why(tmp_path) -> None:
+    from spellbench.human.server import GRAVEYARD_ORDER_NOTE
+
+    start = {"game_id": "g-8", "seat": ME, "own_deck": {"name": "X"}, "opponent_deck": {"name": "Y"}}
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.set_graveyard_readers(["Gurmag Angler"])
+    hub.game_start(start)
+    texts = [line["text"] for line in hub.log]
+    assert GRAVEYARD_ORDER_NOTE not in texts
+    assert any("matters in this game (Gurmag Angler)" in line and "one step" in line for line in texts)
+
+
+def test_the_session_reads_relevance_from_the_engines_catalog(tmp_path) -> None:
+    import json
+
+    catalog = {"catalog": [{"catalog_id": "Spy", "decklist": [{"name": "Balustrade Spy", "count": 4}]},
+                           {"catalog_id": "Delve", "decklist": [{"name": "Gurmag Angler", "count": 4}]}]}
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(catalog), encoding="utf-8")
+    doc = {"engine": {"command": ["python", "engine.py", "--bridge", "b", "--catalog", str(path)]}}
+    decks = session.engine_catalog(doc)
+    from spellbench.human import graveyard_order
+    assert graveyard_order.game_readers(decks, ["Spy", "Spy"]) == []
+    assert graveyard_order.game_readers(decks, ["Spy", "Delve"]) == ["Gurmag Angler"]
+    with pytest.raises(SystemExit):
+        session.engine_catalog({"engine": {"command": ["python", "engine.py"]}})
+    # Any other way to name the catalog could make the engine read another file than the session: refused.
+    for extra in (["--catalog", str(path), "--catalog", str(path)], [f"--catalog={path}"], ["--cat", str(path)],
+                  ["--catalog", str(path), f"--catalo={path}"], ["--catalog"]):
+        with pytest.raises(SystemExit):
+            session.engine_catalog({"engine": {"command": ["python", "engine.py", *extra]}})
+
+
+def test_a_game_the_engine_refuses_at_reset_is_ended_at_the_table_with_the_reason(tmp_path, monkeypatch) -> None:
+    """The arena refuses the game before it begins (here: the engine's graveyard-order refusal): the session tells
+    the client why and ends the room's game through the bridge, records nothing, and ends."""
+    import argparse
+    import json
+    import threading
+
+    from spellbench.arena import runner
+    from spellbench.human.manabrew import host
+
+    calls: list[tuple[str, str]] = []
+
+    class FakeBridge:
+        def __init__(self, hub, **kwargs):
+            self.dealt = None
+
+        def start(self):
+            pass
+
+        def next_start(self):
+            return {"human_pick": "Spy", "picked_name": "Spy"}
+
+        def announce(self, text):
+            calls.append(("announce", text))
+
+        def refuse_start(self, message):
+            calls.append(("refuse", message))
+
+        def close(self):
+            calls.append(("close", ""))
+
+    def refused(*args, **kwargs):
+        raise runner.TournamentError("engine reset failed: unsupported_rule: a card of this game reads graveyard "
+                                     "order but the card data does not list it")
+
+    monkeypatch.setattr(host, "Bridge", FakeBridge)
+    monkeypatch.setattr(host, "pool_deck", lambda: ("Spy", []))
+    monkeypatch.setattr(runner.TournamentConfig, "from_json", staticmethod(lambda doc: doc))
+    monkeypatch.setattr(runner, "run_tournament", refused)
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps({"catalog": [{"catalog_id": "Spy", "decklist": [{"name": "Balustrade Spy"}]}]}),
+                       encoding="utf-8")
+    base = {**BASE, "engine": {**BASE["engine"], "command": [*BASE["engine"]["command"], "--catalog", str(catalog)]}}
+    args = argparse.Namespace(decks="Spy", opponent_deck="mirror", games=2, relay_url="ws://127.0.0.1:1", relay_key="k",
+                              room_name="Room", allow_remote_relay=False, pace=False, opponent="bot",
+                              full_priority=False, auto_graveyard_order=True)
+
+    class Server:
+        def shutdown(self):
+            pass
+
+    (tmp_path / "runs").mkdir()
+    code = session.play_picked_games(args, base, Hub(opponent="bot"), Server(), threading.Event(), out=tmp_path,
+                                     name="s", shown="bot")
+    assert code == 2
+    refusals = [m for kind, m in calls if kind == "refuse"]
+    assert len(refusals) == 1 and "does not list it" in refusals[0] and "nothing was recorded" in refusals[0]
+    assert calls[-1] == ("close", "")
+    assert not (tmp_path / "runs" / "s.ends.jsonl").exists()
+
+    # A failure after the game began at the play server (the arena's record check, before the result callback) is
+    # not a refusal: it is raised through the usual cleanup, and the client is not told the game never started.
+    calls.clear()
+    hub = Hub(opponent="bot")
+
+    def began_then_failed(*args, **kwargs):
+        hub.game_start({"game_id": "g-1", "seat": "p0", "own_deck": {"name": "Spy"}, "opponent_deck": {"name": "Spy"}})
+        raise runner.TournamentError("game g-1: engine identity differs from preflight")
+
+    monkeypatch.setattr(runner, "run_tournament", began_then_failed)
+    with pytest.raises(runner.TournamentError):
+        session.play_picked_games(args, base, hub, Server(), threading.Event(), out=tmp_path, name="s2", shown="bot")
+    assert [kind for kind, _ in calls if kind == "refuse"] == [] and calls[-1] == ("close", "")
+
+
+def test_the_session_finds_no_reader_in_any_pair_of_the_training_decks() -> None:
+    from spellbench.human import graveyard_order
+    from spellbench.human.manabrew import decks
+
+    for a in decks.ALL_DECKS:
+        for b in decks.ALL_DECKS:
+            assert graveyard_order.readers(decks.card_names(a) + decks.card_names(b)) == [], (a, b)
+    assert "Balustrade Spy" in decks.card_names("Spy")
 
 
 def test_the_scripted_clients_own_stops_reach_its_pass() -> None:
@@ -452,3 +570,89 @@ def test_the_order_of_cards_going_back_on_a_library_is_always_the_persons() -> N
     answer_now(mixed, arrange(WALL, ["graveyard", "bottom"], 0, 2), 0)
     answer_now(mixed, arrange(SPY, ["graveyard", "bottom"], 1, 2), 1)
     assert answer_now(mixed, order([SPY, WALL], 0, 2), 0) == "human"          # a card of it goes to the library
+
+
+def test_in_a_game_with_a_reader_the_looks_graveyard_order_is_asked_and_the_hand_still_is_not() -> None:
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    hub.set_graveyard_readers(["Gurmag Angler"])
+    answer_now(hub, arrange(WALL, ["hand", "graveyard"], 0, 4), 0)
+    answer_now(hub, arrange(WILDLING, ["hand", "graveyard"], 1, 4), 0)
+    answer_now(hub, arrange(STAMPEDE, ["hand", "graveyard"], 2, 4), 1)
+    answer_now(hub, arrange(SPY, ["hand", "graveyard"], 3, 4), 1)
+    assert answer_now(hub, order([SPY, STAMPEDE], 0, 4), 0) == "human"          # two for the graveyard: asked
+    assert answer_now(hub, order([STAMPEDE], 1, 4)) == "single"
+    assert answer_now(hub, order([WILDLING, WALL], 2, 4), 0) == "auto_order"    # the hand: never asked
+
+
+# -- one step for a card ordering the person is asked ------------------------------------------------------------------
+
+
+MILLED = [look_card("Lotleth Giant", "o-g"), look_card("Dread Return", "o-d"), look_card("Balustrade Spy", "o-b")]
+
+
+def mill_order(cards: list[dict], position: int, count: int = 3, group: int = 9) -> dict:
+    return order(cards, position, count, group=group, purpose="other")
+
+
+def test_a_card_ordering_is_one_reorder_step_and_its_order_answers_every_substep() -> None:
+    from spellbench.human.manabrew import prompts
+
+    from test_human_flow import SEATS
+
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    hub.set_graveyard_readers(["Gurmag Angler"])
+    first = mill_order(MILLED, 0)
+    with hub.cond:
+        hub._begin(first, {})
+    pending = hub.pending
+    assert pending["screen"] == "order" and "put into the graveyard first" in pending["hint"]
+    data, respond = prompts.build(pending, first["observation"], SEATS)
+    assert data["type"] == "reorder" and [item["id"] for item in data["items"]] == ["o-g", "o-d", "o-b"]
+    with pytest.raises(prompts.Rejected):
+        respond({"type": "reorderDecision", "orderedIds": ["o-b", "o-g"]})               # not every card
+    how, plan = respond({"type": "reorderDecision", "orderedIds": ["o-b", "o-g", "o-d"]})
+    assert how == "plan" and plan == {"kind": "order", "cards": ["o-b", "o-g", "o-d"]}
+    assert hub.plan_with(pending["seq"], plan) is None
+    assert hub.answer == 2                                                                 # Balustrade Spy first
+    hub.pending = None
+    second = mill_order([MILLED[0], MILLED[1]], 1)
+    with hub.cond:
+        assert hub._automatic(second) == ("plan", 0)                                       # then Lotleth Giant
+
+
+def test_a_library_order_is_one_step_with_its_own_meaning_and_nothing_changes_without_the_option() -> None:
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    answer_now(hub, arrange(WALL, ["hand", "bottom"], 0, 3), 1)
+    answer_now(hub, arrange(WILDLING, ["hand", "bottom"], 1, 3), 1)
+    answer_now(hub, arrange(SPY, ["hand", "bottom"], 2, 3), 0)
+    request = order([WILDLING, WALL], 0, 3)
+    with hub.cond:
+        hub._begin(request, {})
+    assert hub.pending["screen"] == "order" and "closest to the top of the library" in hub.pending["hint"]
+    plain = Hub(real_action_stops=True)
+    plain.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    with plain.cond:
+        plain._begin(mill_order(MILLED, 0), {})
+    assert plain.pending["screen"] == "generic"
+
+
+def test_trigger_orders_and_put_backs_keep_their_own_screens() -> None:
+    hub = Hub(real_action_stops=True, auto_graveyard_order=True)
+    hub.game = {"game_id": "g-1", "seat": ME, "started": 0.0}
+    triggers = order(MILLED, 0, 3, purpose="triggers")
+    for c in triggers["candidates"]:
+        c["semantic"]["item"] = {"trigger": {"source": None, "source_name": "x", "ability_index": 0,
+                                             "event_objects": [], "instance": c["candidate_id"], "label": None}}
+    with hub.cond:
+        hub._begin(triggers, {})
+    assert hub.pending["screen"] == "generic"
+
+
+def test_the_scripted_client_keeps_the_offered_order_of_a_reorder_prompt() -> None:
+    from spellbench.human.manabrew.fake_client import answer
+
+    prompt = {"input": {"type": "reorder", "presentation": {"title": "Order"}, "items": [{"id": "o-b"}, {"id": "o-g"}]}}
+    assert answer(prompt) == {"type": "reorderDecision", "orderedIds": ["o-b", "o-g"]}

@@ -24,6 +24,11 @@ COLORS = {"Wildfire": "text-green-400", "Rally": "text-red-400", "Affinity": "te
           "Faeries": "text-blue-400"}
 
 
+def card_names(deck_name: str) -> list[str]:
+    """The distinct card names of a board deck's list (main deck), in list order."""
+    return list(dict.fromkeys(row["name"] for row in DECKS[deck_name]))
+
+
 def exclude(names: list[str] | tuple[str, ...]) -> tuple[str, ...]:
     """Leave decks out of this process's table: the client is not offered them (``preset_index``), a pick of one is
     not a training deck (``catalog_id``), and a drawn deck never is one (``ORDER``). A name that is not a board deck

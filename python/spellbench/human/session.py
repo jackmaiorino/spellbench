@@ -36,7 +36,7 @@ from ..arena import engine_records, runner
 from ..arena.allocation import Allocation
 from ..bench import definition
 from ..run_secret import RunSecret
-from . import relay
+from . import graveyard_order, relay
 from .advisor import Advisor, AdvisorError, scorer_argv
 from .server import Hub, make_server
 
@@ -241,6 +241,22 @@ def pick_note(start: Mapping[str, Any], human: str) -> str:
     return f"Deck note: {what}, so you are dealt {human} instead."
 
 
+def engine_catalog(doc: dict[str, Any]) -> dict[str, list[str]]:
+    """The deck lists of the catalog file the board's engine is started with (its ``--catalog`` argument): the
+    file the London human engine decides graveyard-order relevance from, read here so the session decides alike."""
+    command = [str(part) for part in (doc.get("engine") or {}).get("command") or []]
+    # Every argument the engine's parser could read as its catalog: "--catalog", "--catalog=...", and the
+    # abbreviations argparse accepts ("--cat"). Exactly one plain "--catalog PATH" is accepted, so the file read
+    # here is the one the engine reads.
+    named = [i for i, part in enumerate(command)
+             if part.startswith("--") and len(part.split("=", 1)[0]) > 2 and "--catalog".startswith(part.split("=", 1)[0])]
+    if len(named) != 1 or command[named[0]] != "--catalog" or named[0] + 1 >= len(command):
+        raise SystemExit("--auto-graveyard-order needs an engine started with exactly one '--catalog PATH' "
+                         "(the London human engine), so the session reads the catalog the engine reads")
+    path = Path(command[named[0] + 1])
+    return graveyard_order.catalog_decks(json.loads(path.read_text(encoding="utf-8")))
+
+
 class OneGame(Exception):
     """Raised by the per-game hook: a picked game is the first game of a one-pair run."""
 
@@ -251,13 +267,13 @@ def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, 
     """One game with the decks the person picked: a one-pair run whose first game puts the person in seat p0
     (``human_first``) or p1, with the person's deck in that seat; the hook stops the run after that game.
     ``full_priority``: the engine of this game is told the person's seat (``--engine-windows-seat``), which it gives
-    every priority window; ``auto_graveyard_order``: likewise ``--graveyard-order-seat``, the seat that is not asked
-    to order cards going to its own graveyard. The engine must be one that takes the arguments (the London human
-    engine)."""
+    every priority window; ``auto_graveyard_order``: the engine gets ``--auto-graveyard-order`` (graveyard order
+    settled for both seats in a game in which no card reads it). The engine must be one that takes the arguments
+    (the London human engine)."""
     doc = copy.deepcopy(base)
     seat = "p0" if human_first else "p1"
     extra = (["--engine-windows-seat", seat] if full_priority else []) + (
-        ["--graveyard-order-seat", seat] if auto_graveyard_order else [])
+        ["--auto-graveyard-order"] if auto_graveyard_order else [])
     if extra:
         doc["engine"] = {**doc["engine"], "command": [*doc["engine"]["command"], *extra]}
     doc["tournament_dir"] = str(run_dir)
@@ -285,6 +301,7 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
     from .manabrew import decks as pool, host as manabrew_host
 
     rotation = [d.strip() for d in args.decks.split(",")] if args.decks else list(pool.ORDER)
+    catalog = engine_catalog(base) if args.auto_graveyard_order else {}
     plan = DeckPlan(rotation, args.opponent_deck, list(pool.ORDER), random.Random(f"{name}:opponent-deck"))
     played = 0
 
@@ -320,6 +337,8 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
             doc = picked_game_config(base, human_deck=human, bot_deck=bot, human_first=human_first, run_dir=run_dir,
                                      opponent=args.opponent, full_priority=args.full_priority,
                                      auto_graveyard_order=args.auto_graveyard_order)
+            if args.auto_graveyard_order:
+                hub.set_graveyard_readers(graveyard_order.game_readers(catalog, [human, bot]))
             (out / "runs" / f"{run_name}.config.json").write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
             with picks.open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps({"game": played + 1, "run": run_name, "human_deck": human, "bot_deck": bot,
@@ -334,11 +353,23 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                 closer(row)
                 raise OneGame()
 
+            before = (hub.game or {}).get("game_id")  # the last game the play server began (None: none yet)
             try:
                 runner.run_tournament(runner.TournamentConfig.from_json(doc), run_secret=RunSecret.generate(),
                                       allocation=Allocation.unmeasured(1), on_game=after_game)
             except OneGame:
                 pass
+            except runner.TournamentError as exc:
+                if ledger or (hub.game or {}).get("game_id") != before:
+                    raise  # this game began (a later failure, such as a record check): the usual cleanup path
+                # The arena refused the game before it began (the engine refused it at reset, such as a card that
+                # reads graveyard order and is missing from the card data): the person's game at the table is ended
+                # with the reason, nothing is recorded, and the session ends (the same refusal would come again).
+                message = (f"This game could not be started and nothing was recorded: {exc}. The session is "
+                           f"ending; it needs fixing before it is started again.")
+                print(f"\n  {message}", flush=True)
+                bridge.refuse_start(message)
+                return 2
             played += 1
             final = next((r for r in reversed(hub.results) if r.get("game_id") == (hub.game or {}).get("game_id")), None)
             ended = person_end(final, ledger[0] if ledger else None)
@@ -410,10 +441,13 @@ def main(argv: list[str] | None = None) -> int:
                              "it trained on: it does not respond to what you do in those six steps. Windows with only "
                              "mana abilities go to the client (its AUTOPASS countdown or Full control answers them)")
     parser.add_argument("--auto-graveyard-order", action="store_true",
-                        help="manabrew, London human engine: you are not asked to order cards that go to your own "
-                             "graveyard together (Balustrade Spy milling your library, a discard of several cards); "
-                             "they are ordered by card name. No card of the eight training decks reads graveyard "
-                             "order. The bot is asked as before. Leave the option out to be asked card by card")
+                        help="manabrew, London human engine: in a game in which no card of either deck reads "
+                             "graveyard order (every game of the eight training decks), neither you nor the bot is "
+                             "asked to order cards put into a graveyard together (Balustrade Spy milling a library): "
+                             "they keep the order the effect put them there, the rule the bots trained with. In a game "
+                             "with such a card both players are asked, you in one step. Any other card ordering you are "
+                             "asked (a library order, a put-back) is one step too. Leave the option out to be asked "
+                             "card by card")
     parser.add_argument("--keep-mana-autopass", action="store_true",
                         help="with --full-priority: the session keeps passing windows with only mana abilities itself "
                              "(no client countdown; the client's Full control then has nothing to act on)")

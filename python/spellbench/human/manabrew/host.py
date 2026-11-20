@@ -885,6 +885,19 @@ class Bridge:
             else:
                 self._gone = "host_fault"  # the game the arena is starting is ended when it appears
 
+    def refuse_start(self, message: str) -> None:
+        """The session could not begin the game the person started at the table (the arena refused it before its
+        first view): tell the client why (a ``fatal`` envelope, which its game screen shows with a way back to the
+        lobby) and end the room's game. No result is recorded: no game was played."""
+        with self.lock:
+            try:
+                self._envelope({"kind": "fatal", "message": message})
+                if self.game_id:
+                    self.host.send({"type": "EndGame", "game_id": self.game_id})
+            except Exception:  # noqa: BLE001 - a dead socket is reported by its own close
+                traceback.print_exc()
+            self.order, self.seats = None, None
+
     def _relay_closed(self, session: Session, reason: str) -> None:
         """A relay connection of this session closed: the table, the room and the client's game are gone with it, so
         the session ends loudly instead of waiting for a person nobody can reach (the client freezes and, a minute

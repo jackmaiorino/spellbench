@@ -337,6 +337,32 @@ def put_back(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: 
     return data, answer
 
 
+def reorder(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Seats) -> tuple[dict, Answer] | None:
+    """A card ordering (``screen`` ``order``) as Manabrew's ``reorder`` prompt: the person puts every offered card in
+    order at once, and the order answers the block's substeps one by one (plan ``order``). The prompt's description
+    says what the first card means."""
+    items, ids = [], []
+    for c in pending.get("candidates") or []:
+        obj = ((c.get("semantic") or {}).get("item") or {}).get("object") or {}
+        if not obj.get("object_id"):
+            return None
+        found = view.find_card(observation, obj["object_id"])
+        card = view.card_dto(found[0], seats, found[1]) if found else view.card_dto(
+            {"object_id": obj["object_id"], "card_name": obj.get("card_name"), "controller_seat": obj.get("controller_seat"),
+             "owner_seat": obj.get("owner_seat")}, seats, obj.get("zone") or "library")
+        items.append({"id": obj["object_id"], "card": card})
+        ids.append(obj["object_id"])
+    data = {"type": "reorder", "presentation": presentation(pending), "items": items}
+
+    def answer(output: Mapping[str, Any]) -> tuple[str, Any]:
+        ordered = output.get("orderedIds") if output.get("type") == "reorderDecision" else None
+        if not isinstance(ordered, list) or sorted(map(str, ordered)) != sorted(ids):
+            raise Rejected("put every offered card in order, each once")
+        return "plan", {"kind": "order", "cards": [str(i) for i in ordered]}
+
+    return data, answer
+
+
 def _keywords(card: Mapping[str, Any]) -> set[str]:
     return {str(k).lower() for k in (card.get("characteristics") or {}).get("keywords") or []}
 
@@ -438,6 +464,10 @@ def build(pending: Mapping[str, Any], observation: Mapping[str, Any], seats: Sea
         return choose_action(pending, seats)
     if kinds == {"mulligan"}:
         built = mulligan(pending, observation, seats)
+        if built is not None:
+            return built
+    if pending.get("screen") == "order":
+        built = reorder(pending, observation, seats)
         if built is not None:
             return built
     if pending.get("screen") == "bottom":

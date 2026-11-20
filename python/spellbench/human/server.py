@@ -254,13 +254,16 @@ FULL_PRIORITY_NOTE = ("Full priority: you get priority in every step, and while 
                       "plays as it trained: it does NOT respond to anything you do in upkeep, draw, beginning of "
                       "combat, combat damage, end of combat or the end step (so a spell you cast there cannot be "
                       "countered). In the main phases and the declare steps it responds as always.")
-GRAVEYARD_ORDER_NOTE = ("Graveyard order: cards that go to your graveyard together (a mill, a discard of several "
-                        "cards, the rest of a look) are ordered for you, by name, and so are the cards one look puts "
-                        "into your hand. No card in these decks reads graveyard order.")
-# Destinations whose order no card of these decks uses (a hand has none; the graveyard audit covers the other):
-# the session answers the order of the cards one look (an arrangement) sends there. The other seat still sees the
-# graveyard in the order answered, exactly as when the person takes the first card listed by hand.
-UNORDERED_DESTINATIONS = frozenset({"graveyard", "hand"})
+GRAVEYARD_ORDER_NOTE = ("Graveyard order: no card in these two decks reads graveyard order, so neither player is "
+                        "asked: cards put into a graveyard together keep the order the effect put them there (a mill: "
+                        "library order), as in the bots' training.")
+GRAVEYARD_ORDER_ASKED_NOTE = ("Graveyard order matters in this game ({cards}): both players order cards put into "
+                              "their graveyard together; you order each batch in one step.")
+ORDER_FIRST = {"library": "first = closest to the top of the library", "graveyard": "first = put into the graveyard first",
+               "other": "first = placed first"}
+# Purposes of an ``order_pick`` the person orders in one step (``reorder``) with ``auto_graveyard_order``: card orders.
+# Trigger orders and the mulligan put-back have screens of their own.
+REORDER_PURPOSES = frozenset({"other", "library_top", "library_bottom", "arrangement"})
 PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the new seven are drawn, then asks Keep or "
                  "Mulligan on the smaller hand (real tables ask Keep or Mulligan first, then bottom).")
 
@@ -279,9 +282,12 @@ class Hub:
                  client_autopass: bool = False, auto_graveyard_order: bool = False) -> None:
         self.cond = threading.Condition()
         # True: the engine orders cards going to the person's own graveyard together without asking (the session
-        # told it the person's seat), and this class answers the order of the cards one look puts into their
-        # graveyard or hand (``_settled_order``).
+        # told it to settle graveyard order in a game in which no card reads it); this class answers the order of
+        # the cards one look puts into the person's hand, and into their graveyard where order cannot matter
+        # (``_settled_order``), and shows any other card ordering in one step (``reorder``).
         self.auto_graveyard_order = auto_graveyard_order
+        # The cards of the next game's two deck lists that read graveyard order (``set_graveyard_readers``).
+        self.graveyard_readers: list[str] = []
         # The arrangement under way: its group id and where the person sent each card of it (``_conclude``).
         self._arranged_group: Any = None
         self._arranged: dict[Any, str] = {}
@@ -436,7 +442,8 @@ class Hub:
             if self.full_priority:
                 self._note("game", FULL_PRIORITY_NOTE)
             if self.auto_graveyard_order:
-                self._note("game", GRAVEYARD_ORDER_NOTE)
+                self._note("game", GRAVEYARD_ORDER_ASKED_NOTE.format(cards=", ".join(self.graveyard_readers))
+                           if self.graveyard_readers else GRAVEYARD_ORDER_NOTE)
             self.plan = self.skip = self.game_over = None
             self._arranged_group, self._arranged = None, {}
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
@@ -1113,11 +1120,24 @@ class Hub:
         real = self.real_action_stops and bool(real_actions(candidates))
         return ("human", None) if self._stops_here(decision, real) else ("auto_pass", passing)
 
+    def set_graveyard_readers(self, readers: list[str]) -> None:
+        """The cards of the next game's deck lists that read graveyard order (the session's
+        ``spellbench.human.graveyard_order.readers``): with ``auto_graveyard_order``, an empty list means the order
+        is settled by the engine and nobody is asked; otherwise both players are asked and the log says why."""
+        with self.cond:
+            self.graveyard_readers = list(readers)
+
+    def _unordered_destinations(self) -> frozenset[str]:
+        """Destinations of a look whose order the person is not asked: a hand never has an order; a graveyard has
+        none that matters in a game in which no card reads it."""
+        return frozenset({"hand"}) if self.graveyard_readers else frozenset({"hand", "graveyard"})
+
     def _settled_order(self, decision: Mapping[str, Any]) -> int | None:
         """The first candidate of an ordering the person is not asked (``auto_graveyard_order``), or ``None``. Only
         the ordering step of an arrangement (a look that sends cards to several places) whose candidates all go to
-        the person's graveyard or hand: the destinations are those the person gave the cards earlier in the same
-        group, so a card with no recorded destination, or one going to the top or bottom of a library, is asked."""
+        the person's hand, or to their graveyard in a game in which no card reads graveyard order: the destinations
+        are those the person gave the cards earlier in the same group, so a card with no recorded destination, or
+        one going to the top or bottom of a library, is asked."""
         if not self.auto_graveyard_order:
             return None
         candidates = decision.get("candidates") or []
@@ -1128,9 +1148,34 @@ class Hub:
             return None
         destinations = {self._arranged.get(((s.get("item") or {}).get("object") or {}).get("object_id"))
                         for s in semantics}
-        if not destinations <= UNORDERED_DESTINATIONS:
+        if not destinations <= self._unordered_destinations():
             return None
         return candidates[0]["candidate_id"]
+
+    def _reorder_meaning(self, candidates: list[Mapping[str, Any]]) -> str | None:
+        """For a card ordering the person makes in one step: what the first card of their order means; ``None`` when
+        the decision is not such an ordering (``auto_graveyard_order`` off, a trigger order, a put-back, a choice that
+        is not a card, or cards bound for different places)."""
+        if not self.auto_graveyard_order or len(candidates) < 2:
+            return None
+        semantics = [c.get("semantic") or {} for c in candidates]
+        if any(s.get("kind") != "order_pick" or s.get("purpose") not in REORDER_PURPOSES
+               or not ((s.get("item") or {}).get("object") or {}).get("object_id") for s in semantics):
+            return None
+        purposes = {s.get("purpose") for s in semantics}
+        if len(purposes) != 1:
+            return None
+        purpose = purposes.pop()
+        if purpose in ("library_top", "library_bottom"):
+            return ORDER_FIRST["library"]
+        if purpose == "other":
+            return ORDER_FIRST["graveyard"]
+        places = {self._arranged.get(((s.get("item") or {}).get("object") or {}).get("object_id")) for s in semantics}
+        if len(places) != 1:
+            return None
+        place = places.pop()
+        return ORDER_FIRST["library"] if place in ("top", "bottom") else (
+            ORDER_FIRST["graveyard"] if place == "graveyard" else ORDER_FIRST["other"])
 
     def _stops_here(self, decision: Mapping[str, Any], real: bool = False) -> bool:
         """Whether this priority goes to the person. ``real``: they have a legal action besides passing and mana
@@ -1249,6 +1294,14 @@ class Hub:
                 if ((c["semantic"].get("item") or {}).get("object") or {}).get("object_id") == wanted:
                     return c["candidate_id"]
             return None
+        if plan["kind"] == "order" and kinds == {"order_pick"}:
+            # The person ordered these cards in one step: each substep takes the earliest of its candidates in that
+            # order. A candidate the order does not name ends the plan (the person is asked again).
+            rank = {card: index for index, card in enumerate(plan["cards"])}
+            ids = [((c["semantic"].get("item") or {}).get("object") or {}).get("object_id") for c in candidates]
+            if any(i not in rank for i in ids):
+                return None
+            return candidates[min(range(len(ids)), key=lambda i: rank[ids[i]])]["candidate_id"]
         if plan["kind"] == "attack" and kinds == {"declare_attack"}:
             attacker = (candidates[0]["semantic"].get("attacker") or {}).get("object_id")
             wanted = attacker in plan["attackers"]
@@ -1322,9 +1375,12 @@ class Hub:
         elif (kinds == {"order_pick"} and group.get("substep_index") == 0
               and all((c["semantic"] or {}).get("purpose") == "mulligan_bottom" for c in candidates)):
             screen = "bottom"
+        meaning = self._reorder_meaning([{"semantic": c["semantic"]} for c in candidates])
+        if meaning is not None:
+            screen = "order"
         # The engine's autopay only uses plain tap sources, so a spell payable only with mana from a costed source
         # (an Eldrazi Spawn's sacrifice, a Treasure) is not offered until that mana is floating.
-        hint = PUT_BACK_NOTE if screen == "bottom" else None
+        hint = PUT_BACK_NOTE if screen == "bottom" else (f"Order these cards: {meaning}." if screen == "order" else None)
         if any(c["kind"] == "activate_mana_ability" and (c["semantic"].get("source") or {}).get("object_id") not in lands
                for c in candidates):
             hint = ("Autopay only taps lands and plain mana sources: a spell that needs mana from an Activate source "
@@ -1396,6 +1452,8 @@ class Hub:
                                                          for k, v in (plan.get("blocks") or {}).items()}}
             elif kind == "bottom":
                 self.plan = {"kind": "bottom", "cards": [str(c) for c in plan.get("cards") or []]}
+            elif kind == "order":
+                self.plan = {"kind": "order", "cards": [str(c) for c in plan.get("cards") or []]}
             else:
                 return "unknown plan"
             self.plan["group_id"] = pending["group"].get("group_id")
