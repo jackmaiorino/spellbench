@@ -63,6 +63,43 @@ FULL_PRIORITY_STEPS = tuple(step for step in STEP_ORDER if step not in ("untap",
 NEW_PRIORITY_STEPS = frozenset(FULL_PRIORITY_STEPS) - frozenset(ENGINE_PRIORITY_STEPS)
 UNTRAINED_READ = "not read: the model never had priority in this step in training"
 OWN_STACK_READ = "not read: the model was never asked while its own spell or ability was on top of the stack"
+# The advisor's planned line (``--planned-line``): the engine plays the model's own top choice forward on a copy of
+# the game and attaches the person's steps to the person's decision (``x_advisor_line_v1``). Never "search" or "the
+# best line": it is the model's top choice at each step, and it assumes the opponent does not respond.
+LINE = "x_advisor_line_v1"
+LINE_SCHEMA = "spellbench-advisor-line/v1"
+LINE_TITLE = "Bot's line (its top choice at each step), if the opponent does not respond"
+LINE_ENDS = {
+    "opponent_decision": "then the opponent has a choice to make",
+    "unseen": "then a hidden card or a random outcome would be seen (a draw, a search, a look, a shuffle)",
+    "turn_ends": "then the turn ends",
+    "grouped": "then a choice the line does not play (blockers, an order)",
+    "no_result": "then the game ends without a result",
+    "game_end_later_turn": "then the game ends in a later turn",
+}
+LINE_GAME_END = {
+    "win": "wins this turn if the opponent does not respond",
+    "loss": "loses this turn if the opponent does not respond",
+    "draw": "the game is drawn this turn if the opponent does not respond",
+}
+
+
+def planned_line_view(line: Any, me: str | None, lands: frozenset[str]) -> dict[str, Any] | None:
+    """The panel's form of a planned line: the title, the person's steps in the client's words, how it ends, and
+    ``win`` when it ends the game this turn in the person's favour (still only if the opponent does not respond).
+    None for a payload of another shape."""
+    if not isinstance(line, Mapping) or line.get("schema") != LINE_SCHEMA:
+        return None
+    steps, stop, result = line.get("steps"), line.get("stop"), line.get("result")
+    if not isinstance(steps, list) or not steps or not all(isinstance(step, Mapping) for step in steps):
+        return None
+    view: dict[str, Any] = {"title": LINE_TITLE, "steps": [text.candidate(step, me, lands) for step in steps]}
+    if stop == "game_end" and result in LINE_GAME_END:
+        view["end"] = LINE_GAME_END[result]
+        view["win"] = result == "win"
+    else:
+        view["end"] = LINE_ENDS.get(stop, "...")
+    return view
 
 
 def reachable_step(step: str, steps: tuple[str, ...] = ENGINE_PRIORITY_STEPS) -> str:
@@ -524,16 +561,17 @@ class Hub:
         decision = request.get("decision") or {}
         # The model input (kept by the relay only for a session with an advisor) is for the advisor alone: it is
         # taken out here, so the person's view, the log and the narrator never hold it.
-        model_input = None
+        model_input = line = None
         extensions = decision.get("extensions")
-        if isinstance(extensions, Mapping) and any(name in extensions for name in FLAT_EXTENSIONS):
-            model_input = next(extensions[name] for name in FLAT_EXTENSIONS if name in extensions)
+        if isinstance(extensions, Mapping) and any(name in extensions for name in (*FLAT_EXTENSIONS, LINE)):
+            model_input = next((extensions[name] for name in FLAT_EXTENSIONS if name in extensions), None)
+            line = extensions.get(LINE)  # the advisor's planned line goes the same way: only to the advice
             decision = {**decision, "extensions": {name: value for name, value in extensions.items()
-                                                   if name not in FLAT_EXTENSIONS}}
+                                                   if name not in (*FLAT_EXTENSIONS, LINE)}}
         with self.cond:
             started = time.monotonic()
             how, candidate_id = self._begin(decision, request.get("clock") or {}, model_input=model_input,
-                                            game_id=request.get("game_id"))
+                                            game_id=request.get("game_id"), line=line)
             chosen_text = None
             advice = None
             if candidate_id is None:
@@ -555,7 +593,7 @@ class Hub:
             return self._conclude(decision, how, candidate_id, chosen_text, started, advice)
 
     def _begin(self, decision: Mapping[str, Any], clock: Mapping[str, Any], *, model_input: Any = None,
-               game_id: Any = None) -> tuple[str, int | None]:
+               game_id: Any = None, line: Any = None) -> tuple[str, int | None]:
         """Take in a decision. Returns how it is answered without the person and the candidate, or ``(how, None)``
         with the decision pending for the person (``self.pending``; the answer comes with ``answer_with``,
         ``pass_with`` or ``plan_with``)."""
@@ -605,11 +643,12 @@ class Hub:
                 self._note("game", PUT_BACK_NOTE)
             self.pending_key = position_key(decision)
             self.answer = None
-            self.advice = self._advise(decision, model_input, game_id)
+            self.advice = self._advise(decision, model_input, game_id, line)
             self._bump()
         return how, candidate_id
 
-    def _advise(self, decision: Mapping[str, Any], model_input: Any, game_id: Any) -> dict[str, Any] | None:
+    def _advise(self, decision: Mapping[str, Any], model_input: Any, game_id: Any,
+                line: Any = None) -> dict[str, Any] | None:
         """The advisor's read of the decision that is now pending. It starts as ``reading`` and is filled in by the
         advisor's own thread (``_apply_read``) with the texts the person sees for its choices, most likely first. A
         decision it cannot read says why; a scorer that fails is dropped for the rest of the session, with a log line,
@@ -644,6 +683,15 @@ class Hub:
         seq, game = self.seq, (self.game or {}).get("game_id")
         texts = {c["id"]: c["text"] for c in self.pending["candidates"]}
         question = advice.get("question")
+        if line is not None and question is None:
+            # Shown only beside a read the panel shows (its first step is that read's top choice).
+            observation = decision.get("observation") or {}
+            lands = frozenset(o.get("object_id") for player in observation.get("players") or []
+                              for o in player.get("battlefield") or []
+                              if "land" in ((o.get("characteristics") or {}).get("types") or []))
+            shown = planned_line_view(line, (self.game or {}).get("seat"), lands)
+            if shown is not None:
+                advice["line"] = shown
         key = list(question["key"]) if question is not None else None
         # wanted while its read is the one shown, or while its combat's list (where its line is) is shown
         self._queue_read(decision, model_input, game_id, lambda read: self._apply_read(game, seq, texts, question, read),

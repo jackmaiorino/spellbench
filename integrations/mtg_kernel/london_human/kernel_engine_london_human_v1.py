@@ -17,6 +17,8 @@ import hmac
 import json
 import subprocess
 import sys
+import threading
+import time
 import zlib
 from collections import OrderedDict
 from copy import deepcopy
@@ -42,6 +44,7 @@ from kernel_arrangement_v2 import native_arrangement, native_arrangement_binding
 from kernel_order_v2 import TriggerOrder
 from kernel_selection_order_v2 import SelectionOrder, native_selection_order
 from spellbench.human import graveyard_order
+from spellbench.human.advisor import Advisor, AdvisorError
 
 FLAT = "x_kernel_flat_v7"
 BRIDGE_FLAGS = ["--x-kernel-flat-v7", "--pauper-london-human-v1", "--private-v2-support"]
@@ -50,6 +53,26 @@ SNAPSHOT_SUFFIX = ":neutral-v2:london-human-v1"
 PROPOSALS = "mtg-kernel-spellbench-completion-proposals/v1"
 PROPOSAL_ENCODING = "integer-rle-table/v1"
 PREVIEW_CACHE_BYTES = 16 * 1024 * 1024  # response lines; parsed views take several times that
+# The advisor's planned line (human play with an advisor only; ``KernelEngine.planned_line``).
+LINE = "x_advisor_line_v1"
+LINE_SCHEMA = "spellbench-advisor-line/v1"
+LINE_STEPS = 8         # the person's choices in one line at most: the line's only bound
+# The line scorer's time for all the reads of one line (seconds), the whole exchange (writing the request included)
+# supervised from outside it. A scorer that runs past it is dropped for the session (closed off the decision's path)
+# and the lines end "unavailable". The scorer reads only the person's own model input, which is the same whatever the
+# opponent holds, so this deadline depends on no hidden card. The bridge is the game's own process and has no such
+# deadline: a bridge that hangs hangs the game with or without the line.
+LINE_SCORER_TIMEOUT_S = 2.0
+# Why a line ends. From the bridge: the opponent decides something other than a bare priority pass; the next step
+# would show a hidden card (a draw, a mill, a search, a look or reveal, the opponent's hand changing) or draw a random
+# outcome, one reason "unseen" for both (which one a resolution produces can depend on the hidden cards); the turn
+# ends; the game ends (with the result for the person: this turn, or a later one); the game ends without a result. From the planner: the next choice is a grouped one (blocks, a card order, a trigger
+# order), which the line does not play; the bound of choices; the scorer cannot read the next choice or is gone.
+# No wall-clock bound: how long the clone takes depends on whether the opponent's windows were posed, which depends on
+# their hidden hand, so time never decides what the line shows.
+LINE_STOPS = ("opponent_decision", "unseen", "turn_ends", "game_end", "game_end_later_turn", "no_result",
+              "grouped", "bound", "unreadable", "unavailable")
+ARRANGEMENTS = ("scry", "look_select", "look", "reveal_partition", "mill", "put_on_top", "discard_order")
 
 
 def _plain_ints(values):
@@ -236,7 +259,7 @@ class KernelEngine:
     known_cards = False
 
     def __init__(self, peer, catalog, *, source_revision=None, known_cards=False, engine_windows_seat=None,
-                 auto_graveyard_order=False):
+                 auto_graveyard_order=False, line_seat=None, line_scorer=None, line_timing=None):
         # known_cards needs a bridge that exports public history: `known` then
         # follows the Section 6.7 update table instead of the current look.
         self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
@@ -249,6 +272,11 @@ class KernelEngine:
         self.auto_graveyard_order = auto_graveyard_order
         # This game's graveyard order: None (not asked for), "settled", or "asked" with the reader cards.
         self.graveyard_order = None
+        # The advisor's planned line (``planned_line``): the person's seat and a scorer of the wrapper's own (an
+        # ``Advisor``, loaded with the advisor's checkpoint), or None. Only a game whose rules enable LINE gets it.
+        self.line_seat, self.line_scorer = line_seat, line_scorer
+        # A JSON-lines file each line's cost is written to (measurement only), or None.
+        self.line_timing = line_timing
         native = peer.request({"request_type": "hello"})
         if native["response_type"] != "hello_ok":
             raise ProjectionError("native bridge did not handshake")
@@ -266,7 +294,8 @@ class KernelEngine:
             "engine_defaults": {"trigger_order": None, "replacement_order": "engine_order",
                 "combat_damage_assignment": "engine_order", "mana_payment": "engine_autopay"},
             "rewind": False, "fairness": {"noninterference_probe": False},
-            "extensions": [{"name": FLAT, "native_ids": True}, {"name": HISTORY, "native_ids": False}]}
+            "extensions": [{"name": FLAT, "native_ids": True}, {"name": HISTORY, "native_ids": False}]
+                          + ([{"name": LINE, "native_ids": False}] if line_seat is not None else [])}
         EnvHelloOk.from_json(self.hello)
         self.cache = None
         self.used = set()
@@ -334,8 +363,10 @@ class KernelEngine:
                 return error(rid, "deck_id_mismatch", "deck id differs from the compiled catalog")
         rules = request["rules"]
         if (rules["mulligan"] != "london" or rules["starting_player"] != "host_assigned" or rules["probe"] or
-            any(name not in (FLAT, HISTORY) for name in rules["extensions"])):
+            any(name not in (FLAT, HISTORY, LINE) for name in rules["extensions"])):
             return error(rid, "unsupported_rule", "unsupported rules or extensions")
+        if LINE in rules["extensions"] and (self.line_seat is None or FLAT not in rules["extensions"]):
+            return error(rid, "unsupported_rule", "the planned line needs --line-seat and the model input")
         self.used.add(request["game_id"])
         if self.game and self.current["response_type"] == "decision":
             # A neutral cap ends the game before an internal buffered group
@@ -549,6 +580,100 @@ class KernelEngine:
                 f"steps={sum(map(len, proposals))}")
         return extension
 
+    def planned_line(self):
+        """The advisor's planned line from the person's current decision (an ordinary one, not a grouped choice):
+        the model's top choice, played on a clone of the game in the bridge (``private_line``; the game itself is
+        never touched), then its top choice at the person's next decision, and so on, the opponent's bare priority
+        passes taken for them, until the bridge or this planner ends it (``LINE_STOPS``, at most LINE_STEPS
+        choices). Each step is the person's own choice as a protocol semantic (the client's words come from it), read
+        from the person's own model input on the clone. Nothing else of the clone is kept: no counts, no opponent
+        choice, no timing."""
+        started = time.perf_counter()
+        self._line_budget = LINE_SCORER_TIMEOUT_S
+        try:
+            steps, stop, result, ids = self._play_line()
+        except (ProjectionError, ValueError, KeyError, IndexError, TypeError, OSError) as exc:
+            # The line never touches the game: whatever fails in it ends the line, never the game. (A bridge that is
+            # gone fails the game's own next request too, with its own message.)
+            print(f"kernel_engine_london_human_v1: planned line stopped: {type(exc).__name__}: {exc}",
+                  file=sys.stderr, flush=True)
+            steps, stop, result, ids = [], "unavailable", None, []
+        if self.line_timing is not None:
+            try:  # a measurement only: a file that cannot be written never stops the game
+                with open(self.line_timing, "a", encoding="utf-8") as stream:
+                    stream.write(json.dumps({"game": self.game, "step": self.current["step"], "choices": len(ids),
+                                             "stop": stop, "seconds": round(time.perf_counter() - started, 6)}) + "\n")
+            except OSError as exc:
+                print(f"kernel_engine_london_human_v1: line timing not written: {exc}", file=sys.stderr, flush=True)
+        return {"schema": LINE_SCHEMA, "steps": steps, "stop": stop, "result": result}
+
+    def _play_line(self):
+        projection = deepcopy(self.projection)  # the clone's objects never enter the game's own projection
+        root, view = self.current, self.current
+        ids, steps, stop, result = [], [], "bound", None
+        while len(ids) < LINE_STEPS:
+            pick = self._line_pick(view)
+            if pick is None:
+                stop = "unreadable" if self.line_scorer is not None else "unavailable"
+                break
+            raw = json.loads(view["extensions"]["x_kernel_v5"]["observation_json"])
+            support = view["extensions"]["x_kernel_v2_support"]
+            if view is not root:
+                projection.project(raw, support, None)  # the clone view's objects, as the game's own views are
+            steps.append(ordinary_semantic(view["candidates"][pick]["semantic"], raw, support, projection,
+                                           view["group"], candidate_id=pick))
+            ids.append(pick)
+            answer = self.peer.request({"request_type": "private_line", "game_id": self.game,
+                                        "expected_step": root["step"], "candidate_ids": ids})
+            kind = answer.get("response_type")
+            if kind == "private_line_stop" and answer.get("reason") in LINE_STOPS:
+                stop, result = answer["reason"], answer.get("result")
+                break
+            if kind != "private_line":
+                stop = "unavailable"
+                break
+            view = answer["view"]
+            support = view["extensions"]["x_kernel_v2_support"]
+            if (support.get("at_block_root") is True or support.get("choice", {}).get("purpose") in ARRANGEMENTS
+                    or view["candidates"][0]["semantic"]["kind"] == "order_triggers"):
+                stop = "grouped"
+                break
+        return steps, stop, result, ids
+
+    def _line_pick(self, view):
+        """The scorer's top row (the first of the highest, as the panel orders them) of a native decision of the
+        person's, as a native candidate id; None when it cannot read it. A scorer that fails is dropped."""
+        if self.line_scorer is None:
+            return None
+        decision = {"candidates": view["candidates"], "acting_seat": self.line_seat, "seat_step": 0}
+        scorer, box = self.line_scorer, {}
+
+        def exchange():
+            try:
+                box["read"] = scorer.read(f"line:{self.game}", decision, view["extensions"].get(FLAT))
+            except Exception as exc:  # noqa: BLE001 - any failure of the scorer drops it
+                box["error"] = exc
+
+        # The whole exchange (writing the request, reading the answer) runs in a thread of its own, so a scorer that
+        # stops reading cannot hold the decision past the line's budget.
+        worker = threading.Thread(target=exchange, daemon=True, name="planned-line-scorer")
+        began = time.monotonic()
+        worker.start()
+        worker.join(max(0.0, self._line_budget))
+        self._line_budget -= time.monotonic() - began
+        if worker.is_alive() or "error" in box:
+            why = box.get("error") or f"no answer within the line's {LINE_SCORER_TIMEOUT_S:g} s"
+            print(f"kernel_engine_london_human_v1: the planned line's scorer is dropped: {why}", file=sys.stderr,
+                  flush=True)
+            self.line_scorer = None
+            threading.Thread(target=scorer.close, daemon=True, name="planned-line-scorer-close").start()
+            return None
+        read = box["read"]
+        if "unavailable" in read or not read.get("rows"):
+            return None
+        top = max(read["rows"], key=lambda row: row["p"])  # max keeps the first of equal rows
+        return top["id"]
+
     def terminal(self, rid, outcome, reason, winner=None):
         self.pending = None
         return {"protocol": "spellbench/v2", "response_type": "terminal", "request_id": rid, "game_id": self.game,
@@ -635,6 +760,12 @@ class KernelEngine:
                 extensions[FLAT] = extension
         if HISTORY in self.rules["extensions"]:
             extensions[HISTORY] = self.history.drain(("p0", "p1").index(raw["acting_player"]), self.projection)
+        if (LINE in self.rules["extensions"] and actor == self.line_seat and self.buffer is None
+                and not any(semantic["kind"] == "mulligan" or semantic.get("purpose") == "mulligan_bottom"
+                            for semantic in semantics)):
+            # An ordinary decision of the person's after the pregame (a grouped choice, a mulligan or a bottom gets
+            # no line).
+            extensions[LINE] = self.planned_line()
         kinds = {family(semantic["kind"]) for semantic in semantics}
         if len(kinds) != 1:
             raise ProjectionError("native decision mixes neutral choice and priority families")
@@ -668,16 +799,37 @@ def main():
                              "(spellbench.human.graveyard_order), neither seat is asked to order cards put into a "
                              "graveyard together: the bridge applies the rule the bots trained with "
                              "(resolution-boundary-v1). In a game with such a card both seats are asked")
+    parser.add_argument("--line-seat", choices=("p0", "p1"),
+                        help="human play with an advisor: the person's seat, whose decisions carry the advisor's "
+                             "planned line (x_advisor_line_v1) when the game's rules enable it")
+    parser.add_argument("--line-scorer", default=None,
+                        help="with --line-seat: the advisor's scorer command line, as a JSON list (the session's "
+                             "advisor scorer: spellbench.human.advisor.scorer_argv)")
+    parser.add_argument("--line-timing", type=Path, default=None,
+                        help="with --line-seat: append each line's cost (seconds, choices, stop) to this JSON-lines "
+                             "file")
     args = parser.parse_args()
+    if (args.line_scorer is not None or args.line_timing is not None) and args.line_seat is None:
+        parser.error("--line-scorer and --line-timing go with --line-seat")
     if args.known_cards:
         # The Section 6.7 knowledge tracker has not been taught the pregame's draws and bottoms; the London human
         # board does not declare known_cards.
         parser.error("--known-cards is not supported by the London human engine")
+    scorer = None
+    if args.line_scorer is not None:
+        argv = json.loads(args.line_scorer)
+        if not isinstance(argv, list) or not argv or not all(isinstance(word, str) for word in argv):
+            parser.error("--line-scorer must be a JSON list of strings")
+        try:
+            scorer = Advisor(argv, name="planned-line", answer_timeout_s=LINE_SCORER_TIMEOUT_S)
+        except AdvisorError as exc:
+            parser.error(f"--line-scorer: {exc}")
     peer = NativePeer(args.bridge)
     try:
         engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision,
                              known_cards=args.known_cards, engine_windows_seat=args.engine_windows_seat,
-                             auto_graveyard_order=args.auto_graveyard_order)
+                             auto_graveyard_order=args.auto_graveyard_order, line_seat=args.line_seat,
+                             line_scorer=scorer, line_timing=args.line_timing)
         while True:
             try:
                 payload = wire.read_line(sys.stdin.buffer)
@@ -691,6 +843,8 @@ def main():
             sys.stdout.buffer.flush()
     finally:
         peer.close()
+        if scorer is not None:
+            scorer.close()
 
 
 if __name__ == "__main__":

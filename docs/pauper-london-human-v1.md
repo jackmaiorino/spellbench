@@ -99,3 +99,29 @@ asks nobody where it cannot:
 
 A bridge without the rule refuses the reset, so a session never plays without what it promised. Leave the option out
 to be asked card by card.
+
+## Planned line (`--planned-line`, with `--advisor`)
+
+The advisor panel also lists the model's own line from the person's decision: its top choice, played forward on a
+copy of the game, then its top choice at the person's next decision, and so on. It is labelled "Bot's line (its top
+choice at each step), if the opponent does not respond". It is not a search and never "the best line".
+
+- **Where it is played:** the engine wrapper asks the bridge (`private_line`, human-play London server only) to play
+  the person's choices on a clone; the game itself is never touched. A scorer of the wrapper's own, loaded with the
+  advisor's checkpoint, picks each step from the person's own model input on the clone.
+- **The opponent:** only a bare priority pass is taken for them, always, whatever they hold. Any other decision of
+  theirs (blocks, targets, a sacrifice, a discard) ends the line. Nothing about their options reaches the panel.
+- **Hidden cards and chance:** the line stops before a step that would draw, mill, search, look at or reveal a card,
+  change the opponent's hand, or draw a random outcome. It also stops when the turn ends, at a grouped choice
+  (blockers, an order), or after 8 of the person's choices. There is no wall-clock bound: the clone's speed depends
+  on whether the opponent's windows were posed, so time never decides what is shown. A hidden card and a random
+  outcome are one stop ("a hidden card or a random outcome would be seen"): which of the two a resolution produces
+  can depend on the hidden cards. The line's scorer gets 2 s for all its reads of one line, supervised from outside
+  the exchange, or is dropped for the session. Not claimed: that the person's decision arrives at the same moment
+  whatever the opponent holds (the line's computing time varies by milliseconds with the opponent's posed windows),
+  or any bound on a bridge that hangs (the game's own process).
+- **Game end:** "wins this turn if the opponent does not respond" when the line ends the game this turn.
+- **What travels:** the extension `x_advisor_line_v1` on the person's ordinary decisions only (never the bot's, never
+  the pregame), enabled only for such a session: the steps, how the line ends, and the result. No counts, no timing.
+  The hub takes it off the decision as it takes the model input, and the relay drops it without an advisor.
+- **Client:** the local panel patch in `dist-advisor-4`.

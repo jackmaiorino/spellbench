@@ -89,21 +89,27 @@ def build_config(*, benchmark_dir: Path, local: dict[str, str], opponent: str, g
     return resolve_local(doc, local)
 
 
-def start_advisor(*, benchmark_dir: Path, local: dict[str, str], name: str, run_dir: Path,
-                  label: str | None = None) -> Advisor:
-    """The advisor of ``--advisor NAME``: a scorer process of the session's own, loaded with the checkpoint of the
-    board's bot NAME (its command names the scorer and its config). It stops the session when NAME is not a kernel
-    flat policy of the board or its scorer does not come up: a session asked to advise never plays unadvised
-    without saying so."""
+def advisor_scorer(*, benchmark_dir: Path, local: dict[str, str], name: str, run_dir: Path) -> tuple[list[str], dict]:
+    """The scorer command line of the board's bot NAME and the bot's entry; stops the session when NAME is not a
+    kernel flat policy of the board."""
     doc = definition.load_benchmark(benchmark_dir).tournament_config(str(run_dir))
     bot = next((bot for bot in doc["bots"] if bot["name"] == name), None)
     if bot is None:
         raise SystemExit(f"advisor {name!r} is not a bot of {benchmark_dir.name}: "
                          f"{sorted(bot['name'] for bot in doc['bots'])}")
     try:
-        argv = scorer_argv(resolve_local({"command": bot["command"]}, local)["command"])
+        return scorer_argv(resolve_local({"command": bot["command"]}, local)["command"]), bot
     except ValueError as exc:
         raise SystemExit(f"advisor {name!r}: {exc}; only a kernel flat policy can advise") from exc
+
+
+def start_advisor(*, benchmark_dir: Path, local: dict[str, str], name: str, run_dir: Path,
+                  label: str | None = None) -> Advisor:
+    """The advisor of ``--advisor NAME``: a scorer process of the session's own, loaded with the checkpoint of the
+    board's bot NAME (its command names the scorer and its config). It stops the session when NAME is not a kernel
+    flat policy of the board or its scorer does not come up: a session asked to advise never plays unadvised
+    without saying so."""
+    argv, bot = advisor_scorer(benchmark_dir=benchmark_dir, local=local, name=name, run_dir=run_dir)
     label = label or (bot.get("display") or {}).get("label") or name
     try:
         return Advisor(argv, name=name, label=str(label))
@@ -263,19 +269,24 @@ class OneGame(Exception):
 
 def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, human_first: bool,
                        run_dir: Path, opponent: str, full_priority: bool = False,
-                       auto_graveyard_order: bool = False) -> dict[str, Any]:
+                       auto_graveyard_order: bool = False, line_scorer: list[str] | None = None) -> dict[str, Any]:
     """One game with the decks the person picked: a one-pair run whose first game puts the person in seat p0
     (``human_first``) or p1, with the person's deck in that seat; the hook stops the run after that game.
     ``full_priority``: the engine of this game is told the person's seat (``--engine-windows-seat``), which it gives
     every priority window; ``auto_graveyard_order``: the engine gets ``--auto-graveyard-order`` (graveyard order
-    settled for both seats in a game in which no card reads it). The engine must be one that takes the arguments
+    settled for both seats in a game in which no card reads it); ``line_scorer``: the advisor's scorer command line,
+    and the engine attaches the advisor's planned line to the person's decisions (``--line-seat``, ``--line-scorer``,
+    the extension ``x_advisor_line_v1`` enabled for this game). The engine must be one that takes the arguments
     (the London human engine)."""
     doc = copy.deepcopy(base)
     seat = "p0" if human_first else "p1"
     extra = (["--engine-windows-seat", seat] if full_priority else []) + (
-        ["--auto-graveyard-order"] if auto_graveyard_order else [])
+        ["--auto-graveyard-order"] if auto_graveyard_order else []) + (
+        ["--line-seat", seat, "--line-scorer", json.dumps(line_scorer)] if line_scorer else [])
     if extra:
         doc["engine"] = {**doc["engine"], "command": [*doc["engine"]["command"], *extra]}
+    if line_scorer:
+        doc["extensions"] = [*doc.get("extensions", []), "x_advisor_line_v1"]
     doc["tournament_dir"] = str(run_dir)
     doc.pop("deck_pool", None)
     doc.pop("deck_pairing", None)
@@ -336,7 +347,8 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
             run_dir = out / "runs" / run_name
             doc = picked_game_config(base, human_deck=human, bot_deck=bot, human_first=human_first, run_dir=run_dir,
                                      opponent=args.opponent, full_priority=args.full_priority,
-                                     auto_graveyard_order=args.auto_graveyard_order)
+                                     auto_graveyard_order=args.auto_graveyard_order,
+                                     line_scorer=getattr(args, "line_scorer", None))
             if args.auto_graveyard_order:
                 hub.set_graveyard_readers(graveyard_order.game_readers(catalog, [human, bot]))
             (out / "runs" / f"{run_name}.config.json").write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
@@ -448,6 +460,13 @@ def main(argv: list[str] | None = None) -> int:
                              "with such a card both players are asked, you in one step. Any other card ordering you are "
                              "asked (a library order, a put-back) is one step too. Leave the option out to be asked "
                              "card by card")
+    parser.add_argument("--planned-line", action="store_true",
+                        help="manabrew, London human engine, with --advisor: the advisor panel also shows the model's "
+                             "own line from your decision, played forward on a copy of the game: its top choice at "
+                             "each of your steps, the opponent's priority passed for them, until the opponent has "
+                             "another choice, a hidden card or a random outcome would be seen, or the turn ends (at "
+                             "most 8 of your choices); and whether that line wins this turn. It assumes the opponent "
+                             "does not respond; it is not a search")
     parser.add_argument("--keep-mana-autopass", action="store_true",
                         help="with --full-priority: the session keeps passing windows with only mana abilities itself "
                              "(no client countdown; the client's Full control then has nothing to act on)")
@@ -457,6 +476,8 @@ def main(argv: list[str] | None = None) -> int:
     if (args.full_priority or args.auto_graveyard_order) and args.client != "manabrew":
         parser.error("--full-priority and --auto-graveyard-order need --client manabrew (the engine is told the "
                      "person's seat for each game)")
+    if args.planned_line and not (args.advisor and args.client == "manabrew"):
+        parser.error("--planned-line needs --advisor and --client manabrew (the London human engine plays the line)")
     if args.keep_mana_autopass and not args.full_priority:
         parser.error("--keep-mana-autopass only goes with --full-priority")
     if args.exclude_decks:
@@ -503,6 +524,10 @@ def main(argv: list[str] | None = None) -> int:
         os.environ.pop(engine_records.HASH_ENV, None)
 
     advisor = None
+    args.line_scorer = None
+    if args.planned_line:
+        args.line_scorer, _ = advisor_scorer(benchmark_dir=args.benchmark, local=local, name=args.advisor,
+                                             run_dir=run_dir)
     if args.advisor:
         advisor = start_advisor(benchmark_dir=args.benchmark, local=local, name=args.advisor, run_dir=run_dir,
                                 label=args.advisor_label or None)
