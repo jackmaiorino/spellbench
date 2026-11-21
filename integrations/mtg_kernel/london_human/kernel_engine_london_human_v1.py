@@ -47,6 +47,10 @@ from spellbench.human import graveyard_order
 from spellbench.human.advisor import Advisor, AdvisorError
 
 FLAT = "x_kernel_flat_v7"
+# The training priority-window rules the bridge's reset field ``priority_windows`` takes for a bot seat
+# (mtg-kernel priority_action_windows_v1); harness-v2 is the surface every earlier bot trained on.
+ACTION_WINDOWS_RULES = ("action-windows-v1", "action-windows-end-step-v1")
+ACTION_WINDOWS_RULE = "action-windows-v1"
 BRIDGE_FLAGS = ["--x-kernel-flat-v7", "--pauper-london-human-v1", "--private-v2-support"]
 ENGINE_VERSION = "pauper-london-human-v1"
 SNAPSHOT_SUFFIX = ":neutral-v2:london-human-v1"
@@ -185,6 +189,14 @@ def error(request_id, code, message):
             "error": {"code": code, "message": message}}
 
 
+def native_priority_windows(bot_seat, first_seat, rule):
+    """The bridge's ``priority_windows`` for the bot's seat of the reset request: ``rule`` on the bot's bridge seat
+    (its p0 is the starting seat), ``harness-v2`` on the other."""
+    windows = ["harness-v2", "harness-v2"]
+    windows[0 if bot_seat == first_seat else 1] = rule
+    return windows
+
+
 def native_window_seats(person_seat, first_seat):
     """The bridge's seat list for the person's seat of the reset request. The bridge's p0 is the starting seat
     (``reset`` hands it the seats in turn order), so the person is its p0 exactly when they play first."""
@@ -259,7 +271,8 @@ class KernelEngine:
     known_cards = False
 
     def __init__(self, peer, catalog, *, source_revision=None, known_cards=False, engine_windows_seat=None,
-                 auto_graveyard_order=False, line_seat=None, line_scorer=None, line_timing=None):
+                 auto_graveyard_order=False, line_seat=None, line_scorer=None, line_timing=None,
+                 action_windows_seat=None, action_windows_rule=ACTION_WINDOWS_RULE):
         # known_cards needs a bridge that exports public history: `known` then
         # follows the Section 6.7 update table instead of the current look.
         self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
@@ -267,6 +280,12 @@ class KernelEngine:
         # bridge gives that seat every engine priority window; the other seat
         # keeps the windows its model trained on.
         self.engine_windows_seat = engine_windows_seat
+        # The bot's seat (p0 or p1 of the reset request) and the training window rule it plays on, or None. The
+        # bridge offers that seat the priority windows its model trained with (action-windows-v1); without it the
+        # seat keeps the HarnessV2 windows.
+        if action_windows_seat is not None and action_windows_seat == engine_windows_seat:
+            raise ValueError("a seat has either engine windows or a training window rule")
+        self.action_windows_seat, self.action_windows_rule = action_windows_seat, action_windows_rule
         # True: in a game in which no card of either deck list reads graveyard order, the bridge applies the
         # training rule for it (nobody is asked); in a game with such a card both seats are asked, as the rules say.
         self.auto_graveyard_order = auto_graveyard_order
@@ -396,6 +415,10 @@ class KernelEngine:
             # Sent only when asked for: a bridge without the feature refuses the field, so a session never plays
             # without the windows it promised.
             native["engine_window_seats"] = native_window_seats(self.engine_windows_seat, first)
+        if self.action_windows_seat is not None:
+            # Likewise only when asked for: a bridge without the field refuses it.
+            native["priority_windows"] = native_priority_windows(self.action_windows_seat, first,
+                                                                 self.action_windows_rule)
         readers = graveyard_readers(decks, request["seats"]) if self.auto_graveyard_order else []
         if self.auto_graveyard_order and not readers:
             # Likewise only when asked for, and only where no card reads graveyard order.
@@ -405,6 +428,9 @@ class KernelEngine:
             self.game = self.pending = None
             print(f"kernel_engine_london_human_v1: the bridge refused the reset: {self.current.get('error')}",
                   file=sys.stderr, flush=True)
+            if self.action_windows_seat is not None:
+                return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows, bot "
+                             "windows and the graveyard rule need a bridge built with them)")
             return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows and the "
                          "graveyard rule need a bridge built with them)")
         if self.auto_graveyard_order:
@@ -794,6 +820,12 @@ def main():
                         help="the seat of a person: the bridge gives it every engine priority window (upkeep, draw, "
                              "beginning of combat, combat damage, end of combat, end step, its own spell on the "
                              "stack); the other seat keeps the windows its model trained on")
+    parser.add_argument("--action-windows-seat", choices=("p0", "p1"),
+                        help="the seat of a bot: the bridge offers it the priority windows its model trained with "
+                             "(--action-windows-rule, default action-windows-v1: a window wherever it has a real "
+                             "action, in every step and while holding priority); not the --engine-windows-seat")
+    parser.add_argument("--action-windows-rule", choices=ACTION_WINDOWS_RULES, default=ACTION_WINDOWS_RULE,
+                        help="with --action-windows-seat: the training window rule")
     parser.add_argument("--auto-graveyard-order", action="store_true",
                         help="in a game in which no card of either deck list reads graveyard order "
                              "(spellbench.human.graveyard_order), neither seat is asked to order cards put into a "
@@ -809,6 +841,8 @@ def main():
                         help="with --line-seat: append each line's cost (seconds, choices, stop) to this JSON-lines "
                              "file")
     args = parser.parse_args()
+    if args.action_windows_seat is not None and args.action_windows_seat == args.engine_windows_seat:
+        parser.error("--action-windows-seat and --engine-windows-seat name different seats (a person and a bot)")
     if (args.line_scorer is not None or args.line_timing is not None) and args.line_seat is None:
         parser.error("--line-scorer and --line-timing go with --line-seat")
     if args.known_cards:
@@ -829,7 +863,9 @@ def main():
         engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision,
                              known_cards=args.known_cards, engine_windows_seat=args.engine_windows_seat,
                              auto_graveyard_order=args.auto_graveyard_order, line_seat=args.line_seat,
-                             line_scorer=scorer, line_timing=args.line_timing)
+                             line_scorer=scorer, line_timing=args.line_timing,
+                             action_windows_seat=args.action_windows_seat,
+                             action_windows_rule=args.action_windows_rule)
         while True:
             try:
                 payload = wire.read_line(sys.stdin.buffer)

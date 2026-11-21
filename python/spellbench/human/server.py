@@ -291,6 +291,11 @@ FULL_PRIORITY_NOTE = ("Full priority: you get priority in every step, and while 
                       "plays as it trained: it does NOT respond to anything you do in upkeep, draw, beginning of "
                       "combat, combat damage, end of combat or the end step (so a spell you cast there cannot be "
                       "countered). In the main phases and the declare steps it responds as always.")
+BOT_WINDOWS_NOTE = ("Bot windows: the bot plays on the priority windows it trained with (action-windows-v1): it is "
+                    "offered priority wherever it has something to do, in every step (upkeep, draw, combat, the end "
+                    "step) and while its own spell is on the stack, so it can respond to what you do there.")
+FULL_PRIORITY_BOT_WINDOWS_NOTE = ("Full priority: you get priority in every step, and while your own spell is on the "
+                                  "stack.")
 GRAVEYARD_ORDER_NOTE = ("Graveyard order: no card in these two decks reads graveyard order, so neither player is "
                         "asked: cards put into a graveyard together keep the order the effect put them there (a mill: "
                         "library order), as in the bots' training.")
@@ -316,6 +321,7 @@ class Hub:
     def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
                  opponent: str = "the bot", record_root: Path | None = None, real_action_stops: bool = False,
                  banner: str | None = None, advisor: Advisor | None = None, full_priority: bool = False,
+                 bot_windows: bool = False,
                  client_autopass: bool = False, auto_graveyard_order: bool = False) -> None:
         self.cond = threading.Condition()
         # True: the engine orders cards going to the person's own graveyard together without asking (the session
@@ -332,6 +338,8 @@ class Hub:
         # damage, end of combat, the end step, and their own spell on the stack), so a stop set in any of those steps
         # is taken there. The bot's seat is unchanged. False: the engine's trained windows only.
         self.full_priority = full_priority
+        # The bot's seat plays on its training window rule (``--bot-windows``): said in every game and its log.
+        self.bot_windows = bot_windows
         self.priority_steps = FULL_PRIORITY_STEPS if full_priority else ENGINE_PRIORITY_STEPS
         # True (with ``real_action_stops``): a window at which the person has mana abilities and nothing else is sent
         # to the client instead of being passed here, under the same hold, stack and combat rules as a window with a
@@ -477,7 +485,9 @@ class Hub:
             if self.advisor_identity is not None:
                 self._note("game", ADVISED_NOTE.format(label=self.advisor_identity["label"]))
             if self.full_priority:
-                self._note("game", FULL_PRIORITY_NOTE)
+                self._note("game", FULL_PRIORITY_BOT_WINDOWS_NOTE if self.bot_windows else FULL_PRIORITY_NOTE)
+            if self.bot_windows:
+                self._note("game", BOT_WINDOWS_NOTE)
             if self.auto_graveyard_order:
                 self._note("game", GRAVEYARD_ORDER_ASKED_NOTE.format(cards=", ".join(self.graveyard_readers))
                            if self.graveyard_readers else GRAVEYARD_ORDER_NOTE)
@@ -507,6 +517,7 @@ class Hub:
                              "label": self.label, "banner": self.banner, "stops": self.stops,
                              "advisor": self.advisor_identity,
                              **({"full_priority": True} if self.full_priority else {}),
+                             **({"bot_windows": "action-windows-v1"} if self.bot_windows else {}),
                              **({"auto_graveyard_order": True} if self.auto_graveyard_order else {})})
             self._bump()
 
