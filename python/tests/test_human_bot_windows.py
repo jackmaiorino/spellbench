@@ -30,8 +30,15 @@ def test_without_the_option_the_game_config_is_unchanged(tmp_path, human_first: 
                   full_priority=True, auto_graveyard_order=True)
     doc = session.picked_game_config(BASE, **kwargs)
     assert doc == session.picked_game_config(BASE, **kwargs, bot_windows=False)
-    assert doc["engine"]["command"] == ["python", "engine.py", "--bridge", "b", "--engine-windows-seat",
-                                        "p0" if human_first else "p1", "--auto-graveyard-order"]
+    # The whole config, frozen as the session wrote it before the option existed.
+    assert doc == {"tournament_dir": str(tmp_path),
+                   "engine": {"name": "mtg-kernel", "command": ["python", "engine.py", "--bridge", "b",
+                                                                "--engine-windows-seat", "p0" if human_first else "p1",
+                                                                "--auto-graveyard-order"]},
+                   "matchups": [["human", "bot"]] if human_first else [["bot", "human"]],
+                   "decks": ([{"catalog_id": "Burn"}, {"catalog_id": "Faeries"}] if human_first
+                             else [{"catalog_id": "Faeries"}, {"catalog_id": "Burn"}]),
+                   "pairs_per_matchup": 1}
 
 
 def test_the_option_needs_the_manabrew_client(capsys) -> None:

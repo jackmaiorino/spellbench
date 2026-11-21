@@ -483,9 +483,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.pace < 0:
         parser.error("--pace must be 0 or more")
-    if (args.full_priority or args.auto_graveyard_order or args.bot_windows) and args.client != "manabrew":
-        parser.error("--full-priority, --auto-graveyard-order and --bot-windows need --client manabrew (the engine is "
-                     "told the person's seat for each game)")
+    if (args.full_priority or args.auto_graveyard_order) and args.client != "manabrew":
+        parser.error("--full-priority and --auto-graveyard-order need --client manabrew (the engine is told the "
+                     "person's seat for each game)")
+    if args.bot_windows and args.client != "manabrew":
+        parser.error("--bot-windows needs --client manabrew (the engine is told the bot's seat for each game)")
     if args.planned_line and not (args.advisor and args.client == "manabrew"):
         parser.error("--planned-line needs --advisor and --client manabrew (the London human engine plays the line)")
     if args.keep_mana_autopass and not args.full_priority:
