@@ -22,6 +22,7 @@ import pytest
 
 BRIDGE = os.environ.get("MTG_KERNEL_LONDON_HUMAN_BRIDGE")
 CATALOG = os.environ.get("MTG_KERNEL_PUBLIC_CATALOG")
+needs_catalog = pytest.mark.skipif(not (CATALOG and Path(CATALOG).exists()), reason="needs the public catalog")
 needs_bridge = pytest.mark.skipif(not (BRIDGE and CATALOG and Path(BRIDGE).exists()),
                                   reason="needs the London bridge and the public catalog")
 
@@ -37,6 +38,7 @@ from spellbench.digests import card_name_domain, deck_id  # noqa: E402
 
 PERSON, BOT = "p0", "p1"
 HARNESS_STEPS = {"precombat_main", "declare_attackers", "declare_blockers", "postcombat_main"}
+NEW_STEPS = {"upkeep", "draw", "beginning_of_combat", "combat_damage", "end_of_combat", "end_step"}
 
 
 def test_the_bots_bridge_seat_follows_the_starting_seat() -> None:
@@ -64,29 +66,57 @@ def test_a_seat_has_either_engine_windows_or_a_training_rule() -> None:
         KernelEngine(Recorder(), {"catalog": []}, engine_windows_seat="p1", action_windows_seat="p1")
 
 
+def reset_value(catalog: dict, seed: int, *, first: str, person: str = "Faeries", bot: str = "Burn") -> dict:
+    decks = {e["catalog_id"]: e["decklist"] for e in catalog["catalog"]}
+    names = [r["name"] for d in (person, bot) for r in decks[d]]
+    rules = {"opponent_decklist": "visible", "mulligan": "london", "starting_player": "host_assigned",
+             "starting_seat": first, "card_name_domain": card_name_domain(names),
+             "extensions": [FLAT, HISTORY], "probe": False}
+    return {"request_type": "reset", "game_id": f"botwin-{seed}", "format": "pauper-bo1",
+            "seats": [{"seat": "p0", "deck": {"catalog_id": person, "deck_id": deck_id(decks[person])}},
+                      {"seat": "p1", "deck": {"catalog_id": bot, "deck_id": deck_id(decks[bot])}}],
+            "rules": rules, "game_secret": hashlib.sha256(f"botwin-{seed}".encode()).hexdigest(),
+            "max_decisions": 1 << 20, "max_steps": 1 << 20}
+
+
+def send(engine: KernelEngine, value: dict, serial: int = 1) -> dict:
+    request = {"protocol": "spellbench/v2", "request_id": f"q{serial}", **value}
+    return wire.strict_json_loads(engine.handle(wire.canonical_json_dumps(request)))
+
+
+@needs_catalog
+@pytest.mark.parametrize("first", ["p0", "p1"])
+def test_the_reset_carries_priority_windows_only_with_the_option(first: str) -> None:
+    catalog = json.loads(Path(CATALOG).read_bytes())
+    sent, answers = {}, {}
+    for option in (None, BOT):
+        peer = Recorder()
+        engine = KernelEngine(peer, catalog, engine_windows_seat=PERSON, auto_graveyard_order=True,
+                              action_windows_seat=option)
+        answers[option] = send(engine, reset_value(catalog, 1, first=first))
+        sent[option] = [r for r in peer.requests if r["request_type"] == "reset"][0]
+    plain, windows = sent[None], sent[BOT]
+    assert "priority_windows" not in plain
+    assert windows.pop("priority_windows") == native_priority_windows(BOT, first, "action-windows-v1")
+    assert windows == plain  # nothing else in the reset differs
+    # The refusal: the earlier text without the option, a text naming bot windows with it.
+    assert answers[None]["error"]["message"] == ("the native bridge refused this reset (engine windows and the "
+                                                 "graveyard rule need a bridge built with them)")
+    assert "bot windows" in answers[BOT]["error"]["message"]
+
+
 class World:
-    def __init__(self, seed: int, *, bot_windows: bool, person: str = "Faeries", bot: str = "Burn",
-                 first: str = "p0") -> None:
+    def __init__(self, seed: int, *, bot_windows: bool, first: str = "p0") -> None:
         self.catalog = json.loads(Path(CATALOG).read_bytes())
         self.peer = NativePeer(BRIDGE)
         self.engine = KernelEngine(self.peer, self.catalog, engine_windows_seat=PERSON, auto_graveyard_order=True,
                                    action_windows_seat=BOT if bot_windows else None)
-        decks = {e["catalog_id"]: e["decklist"] for e in self.catalog["catalog"]}
         self.serial = 0
-        names = [r["name"] for d in (person, bot) for r in decks[d]]
-        rules = {"opponent_decklist": "visible", "mulligan": "london", "starting_player": "host_assigned",
-                 "starting_seat": first, "card_name_domain": card_name_domain(names),
-                 "extensions": [FLAT, HISTORY], "probe": False}
-        self.current = self.send({"request_type": "reset", "game_id": f"botwin-{seed}", "format": "pauper-bo1",
-                                  "seats": [{"seat": "p0", "deck": {"catalog_id": person, "deck_id": deck_id(decks[person])}},
-                                            {"seat": "p1", "deck": {"catalog_id": bot, "deck_id": deck_id(decks[bot])}}],
-                                  "rules": rules, "game_secret": hashlib.sha256(f"botwin-{seed}".encode()).hexdigest(),
-                                  "max_decisions": 1 << 20, "max_steps": 1 << 20})
+        self.current = self.send(reset_value(self.catalog, seed, first=first))
 
     def send(self, value: dict) -> dict:
         self.serial += 1
-        request = {"protocol": "spellbench/v2", "request_id": f"q{self.serial}", **value}
-        return wire.strict_json_loads(self.engine.handle(wire.canonical_json_dumps(request)))
+        return send(self.engine, value, self.serial)
 
     def answer(self, candidate: int) -> None:
         sd = self.current["seat_decision"]
@@ -133,5 +163,7 @@ def test_the_bot_is_asked_in_the_steps_its_training_rule_gives_it(first: str) ->
         plain += bot_priority_steps(seed, bot_windows=False, first=first)
         windows += bot_priority_steps(seed, bot_windows=True, first=first)
     assert set(plain) <= HARNESS_STEPS, dict(plain)
-    assert set(windows) - HARNESS_STEPS, dict(windows)
+    assert set(windows) <= HARNESS_STEPS | NEW_STEPS, dict(windows)  # every decision names a known step
+    # Several of the steps HarnessV2 never gives the bot, not one alone (the end-step-only rule would show one).
+    assert len(set(windows) & NEW_STEPS) >= 3, dict(windows)
     print(f"bot priority steps, harness-v2 {dict(plain)}, action-windows-v1 {dict(windows)}")

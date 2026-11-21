@@ -428,7 +428,10 @@ class KernelEngine:
             self.game = self.pending = None
             print(f"kernel_engine_london_human_v1: the bridge refused the reset: {self.current.get('error')}",
                   file=sys.stderr, flush=True)
-            return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows, bot windows and the "
+            if self.action_windows_seat is not None:
+                return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows, bot "
+                             "windows and the graveyard rule need a bridge built with them)")
+            return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows and the "
                          "graveyard rule need a bridge built with them)")
         if self.auto_graveyard_order:
             support = (self.current.get("extensions") or {}).get("x_kernel_v2_support") or {}

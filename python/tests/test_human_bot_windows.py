@@ -24,10 +24,14 @@ def test_each_picked_game_names_the_bots_seat_to_its_engine(tmp_path, human_firs
     assert BASE["engine"]["command"] == ["python", "engine.py", "--bridge", "b"]
 
 
-def test_without_the_option_the_engine_command_is_unchanged(tmp_path) -> None:
-    doc = session.picked_game_config(BASE, human_deck="Burn", bot_deck="Faeries", human_first=True,
-                                     run_dir=tmp_path, opponent="bot", full_priority=True)
-    assert "--action-windows-seat" not in doc["engine"]["command"]
+@pytest.mark.parametrize("human_first", [True, False])
+def test_without_the_option_the_game_config_is_unchanged(tmp_path, human_first: bool) -> None:
+    kwargs = dict(human_deck="Burn", bot_deck="Faeries", human_first=human_first, run_dir=tmp_path, opponent="bot",
+                  full_priority=True, auto_graveyard_order=True)
+    doc = session.picked_game_config(BASE, **kwargs)
+    assert doc == session.picked_game_config(BASE, **kwargs, bot_windows=False)
+    assert doc["engine"]["command"] == ["python", "engine.py", "--bridge", "b", "--engine-windows-seat",
+                                        "p0" if human_first else "p1", "--auto-graveyard-order"]
 
 
 def test_the_option_needs_the_manabrew_client(capsys) -> None:
