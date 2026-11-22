@@ -625,7 +625,6 @@ class Hub:
             self.positions_total += 1
             self._trim_positions()
             self.last_shown = shown
-        self._expire_declaration(observation)
         if not stack or not frozenset(stack) <= self.exhaust_ids:
             # the stack the person asked to pass through is empty, or something that was not on it appeared: stop
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
@@ -647,6 +646,9 @@ class Hub:
                                               and self.declaration["key"] == key),
                                      lambda: self._mark_dropped(game, None, question))
         if candidate_id is None:
+            # Only a decision put to the person can end the declaration's list: the windows answered without them run
+            # through the rest of combat in milliseconds, before the later creatures' reads are back.
+            self._expire_declaration(observation)
             self._priority_note(decision)
             self.seq += 1
             self.pending = self._view(decision)
@@ -984,8 +986,9 @@ class Hub:
         self.advice = advice
 
     def _expire_declaration(self, observation: Mapping[str, Any]) -> None:
-        """End the declaration's list once its combat is over: another turn, or a step outside combat. Looked at for
-        every decision of the person's seat, those answered without them too."""
+        """End the declaration's list once its combat is over (another turn, or a step outside combat), at the first
+        decision put to the person after it. Decisions answered without them do not end it, so the reads of the later
+        creatures of a declaration made on one screen land and stay readable until the person is next asked."""
         declaration = self.declaration
         if declaration is None:
             return
