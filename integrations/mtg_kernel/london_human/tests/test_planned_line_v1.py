@@ -282,3 +282,68 @@ def test_a_line_costs_little() -> None:
     print(f"lines {len(timings)}: median {timings[len(timings) // 2] * 1000:.1f} ms, "
           f"p95 {timings[int(len(timings) * 0.95)] * 1000:.1f} ms, max {timings[-1] * 1000:.1f} ms")
     assert timings and timings[-1] < 2.0
+
+
+class Includes(FirstNotPass):
+    """A stub scorer that blocks and attacks wherever the engine lets it: the first row that includes a creature
+    (a native attack or block question), else as ``FirstNotPass``."""
+
+    def read(self, game_id, decision, extension):
+        rows = extension["row_candidate_ids"]
+        semantics = [decision["candidates"][row]["semantic"] for row in rows]
+        top = next((i for i, s in enumerate(semantics) if s.get("include") is True), None)
+        if top is None:
+            return super().read(game_id, decision, extension)
+        self.reads += 1
+        return {"rows": [{"id": row, "p": 0.9 if i == top else 0.1 / len(rows)} for i, row in enumerate(rows)],
+                "value": 0.0, "win": 0.5}
+
+
+@needs_bridge
+def test_a_declaration_shows_the_whole_declaration_the_line_plays() -> None:
+    """At the first question of the person's attack, the line's first steps answer every creature of the attack; at
+    the first question of their block (the engine's untouched block root), the line plays the engine's blocker
+    questions and shows the whole block, blocker by blocker in the order the person's screen asks them. Later
+    questions of a block get no line."""
+    from kernel_engine_london_human_v1 import BlockDeclaration
+
+    attacks = blocks = blocking = 0
+    for seed in range(1, 5):
+        for person, bot in (("Faeries", "Burn"), ("Burn", "Faeries")):
+            world = World(seed, line=True, person=person, bot=bot)
+            world.engine.line_scorer = world.scorer = Includes()
+            rng = random.Random(seed)
+            try:
+                for _ in range(20_000):
+                    if world.current["response_type"] != "decision":
+                        break
+                    sd = world.current["seat_decision"]
+                    kinds = {c["semantic"]["kind"] for c in sd["candidates"]}
+                    line = sd["extensions"].get(LINE)
+                    if sd["acting_seat"] == PERSON and kinds == {"declare_attack"} and sd["group"]["substep_index"] == 0:
+                        count = sd["group"]["substep_count"]
+                        assert line is not None
+                        if line["stop"] not in ("unavailable", "unreadable"):
+                            assert [s["kind"] for s in line["steps"][:count]] == ["declare_attack"] * count, line
+                            attacks += 1
+                    if sd["acting_seat"] == PERSON and kinds == {"declare_block"}:
+                        buffer = world.engine.buffer
+                        assert isinstance(buffer, BlockDeclaration)
+                        if buffer.prefix:
+                            assert line is None, "a later blocker's question carries no line"
+                        else:
+                            assert line is not None and line["stop"] in LINE_STOPS, line
+                            blockers = [buffer.refs[b] for b in buffer.plan.blockers]
+                            shown = line["steps"][:len(blockers)]
+                            assert [s["kind"] for s in shown] == ["declare_block"] * len(blockers), line
+                            assert [s["blocker"] for s in shown] == blockers
+                            for step in shown:
+                                attacker = step["attacker"]
+                                assert attacker is None or attacker in buffer.refs.values()
+                            blocks += 1
+                            blocking += any(s["attacker"] is not None for s in shown)
+                    world.answer(pick(sd, rng))
+            finally:
+                world.close()
+    print(f"attack lines {attacks}, block lines {blocks}, with a block {blocking}")
+    assert attacks > 10 and blocks > 5 and blocking > 0

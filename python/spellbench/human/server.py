@@ -69,11 +69,47 @@ OWN_STACK_READ = "not read: the model was never asked while its own spell or abi
 LINE = "x_advisor_line_v1"
 LINE_SCHEMA = "spellbench-advisor-line/v1"
 LINE_TITLE = "Bot's line (its top choice at each step), if the opponent does not respond"
+# At the first question of an attack or block declaration the line starts with the bot's own whole declaration: the
+# engine asks one creature (for a block, one attacker and blocker pair) at a time, and the line answers each question
+# with the model's top choice given its own answers before it. One plan of the bot's, never independent advice per
+# creature: the per-creature reads above it are each scored on their own.
+LINE_DECLARATION_TITLES = {
+    "attack": ("The bot's line: the whole attack it would declare, each creature decided after its own choices for the "
+               "ones before (one plan, not separate advice for each creature), then its top choice at each step, if the "
+               "opponent does not respond"),
+    "block": ("The bot's line: the whole block it would declare, the engine's questions (attacker by attacker) each "
+              "decided after its own answers before (one plan, not separate advice for each creature), then its top "
+              "choice at each step, if the opponent does not respond"),
+}
+# An attack line cut off before the bot decided every creature of the declaration (the line's step bound, or a scorer
+# that failed midway): only its choices for the first creatures are shown, so it never claims the whole attack.
+LINE_PARTIAL_ATTACK_TITLE = ("The bot's line, cut off partway through its attack: its choices for the first {shown} of "
+                             "{count} creatures only, each decided after its own choices for the ones before (one plan, "
+                             "not separate advice for each creature), if the opponent does not respond")
+
+
+def declaration_line_title(kind: str, count: int, line: Any) -> str:
+    """The title of the bot's line at the first question of an attack or block declaration: the whole declaration's
+    (``LINE_DECLARATION_TITLES``), or ``LINE_PARTIAL_ATTACK_TITLE`` when an attack line holds fewer leading attack
+    choices than the declaration has creatures. A block line never needs it: the engine wrapper shows a block only once
+    the whole declaration is played, and none of one it cut short."""
+    if kind == "attack":
+        steps = line.get("steps") if isinstance(line, Mapping) else None
+        shown = 0
+        for step in steps if isinstance(steps, list) else []:
+            if not (isinstance(step, Mapping) and step.get("kind") == "declare_attack"):
+                break
+            shown += 1
+        if shown < count:
+            return LINE_PARTIAL_ATTACK_TITLE.format(shown=shown, count=count)
+    return LINE_DECLARATION_TITLES[kind]
+
+
 LINE_ENDS = {
     "opponent_decision": "then the opponent has a choice to make",
     "unseen": "then a hidden card or a random outcome would be seen (a draw, a search, a look, a shuffle)",
     "turn_ends": "then the turn ends",
-    "grouped": "then a choice the line does not play (blockers, an order)",
+    "grouped": "then a choice the line does not play (an order)",
     "no_result": "then the game ends without a result",
     "game_end_later_turn": "then the game ends in a later turn",
 }
@@ -84,16 +120,18 @@ LINE_GAME_END = {
 }
 
 
-def planned_line_view(line: Any, me: str | None, lands: frozenset[str]) -> dict[str, Any] | None:
-    """The panel's form of a planned line: the title, the person's steps in the client's words, how it ends, and
-    ``win`` when it ends the game this turn in the person's favour (still only if the opponent does not respond).
-    None for a payload of another shape."""
+def planned_line_view(line: Any, me: str | None, lands: frozenset[str],
+                      title: str = LINE_TITLE) -> dict[str, Any] | None:
+    """The panel's form of a planned line: the title (``LINE_TITLE``, or at a declaration's first question its
+    ``LINE_DECLARATION_TITLES`` entry), the person's steps in the client's words, how it ends, and ``win`` when it ends
+    the game this turn in the person's favour (still only if the opponent does not respond). None for a payload of
+    another shape."""
     if not isinstance(line, Mapping) or line.get("schema") != LINE_SCHEMA:
         return None
     steps, stop, result = line.get("steps"), line.get("stop"), line.get("result")
     if not isinstance(steps, list) or not steps or not all(isinstance(step, Mapping) for step in steps):
         return None
-    view: dict[str, Any] = {"title": LINE_TITLE, "steps": [text.candidate(step, me, lands) for step in steps]}
+    view: dict[str, Any] = {"title": title, "steps": [text.candidate(step, me, lands) for step in steps]}
     if stop == "game_end" and result in LINE_GAME_END:
         view["end"] = LINE_GAME_END[result]
         view["win"] = result == "win"
@@ -696,14 +734,20 @@ class Hub:
         seq, game = self.seq, (self.game or {}).get("game_id")
         texts = {c["id"]: c["text"] for c in self.pending["candidates"]}
         question = advice.get("question")
-        if line is not None and question is None:
-            # Shown only beside a read the panel shows (its first step is that read's top choice).
+        if line is not None and (question is None or question["index"] == 0):
+            # Shown only beside a read the panel shows (its first step is that read's top choice). At an attack or
+            # block declaration only at its first question, where the line starts with the bot's whole declaration
+            # (``LINE_DECLARATION_TITLES``); later questions are answered from the person's screen.
             observation = decision.get("observation") or {}
             lands = frozenset(o.get("object_id") for player in observation.get("players") or []
                               for o in player.get("battlefield") or []
                               if "land" in ((o.get("characteristics") or {}).get("types") or []))
-            shown = planned_line_view(line, (self.game or {}).get("seat"), lands)
+            title = (LINE_TITLE if question is None
+                     else declaration_line_title(question["kind"], question["count"], line))
+            shown = planned_line_view(line, (self.game or {}).get("seat"), lands, title)
             if shown is not None:
+                if question is not None:
+                    shown["declaration"] = question["kind"]
                 advice["line"] = shown
         key = list(question["key"]) if question is not None else None
         # wanted while its read is the one shown, or while its combat's list (where its line is) is shown

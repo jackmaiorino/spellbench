@@ -11,7 +11,8 @@ import json
 import pytest
 
 from spellbench.human import relay, session
-from spellbench.human.server import LINE, LINE_SCHEMA, LINE_TITLE, UNTRAINED_READ, Hub, planned_line_view
+from spellbench.human.server import (LINE, LINE_DECLARATION_TITLES, LINE_PARTIAL_ATTACK_TITLE, LINE_SCHEMA, LINE_TITLE,
+                                    UNTRAINED_READ, Hub, declaration_line_title, planned_line_view)
 
 from test_human_advisor import advised, advisor, ask, model_input  # noqa: F401 - the fixture
 from test_human_full_priority import BASE
@@ -94,3 +95,111 @@ def test_the_planned_line_needs_the_advisor_and_the_manabrew_client(capsys) -> N
         with pytest.raises(SystemExit):
             session.main(argv)
     assert "--planned-line" in capsys.readouterr().err
+
+
+# -- the bot's line at an attack or block declaration -------------------------------------------------------------------
+
+
+def declared(kind: str, index: int, count: int, subject: dict, aims: list, line: dict | None, **kw) -> dict:
+    from test_human_advisor import combat_substep
+
+    request = advised(combat_substep(kind, index, count, subject, aims, **kw), model_input(list(range(len(aims)))))
+    if line is not None:
+        request["decision"]["extensions"][LINE] = line
+    return request
+
+
+def test_the_first_question_of_an_attack_shows_the_bots_whole_attack_labelled_as_its_line(advisor) -> None:  # noqa: F811
+    from test_human_advisor import FOE, MISCREANT, MULLDRIFTER, SEER, choose
+
+    attack = {"schema": LINE_SCHEMA, "stop": "opponent_decision", "result": None, "steps": [
+        {"kind": "declare_attack", "attacker": MULLDRIFTER, "defender": FOE},
+        {"kind": "declare_attack", "attacker": MISCREANT, "defender": None},
+        {"kind": "declare_attack", "attacker": SEER, "defender": FOE}]}
+    hub = Hub(advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    started = ask(hub, declared("declare_attack", 0, 3, MULLDRIFTER, [None, FOE], attack))
+    line = hub.advice["line"]
+    assert line["title"] == LINE_DECLARATION_TITLES["attack"] and line["declaration"] == "attack"
+    assert line["steps"] == ["Mulldrifter attacks opponent", "Faerie Miscreant: no attack", "Faerie Seer attacks opponent"]
+    assert line["end"] == "then the opponent has a choice to make"
+    assert hub.advice["question"]["index"] == 0 and len(hub.advice["rows"]) == 2  # the creature's own read as before
+    # A later question of the declaration (here answered by the person's one-screen plan) never shows a line.
+    assert hub.plan_with(hub.pending["seq"], {"kind": "attack", "attackers": ["o-m", "o-s"]}) is None
+    started["thread"].join(timeout=5)
+    later = {**attack, "steps": attack["steps"][1:]}
+    assert choose(hub, declared("declare_attack", 1, 3, MISCREANT, [None, FOE], later)) == 0
+    assert "line" not in hub.advice or hub.advice["line"]["declaration"] == "attack"  # still the first question's
+
+
+@pytest.mark.parametrize("stop", ["bound", "unreadable", "unavailable"])
+def test_an_attack_line_cut_off_before_every_creature_is_labelled_partial(advisor, stop) -> None:  # noqa: F811
+    from test_human_advisor import FOE, MISCREANT, MULLDRIFTER
+
+    cut = {"schema": LINE_SCHEMA, "stop": stop, "result": None, "steps": [
+        {"kind": "declare_attack", "attacker": MULLDRIFTER, "defender": FOE},
+        {"kind": "declare_attack", "attacker": MISCREANT, "defender": None}]}
+    hub = Hub(advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    started = ask(hub, declared("declare_attack", 0, 3, MULLDRIFTER, [None, FOE], cut))
+    line = hub.advice["line"]
+    assert line["title"] == LINE_PARTIAL_ATTACK_TITLE.format(shown=2, count=3)
+    assert "first 2 of 3 creatures only" in line["title"] and "whole attack" not in line["title"]
+    assert line["steps"] == ["Mulldrifter attacks opponent", "Faerie Miscreant: no attack"]
+    hub.answer_with(hub.pending["seq"], 1)
+    started["thread"].join(timeout=5)
+
+
+def test_the_partial_title_counts_only_the_leading_attack_choices() -> None:
+    attack = {"kind": "declare_attack"}
+    whole = {"steps": [attack, attack, PASS]}
+    assert declaration_line_title("attack", 2, whole) == LINE_DECLARATION_TITLES["attack"]
+    assert declaration_line_title("attack", 3, whole) == LINE_PARTIAL_ATTACK_TITLE.format(shown=2, count=3)
+    # an attack choice after the line has left the declaration is not one of its creatures
+    assert declaration_line_title("attack", 2, {"steps": [attack, PASS, attack]}) == (
+        LINE_PARTIAL_ATTACK_TITLE.format(shown=1, count=2))
+    # a block line is shown only once its whole declaration is played (the engine wrapper buffers it)
+    assert declaration_line_title("block", 5, {"steps": [PASS]}) == LINE_DECLARATION_TITLES["block"]
+    title = LINE_PARTIAL_ATTACK_TITLE
+    assert title.startswith("The bot's line") and "not separate advice for each creature" in title
+    assert "if the opponent does not respond" in title
+
+
+def test_a_later_question_put_to_the_person_shows_no_line(advisor) -> None:  # noqa: F811
+    from test_human_advisor import FOE, SEER
+
+    hub = Hub(advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Burn"}})
+    line = {"schema": LINE_SCHEMA, "stop": "turn_ends", "result": None,
+            "steps": [{"kind": "declare_attack", "attacker": SEER, "defender": FOE}]}
+    started = ask(hub, declared("declare_attack", 1, 2, SEER, [None, FOE], line))
+    assert "line" not in hub.advice
+    hub.answer_with(hub.pending["seq"], 1)
+    started["thread"].join(timeout=5)
+
+
+def test_the_first_question_of_a_block_shows_the_bots_whole_block_labelled_as_its_line(advisor) -> None:  # noqa: F811
+    from test_human_advisor import OPP, creature
+
+    miscreant, elder = creature("o-f", "Faerie Miscreant"), creature("o-e", "Humbling Elder")
+    their_elder, their_miscreant = creature("o-te", "Humbling Elder", OPP), creature("o-tm", "Faerie Miscreant", OPP)
+    block = {"schema": LINE_SCHEMA, "stop": "turn_ends", "result": None, "steps": [
+        {"kind": "declare_block", "blocker": miscreant, "attacker": None},
+        {"kind": "declare_block", "blocker": elder, "attacker": their_elder}, PASS]}
+    hub = Hub(advisor=advisor("argmax"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Faeries"}, "opponent_deck": {"name": "Faeries"}})
+    started = ask(hub, declared("declare_block", 0, 2, miscreant, [None, their_elder, their_miscreant], block,
+                                active=OPP))
+    line = hub.advice["line"]
+    assert line["title"] == LINE_DECLARATION_TITLES["block"] and line["declaration"] == "block"
+    assert line["steps"] == ["Faerie Miscreant: no block", "Humbling Elder blocks Humbling Elder", "Pass"]
+    assert line["end"] == "then the turn ends"
+    hub.answer_with(hub.pending["seq"], 0)
+    started["thread"].join(timeout=5)
+
+
+def test_the_declaration_titles_say_it_is_the_bots_one_plan_and_assume_no_response() -> None:
+    for title in LINE_DECLARATION_TITLES.values():
+        assert title.startswith("The bot's line") and "not separate advice for each creature" in title
+        assert "if the opponent does not respond" in title
+        assert not {"search", "best"} & set(title.lower().replace(",", " ").split())
