@@ -654,8 +654,9 @@ class KernelEngine:
                                "rows": rows, "tensor": flat.get("tensor")})
         if (not rows or len(set(rows)) != len(rows) or sorted(rows) != list(range(candidates))
                 or (flat["feature_contract_digest"], flat["feature_encoding_digest"])
-                != (flat_bot.FEATURE_CONTRACT_DIGEST, flat_bot.FEATURE_ENCODING_DIGEST)):
-            raise ProjectionError("the bot's native model input does not match the question")
+                != (flat_bot.FEATURE_CONTRACT_DIGEST, flat_bot.FEATURE_ENCODING_DIGEST)
+                or flat.get("card_db_hash") != self.native_scorer.ready.get("card_db_hash")):
+            raise ProjectionError("the bot's native model input does not match the question or the scorer's cards")
         ready = self.native_scorer.ready
         self.native_asked += 1
         seed = self.native_rng.next() if ready["selection"] == flat_bot.SAMPLED else None
@@ -664,7 +665,11 @@ class KernelEngine:
                    "feature_contract_digest": flat_bot.FEATURE_CONTRACT_DIGEST,
                    "feature_encoding_digest": flat_bot.FEATURE_ENCODING_DIGEST,
                    "row_candidate_ids": rows, "sample_seed": seed, "tensor": flat["tensor"]}
-        line, choice = self.native_scorer.score(request)
+        try:
+            line, choice = self.native_scorer.score(request)
+        except (flat_bot.BotError, OSError) as exc:
+            # A scorer that exits or answers garbage halts this game as a contract failure (respond), never the engine.
+            raise ProjectionError(f"the bot's scorer failed: {exc}") from exc
         if choice.get("schema") != flat_bot.CHOICE_SCHEMA or choice.get("request_id") != request["request_id"]:
             raise ProjectionError(f"the bot's scorer answered {choice.get('schema')!r} code {choice.get('code')!r}")
         if choice.get("request_sha256") != hashlib.sha256(line).hexdigest():

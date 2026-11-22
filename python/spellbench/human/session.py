@@ -307,6 +307,35 @@ def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, 
     return doc
 
 
+def bot_script_index(command: list[str]) -> int | None:
+    """The index of the bot script in a bot command: the command itself when it starts with a .py file, else the first
+    word after the interpreter and its options (as CPython reads them: -X and -W take a value, separate or attached;
+    --check-hash-based-pycs takes one; other single-letter flags may be combined). None when there is no script (no
+    words left, -c or -m, or a first operand that is not a .py file)."""
+    if command and command[0].endswith(".py"):
+        return 0
+    index = 1
+    while index < len(command):
+        word = command[index]
+        if word == "--":
+            index += 1
+            break
+        if word in ("-X", "-W", "--check-hash-based-pycs"):
+            index += 2
+            continue
+        if word.startswith("--") or not word.startswith("-") or word == "-":
+            break
+        if word.startswith(("-X", "-W")):
+            index += 1
+            continue
+        if any(letter in "cm" for letter in word[1:]):
+            return None  # python -c CODE or -m MODULE: no script
+        index += 1
+    if index < len(command) and command[index].endswith(".py"):
+        return index
+    return None
+
+
 def native_arguments(doc: dict[str, Any], opponent: str, seat: str, run_dir: Path) -> list[str]:
     """The London human engine's arguments for the bot's native groups: its seat, the bot's own scorer command line
     (``scorer_argv`` of its command), its seed and expected model state as its command gives them, and a log of the
@@ -317,8 +346,7 @@ def native_arguments(doc: dict[str, Any], opponent: str, seat: str, run_dir: Pat
 
     bot = next((b for b in doc.get("bots") or [] if b.get("name") == opponent), None)
     command = list((bot or {}).get("command") or [])
-    # The first word that names a Python file is the bot script (after the interpreter and any interpreter options).
-    index = next((i for i, word in enumerate(command) if word.endswith(".py")), None)
+    index = bot_script_index(command)
     script = None if index is None else Path(command[index])
     refused = f"--bot-native needs a kernel flat bot as the opponent ({opponent})"
     if script is None or not script.exists():

@@ -38,6 +38,8 @@ from kernel_engine_london_human_v1 import (FLAT, PROPOSALS, KernelEngine, Native
 from test_bot_windows_v1 import Recorder, pick, reset_value, send  # noqa: E402
 
 PERSON, BOT = "p0", "p1"
+# The card registry the pinned bridges encode (FlatV7 card_db_hash): the stand-in scorer reports it, as a real one does.
+CARD_DB = os.environ.get("MTG_KERNEL_CARD_DB_HASH", "064a7c989255ab3c")
 GROUPED = {"declare_block", "arrange_card", "order_pick"}  # what a grouped decision poses (with proposals)
 
 
@@ -49,7 +51,7 @@ class SeededScorer:
         self.ready = {"schema": flat_bot.READY_SCHEMA, "feature_contract_digest": flat_bot.FEATURE_CONTRACT_DIGEST,
                       "feature_encoding_digest": flat_bot.FEATURE_ENCODING_DIGEST,
                       "sampler_identity": flat_bot.SAMPLER_IDENTITY, "float_encoding": flat_bot.FLOAT_ENCODING,
-                      "selection": flat_bot.SAMPLED, "model_state_sha256": "0" * 64, "card_db_hash": "x"}
+                      "selection": flat_bot.SAMPLED, "model_state_sha256": "0" * 64, "card_db_hash": CARD_DB}
         self.requests: list[dict] = []
 
     def score(self, request: dict) -> tuple[bytes, dict]:
