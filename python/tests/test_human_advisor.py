@@ -693,3 +693,41 @@ def test_the_relay_keeps_the_model_input_only_for_a_session_with_an_advisor() ->
         stub.choose(Decision.from_request(request))
         forwarded = stub.posted[-1][1]["request"]["decision"]["extensions"]
         assert ("x_kernel_flat_v7" in forwarded) is advisor_on and "x_public_history_v1" in forwarded
+
+
+# -- a card cast from another zone reads differently from the same card in hand ------------------------------------------
+
+def bolt(oid: str, zone: str, name: str = "Lightning Bolt") -> dict:
+    return {"object_id": oid, "card_name": name, "owner_seat": ME, "controller_seat": ME, "zone": zone}
+
+
+def test_a_cast_or_play_from_another_zone_names_the_zone_and_from_hand_does_not() -> None:
+    from spellbench.human import text
+    assert text.candidate({"kind": "cast_spell", "source": bolt("a", "hand"), "method": "normal"}, ME) == "Cast Lightning Bolt"
+    assert (text.candidate({"kind": "cast_spell", "source": bolt("b", "exile"), "method": "normal"}, ME)
+            == "Cast Lightning Bolt (from exile)")
+    assert (text.candidate({"kind": "cast_spell", "source": bolt("c", "graveyard", "Ghostly Flicker"),
+                            "method": "flashback"}, ME) == "Cast Ghostly Flicker (flashback) (from graveyard)")
+    assert text.candidate({"kind": "play_land", "source": bolt("d", "exile", "Mountain")}, ME) == "Play Mountain (from exile)"
+    assert text.candidate({"kind": "play_land", "source": bolt("e", "hand", "Mountain")}, ME) == "Play Mountain"
+    assert text.candidate({"kind": "cast_spell", "source": {"object_id": "f", "card_name": "Lightning Bolt"}}, ME) \
+        == "Cast Lightning Bolt"  # no zone given: as before
+
+
+def test_copies_in_hand_share_a_row_and_an_exiled_copy_has_its_own(advisor) -> None:
+    # The owner's game of 11-21: a Lightning Bolt and a Galvanic Blast exiled by Reckless Impulse, with copies in hand,
+    # read as one "Cast Lightning Bolt" and one "Cast Galvanic Blast" row.
+    hub = Hub(advisor=advisor("ok"))
+    hub.game_start({"game_id": "g-1", "seat": ME, "own_deck": {"name": "Burn"}, "opponent_deck": {"name": "Burn"}})
+    decision = priority(phase="precombat_main")
+    sources = [bolt("h1", "hand"), bolt("h2", "hand"), bolt("x1", "exile"),
+               bolt("h3", "hand", "Galvanic Blast"), bolt("x2", "exile", "Galvanic Blast")]
+    decision["candidates"] = [{"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": None}] + [
+        {"candidate_id": i + 1, "semantic": {"kind": "cast_spell", "source": s, "method": "normal"}, "display_text": None}
+        for i, s in enumerate(sources)]
+    started = ask(hub, advised(decision, model_input(list(range(6)))))
+    rows = {row["text"]: row["ids"] for row in hub.advice["rows"]}
+    assert rows == {"Pass": [0], "Cast Lightning Bolt": [1, 2], "Cast Lightning Bolt (from exile)": [3],
+                    "Cast Galvanic Blast": [4], "Cast Galvanic Blast (from exile)": [5]}
+    hub.answer_with(hub.pending["seq"], 3)
+    started["thread"].join(timeout=5)
