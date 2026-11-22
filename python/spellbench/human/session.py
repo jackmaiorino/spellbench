@@ -317,7 +317,9 @@ def native_arguments(doc: dict[str, Any], opponent: str, seat: str, run_dir: Pat
 
     bot = next((b for b in doc.get("bots") or [] if b.get("name") == opponent), None)
     command = list((bot or {}).get("command") or [])
-    script = next((Path(word) for word in command[:2] if word.endswith(".py")), None)
+    # The first word that names a Python file is the bot script (after the interpreter and any interpreter options).
+    index = next((i for i, word in enumerate(command) if word.endswith(".py")), None)
+    script = None if index is None else Path(command[index])
     refused = f"--bot-native needs a kernel flat bot as the opponent ({opponent})"
     if script is None or not script.exists():
         raise SystemExit(f"{refused}: its command names no bot script")
@@ -330,7 +332,7 @@ def native_arguments(doc: dict[str, Any], opponent: str, seat: str, run_dir: Pat
         parser = module.build_parser()
     except (AttributeError, ImportError, OSError, SyntaxError) as exc:
         raise SystemExit(f"{refused}: its script has no build_parser ({exc})") from None
-    rest = command[command.index(str(script)) + 1:] if str(script) in command else command[2:]
+    rest = command[index + 1:]
     try:
         with contextlib.redirect_stderr(io.StringIO()):
             args = parser.parse_args(rest)

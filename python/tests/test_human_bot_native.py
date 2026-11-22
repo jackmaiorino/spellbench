@@ -55,6 +55,12 @@ def test_the_bots_own_syntax_and_precedence(tmp_path) -> None:
     assert value(command, "--native-expect-model-state") == "cd" * 32
 
 
+def test_interpreter_options_before_the_bot_script(tmp_path) -> None:
+    command = native(tmp_path, ["python", "-u", "-X", "utf8", *BOT_COMMAND[1:], "--seed", "5"])
+    assert value(command, "--native-seed") == "5"
+    assert json.loads(value(command, "--native-scorer")) == ["scorer.exe", "--config", "bot.json"]
+
+
 def test_without_the_option_the_game_config_is_unchanged(tmp_path) -> None:
     kwargs = dict(human_deck="Burn", bot_deck="Faeries", human_first=True, run_dir=tmp_path, opponent="bot",
                   full_priority=True, bot_windows=True)
