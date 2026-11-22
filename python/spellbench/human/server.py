@@ -81,6 +81,30 @@ LINE_DECLARATION_TITLES = {
               "decided after its own answers before (one plan, not separate advice for each creature), then its top "
               "choice at each step, if the opponent does not respond"),
 }
+# An attack line cut off before the bot decided every creature of the declaration (the line's step bound, or a scorer
+# that failed midway): only its choices for the first creatures are shown, so it never claims the whole attack.
+LINE_PARTIAL_ATTACK_TITLE = ("The bot's line, cut off partway through its attack: its choices for the first {shown} of "
+                             "{count} creatures only, each decided after its own choices for the ones before (one plan, "
+                             "not separate advice for each creature), if the opponent does not respond")
+
+
+def declaration_line_title(kind: str, count: int, line: Any) -> str:
+    """The title of the bot's line at the first question of an attack or block declaration: the whole declaration's
+    (``LINE_DECLARATION_TITLES``), or ``LINE_PARTIAL_ATTACK_TITLE`` when an attack line holds fewer leading attack
+    choices than the declaration has creatures. A block line never needs it: the engine wrapper shows a block only once
+    the whole declaration is played, and none of one it cut short."""
+    if kind == "attack":
+        steps = line.get("steps") if isinstance(line, Mapping) else None
+        shown = 0
+        for step in steps if isinstance(steps, list) else []:
+            if not (isinstance(step, Mapping) and step.get("kind") == "declare_attack"):
+                break
+            shown += 1
+        if shown < count:
+            return LINE_PARTIAL_ATTACK_TITLE.format(shown=shown, count=count)
+    return LINE_DECLARATION_TITLES[kind]
+
+
 LINE_ENDS = {
     "opponent_decision": "then the opponent has a choice to make",
     "unseen": "then a hidden card or a random outcome would be seen (a draw, a search, a look, a shuffle)",
@@ -718,7 +742,8 @@ class Hub:
             lands = frozenset(o.get("object_id") for player in observation.get("players") or []
                               for o in player.get("battlefield") or []
                               if "land" in ((o.get("characteristics") or {}).get("types") or []))
-            title = LINE_TITLE if question is None else LINE_DECLARATION_TITLES[question["kind"]]
+            title = (LINE_TITLE if question is None
+                     else declaration_line_title(question["kind"], question["count"], line))
             shown = planned_line_view(line, (self.game or {}).get("seat"), lands, title)
             if shown is not None:
                 if question is not None:
