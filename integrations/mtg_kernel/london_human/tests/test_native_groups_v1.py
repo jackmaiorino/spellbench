@@ -142,10 +142,9 @@ def test_the_bots_groups_reach_its_model_one_native_question_at_a_time(first: st
                                           ("Faeries", "Affinity")], start=1):
         plain = play(seed, native=False, first=first, person=person, bot=bot)
         native = play(seed, native=True, first=first, person=person, bot=bot, log=log)
-        # The bot is never posed a grouped decision and never gets completion proposals; the person keeps them.
+        # The bot is never posed a grouped decision and never gets completion proposals; the person keeps them. (The
+        # two games are not the same game: with the option the bot also takes the trainer's own single-option choices.)
         assert not native["posed"][BOT] and native["proposals"][BOT] == 0, native
-        if plain["posed"][BOT]:
-            assert native["requests"], (seed, plain["posed"][BOT])
         for request in native["requests"]:
             # The engine's own model input, rows in the engine's own order, a seed of the bot's native stream.
             assert request["schema"] == flat_bot.REQUEST_SCHEMA and "tensor" in request
@@ -159,13 +158,20 @@ def test_the_bots_groups_reach_its_model_one_native_question_at_a_time(first: st
     print(f"native questions by group ({first} first): {dict(groups)}")
 
 
-@needs_bridge
-def test_the_option_changes_nothing_but_the_bots_groups() -> None:
-    """With no grouped decision of the bot's, the game is the same with and without the option (the person and the
-    bot answer the same seeded picks)."""
-    for seed in range(1, 4):
-        plain = play(seed, native=False, first="p0", person="Burn", bot="Burn")
-        native = play(seed, native=True, first="p0", person="Burn", bot="Burn")
-        if not plain["posed"][BOT]:
-            assert native["posed"] == plain["posed"] and native["proposals"][PERSON] == plain["proposals"][PERSON]
-            assert native["requests"] == []
+@pytest.mark.skipif(not (CATALOG and Path(CATALOG).exists()), reason="needs the public catalog")
+@pytest.mark.parametrize("first,bridge_seat", [("p0", "p1"), ("p1", "p0")])
+def test_the_reset_names_the_bots_bridge_seat_for_trainer_choices_only_with_the_option(first: str,
+                                                                                      bridge_seat: str) -> None:
+    catalog = json.loads(Path(CATALOG).read_bytes())
+    sent = {}
+    for native in (False, True):
+        peer = Recorder()
+        engine = KernelEngine(peer, catalog, engine_windows_seat=PERSON, action_windows_seat=BOT,
+                              native_seat=BOT if native else None, native_scorer=SeededScorer() if native else None)
+        answer = send(engine, reset_value(catalog, 1, first=first, person="Faeries", bot="Burn"))
+        sent[native] = [r for r in peer.requests if r["request_type"] == "reset"][0]
+        if native:  # a bridge without the field refuses it, and the session says what it needs
+            assert "trainer_choice_seats" in answer["error"]["message"]
+    assert "trainer_choice_seats" not in sent[False]
+    assert sent[True].pop("trainer_choice_seats") == [bridge_seat]
+    assert sent[True] == sent[False]
