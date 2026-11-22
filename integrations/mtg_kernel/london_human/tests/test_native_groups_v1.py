@@ -175,3 +175,10 @@ def test_the_reset_names_the_bots_bridge_seat_for_trainer_choices_only_with_the_
     assert "trainer_choice_seats" not in sent[False]
     assert sent[True].pop("trainer_choice_seats") == [bridge_seat]
     assert sent[True] == sent[False]
+
+
+@needs_bridge
+def test_a_log_that_cannot_be_written_never_stops_the_game(tmp_path: Path, capsys) -> None:
+    result = play(2, native=True, first="p0", person="Faeries", bot="Faeries", log=tmp_path)  # a folder: not writable
+    assert result["requests"]  # the bot's native questions were asked and the game ended naturally (play checks it)
+    assert "is not written from here on" in capsys.readouterr().err

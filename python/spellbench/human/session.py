@@ -311,20 +311,36 @@ def native_arguments(doc: dict[str, Any], opponent: str, seat: str, run_dir: Pat
     """The London human engine's arguments for the bot's native groups: its seat, the bot's own scorer command line
     (``scorer_argv`` of its command), its seed and expected model state as its command gives them, and a log of the
     native questions in the game's run folder."""
-    from .advisor import scorer_argv
+    import contextlib
+    import importlib.util
+    import io
 
     bot = next((b for b in doc.get("bots") or [] if b.get("name") == opponent), None)
     command = list((bot or {}).get("command") or [])
+    script = next((Path(word) for word in command[:2] if word.endswith(".py")), None)
+    refused = f"--bot-native needs a kernel flat bot as the opponent ({opponent})"
+    if script is None or not script.exists():
+        raise SystemExit(f"{refused}: its command names no bot script")
+    # The bot's own parser (the script the session launches), so the engine gets exactly the scorer, seed and model
+    # state the bot itself uses, with the bot's syntax and precedence (--seed=17, a repeated flag, --scorer-arg).
+    spec = importlib.util.spec_from_file_location(f"bot_native_{abs(hash(str(script)))}", script)
+    module = importlib.util.module_from_spec(spec)
     try:
-        argv = scorer_argv(command)
-    except ValueError as exc:
-        raise SystemExit(f"--bot-native needs a kernel flat bot as the opponent ({opponent}: {exc})") from None
-    value = lambda flag: command[command.index(flag) + 1] if flag in command[:-1] else None  # noqa: E731
-    extra = ["--native-seat", seat, "--native-scorer", json.dumps(argv), "--native-log", str(run_dir / "native.jsonl")]
-    if value("--seed") is not None:
-        extra += ["--native-seed", value("--seed")]
-    if value("--expect-model-state") is not None:
-        extra += ["--native-expect-model-state", value("--expect-model-state")]
+        spec.loader.exec_module(module)
+        parser = module.build_parser()
+    except (AttributeError, ImportError, OSError, SyntaxError) as exc:
+        raise SystemExit(f"{refused}: its script has no build_parser ({exc})") from None
+    rest = command[command.index(str(script)) + 1:] if str(script) in command else command[2:]
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            args = parser.parse_args(rest)
+    except SystemExit:
+        raise SystemExit(f"{refused}: its command does not parse") from None
+    argv = [args.scorer, *args.scorer_arg, "--config", args.config]
+    extra = ["--native-seat", seat, "--native-scorer", json.dumps(argv), "--native-log", str(run_dir / "native.jsonl"),
+             "--native-seed", str(args.seed)]
+    if args.expect_model_state is not None:
+        extra += ["--native-expect-model-state", args.expect_model_state]
     return extra
 
 

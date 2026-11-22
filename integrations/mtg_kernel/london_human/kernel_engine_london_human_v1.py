@@ -495,8 +495,11 @@ class KernelEngine:
         self.current = self.peer.request(native)
         if self.native_trace is not None and self.current.get("response_type") != "error":
             self.trace_path = Path(self.native_trace) / f"{self.game}.jsonl"
-            self.trace_path.parent.mkdir(parents=True, exist_ok=True)
-            self.trace_path.write_text("", encoding="utf-8")
+            try:
+                self.trace_path.parent.mkdir(parents=True, exist_ok=True)
+                self.trace_path.write_text("", encoding="utf-8")
+            except OSError as exc:
+                self.output_failed("trace", exc)
             self.trace_native({"t": "reset", "game_id": native["game_id"], "game_seed": native["game_seed"],
                                "decks": [seat["deck"]["catalog_id"] for seat in native["seats"]],
                                "engine_window_seats": native.get("engine_window_seats"),
@@ -679,14 +682,32 @@ class KernelEngine:
         """One line of this game's replay trace (``--native-trace``): the bridge reset, then every native step the
         wrapper sends (the acting player, the bridge's row map and the native candidate), and before each of the bot's
         native questions its model input as the bridge gave it. mtg-kernel replays it on the trainer's own session."""
-        with open(self.trace_path, "a", encoding="utf-8", newline="\n") as stream:
-            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+        if self.trace_path is None:
+            return
+        try:
+            with open(self.trace_path, "a", encoding="utf-8", newline="\n") as stream:
+                stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+        except OSError as exc:
+            self.output_failed("trace", exc)
 
     def write_native(self, record):
         if self.native_log is None:
             return
-        with open(self.native_log, "a", encoding="utf-8", newline="\n") as stream:
-            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+        try:
+            with open(self.native_log, "a", encoding="utf-8", newline="\n") as stream:
+                stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+        except OSError as exc:
+            self.output_failed("log", exc)
+
+    def output_failed(self, which, exc):
+        """A record file that cannot be written is dropped for the rest of the session, with a log line; play goes
+        on (a trace cut short fails its replay, which requires the trace to reach the game's end)."""
+        print(f"kernel_engine_london_human_v1: the native-question {which} is not written from here on: {exc}",
+              file=sys.stderr, flush=True)
+        if which == "trace":
+            self.native_trace = self.trace_path = None
+        else:
+            self.native_log = None
 
     def proposal_extension(self, actor, candidate_count):
         proposals = []

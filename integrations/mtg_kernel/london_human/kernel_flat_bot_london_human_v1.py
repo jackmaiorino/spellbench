@@ -351,7 +351,9 @@ class KernelFlatBot:
         return BotError(message)
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """The bot's command line (also read by the human session's --bot-native, which passes the bot's own scorer, seed
+    and expected model state to the engine with exactly the bot's parsing)."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scorer", required=True, help="spellbench_scorer_v1 executable")
     parser.add_argument("--scorer-arg", action="append", default=[], help="argument placed before --config")
@@ -377,6 +379,11 @@ def main(argv: list[str] | None = None) -> int:
         "--allow-numeric-v4-fill", action="store_true",
         help="FLOW TESTING ONLY: score a numeric choice on its V4 fill (off the model's trained inputs) instead of refusing",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     if args.seed < 0:
         parser.error("--seed must be nonnegative")
