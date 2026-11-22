@@ -24,6 +24,21 @@ def test_each_picked_game_names_the_bots_seat_to_its_engine(tmp_path, human_firs
     assert BASE["engine"]["command"] == ["python", "engine.py", "--bridge", "b"]
 
 
+@pytest.mark.parametrize("human_first,person,bot", [(True, "p0", "p1"), (False, "p1", "p0")])
+@pytest.mark.parametrize("bot_windows", [False, True])
+def test_ordinary_choices_for_the_bot_are_independent_of_timing(tmp_path, human_first: bool, person: str,
+                                                        bot: str, bot_windows: bool) -> None:
+    kwargs = dict(human_deck="Burn", bot_deck="Faeries", human_first=human_first, run_dir=tmp_path,
+                  opponent="bot", full_priority=True, bot_windows=bot_windows)
+    plain = session.picked_game_config(BASE, **kwargs)
+    opted_in = session.picked_game_config(BASE, **kwargs, bot_trainer_choices=True)
+    command = [*BASE["engine"]["command"], "--engine-windows-seat", person]
+    if bot_windows:
+        command += ["--action-windows-seat", bot]
+    assert plain["engine"]["command"] == command
+    assert opted_in["engine"]["command"] == [*command, "--trainer-choice-seat", bot]
+
+
 @pytest.mark.parametrize("human_first", [True, False])
 def test_without_the_option_the_game_config_is_unchanged(tmp_path, human_first: bool) -> None:
     kwargs = dict(human_deck="Burn", bot_deck="Faeries", human_first=human_first, run_dir=tmp_path, opponent="bot",
@@ -45,6 +60,12 @@ def test_the_option_needs_the_manabrew_client(capsys) -> None:
     with pytest.raises(SystemExit):
         session.main(["--local", "x", "--out", "y", "--bot-windows"])
     assert "--bot-windows" in capsys.readouterr().err
+
+
+def test_ordinary_bot_choices_need_the_manabrew_client(capsys) -> None:
+    with pytest.raises(SystemExit):
+        session.main(["--local", "x", "--out", "y", "--bot-trainer-choices"])
+    assert "--bot-trainer-choices needs --client manabrew" in capsys.readouterr().err
 
 
 def test_every_game_says_the_bot_plays_on_its_training_windows(tmp_path) -> None:

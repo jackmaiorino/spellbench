@@ -66,6 +66,11 @@ def test_a_seat_has_either_engine_windows_or_a_training_rule() -> None:
         KernelEngine(Recorder(), {"catalog": []}, engine_windows_seat="p1", action_windows_seat="p1")
 
 
+def test_trainer_choices_cannot_override_the_persons_engine_windows() -> None:
+    with pytest.raises(ValueError, match="must differ"):
+        KernelEngine(Recorder(), {"catalog": []}, engine_windows_seat="p1", trainer_choice_seat="p1")
+
+
 def reset_value(catalog: dict, seed: int, *, first: str, person: str = "Faeries", bot: str = "Burn") -> dict:
     decks = {e["catalog_id"]: e["decklist"] for e in catalog["catalog"]}
     names = [r["name"] for d in (person, bot) for r in decks[d]]
@@ -103,6 +108,34 @@ def test_the_reset_carries_priority_windows_only_with_the_option(first: str) -> 
     assert answers[None]["error"]["message"] == ("the native bridge refused this reset (engine windows and the "
                                                  "graveyard rule need a bridge built with them)")
     assert "bot windows" in answers[BOT]["error"]["message"]
+
+
+@pytest.mark.parametrize("first", ["p0", "p1"])
+@pytest.mark.parametrize("bot_seat", ["p0", "p1"])
+@pytest.mark.parametrize("bot_windows", [False, True])
+def test_reset_only_sends_trainer_choices_when_selected(first: str, bot_seat: str, bot_windows: bool) -> None:
+    catalog = {"schema": "spellbench-kernel-public-catalog/v1", "cards": {},
+               "catalog": [{"catalog_id": label, "name": label, "decklist": [{"name": card, "count": 60}]}
+                           for label, card in [("Faeries", "Island"), ("Burn", "Mountain")]]}
+    person_seat = "p1" if bot_seat == "p0" else "p0"
+    p0_deck, p1_deck = ("Burn", "Faeries") if bot_seat == "p0" else ("Faeries", "Burn")
+    sent = []
+    for choice_seat in (None, bot_seat):
+        peer = Recorder()
+        engine = KernelEngine(peer, catalog, engine_windows_seat=person_seat,
+                              action_windows_seat=bot_seat if bot_windows else None,
+                              trainer_choice_seat=choice_seat)
+        answer = send(engine, reset_value(catalog, 7, first=first, person=p0_deck, bot=p1_deck))
+        assert answer["error"]["code"] == "unsupported_rule"
+        if choice_seat is not None:
+            assert "trainer_choice_seats" in answer["error"]["message"]
+        sent.append(peer.requests[-1])
+    plain, opted_in = sent
+    assert plain["request_type"] == "reset" and "trainer_choice_seats" not in plain
+    native_bot = "p0" if bot_seat == first else "p1"
+    assert opted_in.pop("trainer_choice_seats") == [native_bot]
+    assert next(seat["deck"]["catalog_id"] for seat in plain["seats"] if seat["seat"] == native_bot) == "Burn"
+    assert opted_in == plain
 
 
 class World:

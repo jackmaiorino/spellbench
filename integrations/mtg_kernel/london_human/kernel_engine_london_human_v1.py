@@ -197,10 +197,9 @@ def native_priority_windows(bot_seat, first_seat, rule):
     return windows
 
 
-def native_window_seats(person_seat, first_seat):
-    """The bridge's seat list for the person's seat of the reset request. The bridge's p0 is the starting seat
-    (``reset`` hands it the seats in turn order), so the person is its p0 exactly when they play first."""
-    return ["p0" if person_seat == first_seat else "p1"]
+def native_window_seats(seat, first_seat):
+    """One seat in the bridge's turn order: its p0 is the starting seat."""
+    return ["p0" if seat == first_seat else "p1"]
 
 
 def settle_graveyard_order(plan):
@@ -272,7 +271,7 @@ class KernelEngine:
 
     def __init__(self, peer, catalog, *, source_revision=None, known_cards=False, engine_windows_seat=None,
                  auto_graveyard_order=False, line_seat=None, line_scorer=None, line_timing=None,
-                 action_windows_seat=None, action_windows_rule=ACTION_WINDOWS_RULE):
+                 action_windows_seat=None, action_windows_rule=ACTION_WINDOWS_RULE, trainer_choice_seat=None):
         # known_cards needs a bridge that exports public history: `known` then
         # follows the Section 6.7 update table instead of the current look.
         self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
@@ -286,6 +285,9 @@ class KernelEngine:
         if action_windows_seat is not None and action_windows_seat == engine_windows_seat:
             raise ValueError("a seat has either engine windows or a training window rule")
         self.action_windows_seat, self.action_windows_rule = action_windows_seat, action_windows_rule
+        if trainer_choice_seat is not None and trainer_choice_seat == engine_windows_seat:
+            raise ValueError("the trainer-choice seat and engine-windows seat must differ")
+        self.trainer_choice_seat = trainer_choice_seat
         # True: in a game in which no card of either deck list reads graveyard order, the bridge applies the
         # training rule for it (nobody is asked); in a game with such a card both seats are asked, as the rules say.
         self.auto_graveyard_order = auto_graveyard_order
@@ -419,6 +421,8 @@ class KernelEngine:
             # Likewise only when asked for: a bridge without the field refuses it.
             native["priority_windows"] = native_priority_windows(self.action_windows_seat, first,
                                                                  self.action_windows_rule)
+        if self.trainer_choice_seat is not None:
+            native["trainer_choice_seats"] = native_window_seats(self.trainer_choice_seat, first)
         readers = graveyard_readers(decks, request["seats"]) if self.auto_graveyard_order else []
         if self.auto_graveyard_order and not readers:
             # Likewise only when asked for, and only where no card reads graveyard order.
@@ -428,6 +432,9 @@ class KernelEngine:
             self.game = self.pending = None
             print(f"kernel_engine_london_human_v1: the bridge refused the reset: {self.current.get('error')}",
                   file=sys.stderr, flush=True)
+            if self.trainer_choice_seat is not None:
+                return error(rid, "unsupported_rule", "the native bridge refused this reset (bot trainer choices "
+                             "need a bridge that supports trainer_choice_seats)")
             if self.action_windows_seat is not None:
                 return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows, bot "
                              "windows and the graveyard rule need a bridge built with them)")
@@ -826,6 +833,8 @@ def main():
                              "action, in every step and while holding priority); not the --engine-windows-seat")
     parser.add_argument("--action-windows-rule", choices=ACTION_WINDOWS_RULES, default=ACTION_WINDOWS_RULE,
                         help="with --action-windows-seat: the training window rule")
+    parser.add_argument("--trainer-choice-seat", choices=("p0", "p1"),
+                        help="the bot's seat, if it trained with ordinary rather than neutral choice presentation")
     parser.add_argument("--auto-graveyard-order", action="store_true",
                         help="in a game in which no card of either deck list reads graveyard order "
                              "(spellbench.human.graveyard_order), neither seat is asked to order cards put into a "
@@ -843,6 +852,8 @@ def main():
     args = parser.parse_args()
     if args.action_windows_seat is not None and args.action_windows_seat == args.engine_windows_seat:
         parser.error("--action-windows-seat and --engine-windows-seat name different seats (a person and a bot)")
+    if args.trainer_choice_seat is not None and args.trainer_choice_seat == args.engine_windows_seat:
+        parser.error("--trainer-choice-seat and --engine-windows-seat name different seats (a bot and a person)")
     if (args.line_scorer is not None or args.line_timing is not None) and args.line_seat is None:
         parser.error("--line-scorer and --line-timing go with --line-seat")
     if args.known_cards:
@@ -865,7 +876,8 @@ def main():
                              auto_graveyard_order=args.auto_graveyard_order, line_seat=args.line_seat,
                              line_scorer=scorer, line_timing=args.line_timing,
                              action_windows_seat=args.action_windows_seat,
-                             action_windows_rule=args.action_windows_rule)
+                             action_windows_rule=args.action_windows_rule,
+                             trainer_choice_seat=args.trainer_choice_seat)
         while True:
             try:
                 payload = wire.read_line(sys.stdin.buffer)
