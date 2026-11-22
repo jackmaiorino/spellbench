@@ -270,7 +270,7 @@ class OneGame(Exception):
 def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, human_first: bool,
                        run_dir: Path, opponent: str, full_priority: bool = False,
                        auto_graveyard_order: bool = False, line_scorer: list[str] | None = None,
-                       bot_windows: bool = False) -> dict[str, Any]:
+                       bot_windows: bool = False, bot_native: bool = False) -> dict[str, Any]:
     """One game with the decks the person picked: a one-pair run whose first game puts the person in seat p0
     (``human_first``) or p1, with the person's deck in that seat; the hook stops the run after that game.
     ``full_priority``: the engine of this game is told the person's seat (``--engine-windows-seat``), which it gives
@@ -278,14 +278,18 @@ def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, 
     settled for both seats in a game in which no card reads it); ``line_scorer``: the advisor's scorer command line,
     and the engine attaches the advisor's planned line to the person's decisions (``--line-seat``, ``--line-scorer``,
     the extension ``x_advisor_line_v1`` enabled for this game); ``bot_windows``: the engine is told the bot's seat
-    (``--action-windows-seat``), which it offers the priority windows its model trained with (action-windows-v1).
+    (``--action-windows-seat``), which it offers the priority windows its model trained with (action-windows-v1);
+    ``bot_native``: the engine answers the bot's block declarations, card arrangements, selection orders and trigger
+    orders natively, each of the engine's questions sampled once by the bot's model (``--native-seat`` with the bot's
+    own scorer, seed and model state, read from its command), as the trainer's session answers them.
     The engine must be one that takes the arguments (the London human engine)."""
     doc = copy.deepcopy(base)
     seat = "p0" if human_first else "p1"
     extra = (["--engine-windows-seat", seat] if full_priority else []) + (
         ["--auto-graveyard-order"] if auto_graveyard_order else []) + (
         ["--line-seat", seat, "--line-scorer", json.dumps(line_scorer)] if line_scorer else []) + (
-        ["--action-windows-seat", "p1" if human_first else "p0"] if bot_windows else [])
+        ["--action-windows-seat", "p1" if human_first else "p0"] if bot_windows else []) + (
+        native_arguments(doc, opponent, "p1" if human_first else "p0", run_dir) if bot_native else [])
     if extra:
         doc["engine"] = {**doc["engine"], "command": [*doc["engine"]["command"], *extra]}
     if line_scorer:
@@ -301,6 +305,27 @@ def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, 
         doc["decks"] = [{"catalog_id": bot_deck}, {"catalog_id": human_deck}]
     doc["pairs_per_matchup"] = 1
     return doc
+
+
+def native_arguments(doc: dict[str, Any], opponent: str, seat: str, run_dir: Path) -> list[str]:
+    """The London human engine's arguments for the bot's native groups: its seat, the bot's own scorer command line
+    (``scorer_argv`` of its command), its seed and expected model state as its command gives them, and a log of the
+    native questions in the game's run folder."""
+    from .advisor import scorer_argv
+
+    bot = next((b for b in doc.get("bots") or [] if b.get("name") == opponent), None)
+    command = list((bot or {}).get("command") or [])
+    try:
+        argv = scorer_argv(command)
+    except ValueError as exc:
+        raise SystemExit(f"--bot-native needs a kernel flat bot as the opponent ({opponent}: {exc})") from None
+    value = lambda flag: command[command.index(flag) + 1] if flag in command[:-1] else None  # noqa: E731
+    extra = ["--native-seat", seat, "--native-scorer", json.dumps(argv), "--native-log", str(run_dir / "native.jsonl")]
+    if value("--seed") is not None:
+        extra += ["--native-seed", value("--seed")]
+    if value("--expect-model-state") is not None:
+        extra += ["--native-expect-model-state", value("--expect-model-state")]
+    return extra
 
 
 def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, stop: threading.Event, *, out: Path,
@@ -352,7 +377,8 @@ def play_picked_games(args: Any, base: dict[str, Any], hub: Hub, server: Any, st
                                      opponent=args.opponent, full_priority=args.full_priority,
                                      auto_graveyard_order=args.auto_graveyard_order,
                                      line_scorer=getattr(args, "line_scorer", None),
-                                     bot_windows=getattr(args, "bot_windows", False))
+                                     bot_windows=getattr(args, "bot_windows", False),
+                                     bot_native=getattr(args, "bot_native", False))
             if args.auto_graveyard_order:
                 hub.set_graveyard_readers(graveyard_order.game_readers(catalog, [human, bot]))
             (out / "runs" / f"{run_name}.config.json").write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
@@ -477,6 +503,12 @@ def main(argv: list[str] | None = None) -> int:
                              "step and while holding priority, so it can respond in upkeep, draw, combat and the end "
                              "step. Only for a bot trained on those windows (a pilot chain on action-windows-v1); "
                              "every earlier bot trained on the HarnessV2 windows")
+    parser.add_argument("--bot-native", action="store_true",
+                        help="manabrew, London human engine: the bot answers its block declarations, card "
+                             "arrangements, selection orders and trigger orders as it trained: each of the "
+                             "engine's own questions is put to its model and sampled once. Without it those "
+                             "come to the bot as one grouped decision scored by completion proposals, as on the "
+                             "rated board")
     parser.add_argument("--keep-mana-autopass", action="store_true",
                         help="with --full-priority: the session keeps passing windows with only mana abilities itself "
                              "(no client countdown; the client's Full control then has nothing to act on)")
@@ -488,6 +520,8 @@ def main(argv: list[str] | None = None) -> int:
                      "person's seat for each game)")
     if args.bot_windows and args.client != "manabrew":
         parser.error("--bot-windows needs --client manabrew (the engine is told the bot's seat for each game)")
+    if args.bot_native and args.client != "manabrew":
+        parser.error("--bot-native needs --client manabrew (the engine is told the bot's seat for each game)")
     if args.planned_line and not (args.advisor and args.client == "manabrew"):
         parser.error("--planned-line needs --advisor and --client manabrew (the London human engine plays the line)")
     if args.keep_mana_autopass and not args.full_priority:

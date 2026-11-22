@@ -45,8 +45,21 @@ from kernel_order_v2 import TriggerOrder
 from kernel_selection_order_v2 import SelectionOrder, native_selection_order
 from spellbench.human import graveyard_order
 from spellbench.human.advisor import Advisor, AdvisorError
+from spellbench.builtins.uniform import SplitMix64
+import kernel_flat_bot_london_human_v1 as flat_bot
 
 FLAT = "x_kernel_flat_v7"
+# The bot's seat answering its grouped decisions natively (``--native-seat``): its block declaration, card
+# arrangement, selection order and trigger order are the engine's own questions, each put to the bot's model (its own
+# scorer, ``--native-scorer``) with the engine's model input and sampled once, as the trainer's session samples
+# every native question. Without the option the seat gets the protocol's grouped decision with completion proposals
+# (deterministic-completion-logprob/v1), as on the rated board.
+NATIVE_KINDS = ("block", "arrangement", "selection_order", "trigger_order")
+NATIVE_LOG_SCHEMA = "spellbench-london-human-native-questions/v1"
+# The bot process (kernel_flat_bot_london_human_v1) draws its own seeds from a stream of the game id and seat; the
+# native questions draw theirs from a second stream of the same seed, so neither shifts the other.
+NATIVE_STREAM_SUFFIX = "/native-questions"
+NATIVE_GROUP_BOUND = 4096
 # The training priority-window rules the bridge's reset field ``priority_windows`` takes for a bot seat
 # (mtg-kernel priority_action_windows_v1); harness-v2 is the surface every earlier bot trained on.
 ACTION_WINDOWS_RULES = ("action-windows-v1", "action-windows-end-step-v1")
@@ -202,6 +215,29 @@ def native_priority_windows(bot_seat, first_seat, rule):
     return windows
 
 
+def acting_player(view):
+    """The native acting player (p0 or p1 of the bridge) of a native decision."""
+    return json.loads(view["extensions"]["x_kernel_v5"]["observation_json"])["acting_player"]
+
+
+def check_native_scorer(scorer, expect_model_state=None):
+    """Refuse a scorer the bot process itself would refuse (``KernelFlatBot``'s ready checks)."""
+    ready = scorer.ready
+    if (ready.get("feature_contract_digest"), ready.get("feature_encoding_digest")) != (
+            flat_bot.FEATURE_CONTRACT_DIGEST, flat_bot.FEATURE_ENCODING_DIGEST):
+        raise ValueError("the bot's scorer serves a different feature contract")
+    if ready.get("sampler_identity") != flat_bot.SAMPLER_IDENTITY:
+        raise ValueError(f"the bot's scorer sampler {ready.get('sampler_identity')!r} is not {flat_bot.SAMPLER_IDENTITY}")
+    if ready.get("float_encoding") != flat_bot.FLOAT_ENCODING:
+        raise ValueError(f"the bot's scorer float encoding {ready.get('float_encoding')!r} is not "
+                         f"{flat_bot.FLOAT_ENCODING}")
+    if ready.get("selection") not in (flat_bot.SAMPLED, flat_bot.ARGMAX):
+        raise ValueError(f"unknown scorer selection {ready.get('selection')!r}")
+    if expect_model_state is not None and ready.get("model_state_sha256") != expect_model_state:
+        raise ValueError(f"the bot's scorer loaded model state {ready.get('model_state_sha256')}, expected "
+                         f"{expect_model_state}")
+
+
 def native_window_seats(person_seat, first_seat):
     """The bridge's seat list for the person's seat of the reset request. The bridge's p0 is the starting seat
     (``reset`` hands it the seats in turn order), so the person is its p0 exactly when they play first."""
@@ -277,7 +313,8 @@ class KernelEngine:
 
     def __init__(self, peer, catalog, *, source_revision=None, known_cards=False, engine_windows_seat=None,
                  auto_graveyard_order=False, line_seat=None, line_scorer=None, line_timing=None,
-                 action_windows_seat=None, action_windows_rule=ACTION_WINDOWS_RULE):
+                 action_windows_seat=None, action_windows_rule=ACTION_WINDOWS_RULE, native_seat=None,
+                 native_scorer=None, native_seed=0, native_log=None, native_trace=None):
         # known_cards needs a bridge that exports public history: `known` then
         # follows the Section 6.7 update table instead of the current look.
         self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
@@ -301,6 +338,15 @@ class KernelEngine:
         self.line_seat, self.line_scorer = line_seat, line_scorer
         # A JSON-lines file each line's cost is written to (measurement only), or None.
         self.line_timing = line_timing
+        # The bot's seat (p0 or p1 of the reset request) whose grouped decisions are played natively, the bot's own
+        # scorer (``flat_bot.ScorerProcess``, ready-checked by ``check_native_scorer``), the bot's seed and a
+        # JSON-lines log of every native question asked, or None.
+        if native_seat is not None and (native_scorer is None or native_seat in (engine_windows_seat, line_seat)):
+            raise ValueError("the native seat is the bot's: it needs the bot's scorer and is not the person's seat")
+        self.native_seat, self.native_scorer, self.native_seed = native_seat, native_scorer, native_seed
+        self.native_log = native_log
+        # A folder that gets one replay trace per game (proof only, ``trace_native``), or None.
+        self.native_trace, self.trace_path = native_trace, None
         native = peer.request({"request_type": "hello"})
         if native["response_type"] != "hello_ok":
             raise ProjectionError("native bridge did not handshake")
@@ -406,6 +452,13 @@ class KernelEngine:
         self.seat_steps, self.group_ids = {"p0": 0, "p1": 0}, {"p0": 0, "p1": 0}
         self.buffer = self.previews = None
         self.graveyard_order = None
+        if self.native_seat is not None:
+            stream = flat_bot.seat_stream_seed(self.native_seed, self.game + NATIVE_STREAM_SUFFIX, self.native_seat)
+            self.native_rng, self.native_asked = SplitMix64(stream), 0
+            self.write_native({"kind": "header", "schema": NATIVE_LOG_SCHEMA, "game": self.game,
+                               "seat": self.native_seat, "stream_seed": stream,
+                               "model_state_sha256": self.native_scorer.ready.get("model_state_sha256"),
+                               "selection": self.native_scorer.ready.get("selection")})
         secret = bytes.fromhex(request["game_secret"])
         first = rules["starting_seat"]
         self.projection = LondonHumanProjection(self.catalog, secret, first_seat=first, keywords=True)
@@ -429,6 +482,18 @@ class KernelEngine:
             # Likewise only when asked for, and only where no card reads graveyard order.
             native["auto_graveyard_order"] = True
         self.current = self.peer.request(native)
+        if self.native_trace is not None and self.current.get("response_type") != "error":
+            self.trace_path = Path(self.native_trace) / f"{self.game}.jsonl"
+            self.trace_path.parent.mkdir(parents=True, exist_ok=True)
+            self.trace_path.write_text("", encoding="utf-8")
+            self.trace_native({"t": "reset", "game_id": native["game_id"], "game_seed": native["game_seed"],
+                               "decks": [seat["deck"]["catalog_id"] for seat in native["seats"]],
+                               "engine_window_seats": native.get("engine_window_seats"),
+                               "priority_windows": native.get("priority_windows"),
+                               "auto_graveyard_order": native.get("auto_graveyard_order", False),
+                               "native_seat": (None if self.native_seat is None else
+                                               ("p0", "p1")[(("p0", "p1").index(self.native_seat)
+                                                             + ("p0", "p1").index(first)) % 2])})
         if self.current.get("response_type") == "error":
             self.game = self.pending = None
             print(f"kernel_engine_london_human_v1: the bridge refused the reset: {self.current.get('error')}",
@@ -491,6 +556,10 @@ class KernelEngine:
         return self.respond(rid)
 
     def native_step(self, candidate):
+        if self.trace_path is not None:
+            flat = self.current["extensions"].get(FLAT) or {}
+            self.trace_native({"t": "step", "step": self.current["step"], "seat": acting_player(self.current),
+                               "rows": flat.get("row_candidate_ids"), "candidate": candidate})
         self.current = self.peer.request({"request_type": "step", "game_id": self.game,
             "expected_step": self.current["step"], "selection": {"candidate_id": candidate,
             "semantic_echo": self.current["candidates"][candidate]["semantic"]}})
@@ -528,6 +597,82 @@ class KernelEngine:
                 return
             self.native_step(pick(self.current))
         raise ProjectionError("native buffered commit exceeded its bound")
+
+    def play_native_group(self):
+        """The bot's grouped decision played as the trainer's session plays it: each of the engine's questions in
+        it (a block declaration's attacker-by-attacker inclusions, an arrangement's or selection order's card by card
+        picks, a trigger order) is put to the bot's model with the engine's own model input and answered with the row
+        it samples, until play leaves the group. The group is the one the buffer at ``self.root`` was made for."""
+        buffer, root = self.buffer, self.root
+        root_support = root["extensions"]["x_kernel_v2_support"]
+        if isinstance(buffer, BlockDeclaration):
+            kind, key = "block", ("block_declaration_instance", root_support.get("block_declaration_instance"))
+        elif isinstance(buffer, TriggerOrder):
+            kind, key = "trigger_order", None  # one native question: the whole order
+        else:
+            kind = "selection_order" if isinstance(buffer, SelectionOrder) else "arrangement"
+            key = ("effect_instance", native_arrangement_binding(root, self.arrangement_cards).instance)
+        seat = acting_player(root)
+        for _ in range(NATIVE_GROUP_BOUND):
+            self.native_step(self.native_pick(kind))
+            view = self.current
+            if (key is None or view["response_type"] != "decision" or acting_player(view) != seat
+                    or view["extensions"]["x_kernel_v2_support"].get(key[0]) != key[1]):
+                return
+        raise ProjectionError("the bot's native group exceeded its bound")
+
+    def native_pick(self, kind):
+        """The bot's answer to the engine's current question: the row its model samples from the engine's own model
+        input (the bot process's request, with a seed of the native-question stream), as a native candidate id."""
+        view = self.current
+        flat = view["extensions"].get(FLAT)
+        if not isinstance(flat, dict) or flat.get("schema") != flat_bot.EXTENSION_SCHEMA:
+            raise ProjectionError("the bot's native question came without its model input")
+        if flat.get("numeric_choice_v4_fill"):
+            raise ProjectionError("the bot's native question is a numeric choice its model input cannot encode")
+        rows = flat["row_candidate_ids"]
+        candidates = len(view["candidates"])
+        if self.trace_path is not None:
+            self.trace_native({"t": "question", "group": kind, "step": view["step"], "seat": acting_player(view),
+                               "rows": rows, "tensor": flat.get("tensor")})
+        if (not rows or len(set(rows)) != len(rows) or sorted(rows) != list(range(candidates))
+                or (flat["feature_contract_digest"], flat["feature_encoding_digest"])
+                != (flat_bot.FEATURE_CONTRACT_DIGEST, flat_bot.FEATURE_ENCODING_DIGEST)):
+            raise ProjectionError("the bot's native model input does not match the question")
+        ready = self.native_scorer.ready
+        self.native_asked += 1
+        seed = self.native_rng.next() if ready["selection"] == flat_bot.SAMPLED else None
+        request = {"schema": flat_bot.REQUEST_SCHEMA, "request_id": f"{self.game}:native:{self.native_asked}",
+                   "game_id": self.game, "seat": self.native_seat, "step": self.native_asked,
+                   "feature_contract_digest": flat_bot.FEATURE_CONTRACT_DIGEST,
+                   "feature_encoding_digest": flat_bot.FEATURE_ENCODING_DIGEST,
+                   "row_candidate_ids": rows, "sample_seed": seed, "tensor": flat["tensor"]}
+        line, choice = self.native_scorer.score(request)
+        if choice.get("schema") != flat_bot.CHOICE_SCHEMA or choice.get("request_id") != request["request_id"]:
+            raise ProjectionError(f"the bot's scorer answered {choice.get('schema')!r} code {choice.get('code')!r}")
+        if choice.get("request_sha256") != hashlib.sha256(line).hexdigest():
+            raise ProjectionError("the bot's scorer hashed a different request")
+        row = choice.get("selected_row")
+        if type(row) is not int or not 0 <= row < len(rows) or choice.get("selected_candidate_id") != rows[row]:
+            raise ProjectionError("the bot's scorer choice does not match the row map")
+        self.write_native({"kind": "question", "game": self.game, "group": kind, "native_step": view["step"],
+                           "asked": self.native_asked, "rows": len(rows), "candidate_id": rows[row],
+                           "selected_row": row, "sample_seed": seed, "logits_bits": choice.get("logits_bits"),
+                           "request_sha256": choice["request_sha256"]})
+        return rows[row]
+
+    def trace_native(self, record):
+        """One line of this game's replay trace (``--native-trace``): the bridge reset, then every native step the
+        wrapper sends (the acting player, the bridge's row map and the native candidate), and before each of the bot's
+        native questions its model input as the bridge gave it. mtg-kernel replays it on the trainer's own session."""
+        with open(self.trace_path, "a", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+
+    def write_native(self, record):
+        if self.native_log is None:
+            return
+        with open(self.native_log, "a", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
 
     def proposal_extension(self, actor, candidate_count):
         proposals = []
@@ -776,6 +921,12 @@ class KernelEngine:
             self.commit_buffer()
             self.buffer = self.previews = None
             return self.respond(rid)
+        if self.buffer is not None and actor == self.native_seat:
+            # The bot's grouped decision: nothing is posed to the protocol; the engine's own questions go to the
+            # bot's model one at a time.
+            self.play_native_group()
+            self.buffer = self.previews = None
+            return self.respond(rid)
         if self.buffer:
             semantics = self.buffer.semantics()
             if isinstance(self.buffer, BlockDeclaration):
@@ -879,6 +1030,24 @@ def main():
     parser.add_argument("--line-scorer", default=None,
                         help="with --line-seat: the advisor's scorer command line, as a JSON list (the session's "
                              "advisor scorer: spellbench.human.advisor.scorer_argv)")
+    parser.add_argument("--native-seat", choices=("p0", "p1"),
+                        help="the seat of a bot whose block declarations, card arrangements, selection orders and "
+                             "trigger orders are the engine's own questions, each sampled once by the bot's model "
+                             "(--native-scorer) as the trainer's session samples them; not the person's seat")
+    parser.add_argument("--native-scorer", default=None,
+                        help="with --native-seat: the bot's scorer command line, as a JSON list (the bot's own "
+                             "--scorer, --scorer-arg and --config: spellbench.human.advisor.scorer_argv)")
+    parser.add_argument("--native-seed", type=int, default=0,
+                        help="with --native-seat: the bot's --seed (its native questions use a second stream of it)")
+    parser.add_argument("--native-expect-model-state", default=None, metavar="SHA256",
+                        help="with --native-seat: the model state the bot's scorer must load (the bot's own "
+                             "--expect-model-state)")
+    parser.add_argument("--native-log", type=Path, default=None,
+                        help="with --native-seat: append each native question asked (game, group kind, rows, the "
+                             "sampled row and its seed) to this JSON-lines file")
+    parser.add_argument("--native-trace", type=Path, default=None,
+                        help="proof only: write one replay trace per game to this folder (every native step and the "
+                             "model input of each of the bot's native questions)")
     parser.add_argument("--line-timing", type=Path, default=None,
                         help="with --line-seat: append each line's cost (seconds, choices, stop) to this JSON-lines "
                              "file")
@@ -887,6 +1056,15 @@ def main():
         parser.error("--action-windows-seat and --engine-windows-seat name different seats (a person and a bot)")
     if (args.line_scorer is not None or args.line_timing is not None) and args.line_seat is None:
         parser.error("--line-scorer and --line-timing go with --line-seat")
+    if (args.native_seat is None) != (args.native_scorer is None):
+        parser.error("--native-seat and --native-scorer go together")
+    if args.native_seat is None and (args.native_log is not None or args.native_expect_model_state is not None
+                                     or args.native_seed != 0):
+        parser.error("--native-seed, --native-expect-model-state and --native-log go with --native-seat")
+    if args.native_seat is not None and args.native_seat in (args.engine_windows_seat, args.line_seat):
+        parser.error("--native-seat names the bot's seat, not the person's")
+    if args.native_seed < 0:
+        parser.error("--native-seed must be nonnegative")
     if args.known_cards:
         # The Section 6.7 knowledge tracker has not been taught the pregame's draws and bottoms; the London human
         # board does not declare known_cards.
@@ -900,6 +1078,18 @@ def main():
             scorer = Advisor(argv, name="planned-line", answer_timeout_s=LINE_SCORER_TIMEOUT_S)
         except AdvisorError as exc:
             parser.error(f"--line-scorer: {exc}")
+    native = None
+    if args.native_scorer is not None:
+        argv = json.loads(args.native_scorer)
+        if not isinstance(argv, list) or not argv or not all(isinstance(word, str) for word in argv):
+            parser.error("--native-scorer must be a JSON list of strings")
+        try:
+            native = flat_bot.ScorerProcess(argv)
+            check_native_scorer(native, args.native_expect_model_state)
+        except (flat_bot.BotError, ValueError, OSError) as exc:
+            if native is not None:
+                native.close()
+            parser.error(f"--native-scorer: {exc}")
     peer = NativePeer(args.bridge)
     try:
         engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision,
@@ -907,7 +1097,9 @@ def main():
                              auto_graveyard_order=args.auto_graveyard_order, line_seat=args.line_seat,
                              line_scorer=scorer, line_timing=args.line_timing,
                              action_windows_seat=args.action_windows_seat,
-                             action_windows_rule=args.action_windows_rule)
+                             action_windows_rule=args.action_windows_rule, native_seat=args.native_seat,
+                             native_scorer=native, native_seed=args.native_seed, native_log=args.native_log,
+                             native_trace=args.native_trace)
         while True:
             try:
                 payload = wire.read_line(sys.stdin.buffer)
@@ -923,6 +1115,8 @@ def main():
         peer.close()
         if scorer is not None:
             scorer.close()
+        if native is not None:
+            native.close()
 
 
 if __name__ == "__main__":
