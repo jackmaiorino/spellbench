@@ -60,7 +60,9 @@ PREVIEW_CACHE_BYTES = 16 * 1024 * 1024  # response lines; parsed views take seve
 # The advisor's planned line (human play with an advisor only; ``KernelEngine.planned_line``).
 LINE = "x_advisor_line_v1"
 LINE_SCHEMA = "spellbench-advisor-line/v1"
-LINE_STEPS = 8         # the person's choices in one line at most: the line's only bound
+LINE_STEPS = 8         # the person's choices in one line at most: the line's only bound (a block declaration counts
+                       # once its whole declaration is played, and is never cut short)
+LINE_NATIVE_IDS = 64   # the bridge's own bound of a line's native choices (``private_line``)
 # The line scorer's time for all the reads of one line (seconds), the whole exchange (writing the request included)
 # supervised from outside it. A scorer that runs past it is dropped for the session (closed off the decision's path)
 # and the lines end "unavailable". The scorer reads only the person's own model input, which is the same whatever the
@@ -70,8 +72,11 @@ LINE_SCORER_TIMEOUT_S = 2.0
 # Why a line ends. From the bridge: the opponent decides something other than a bare priority pass; the next step
 # would show a hidden card (a draw, a mill, a search, a look or reveal, the opponent's hand changing) or draw a random
 # outcome, one reason "unseen" for both (which one a resolution produces can depend on the hidden cards); the turn
-# ends; the game ends (with the result for the person: this turn, or a later one); the game ends without a result. From the planner: the next choice is a grouped one (blocks, a card order, a trigger
-# order), which the line does not play; the bound of choices; the scorer cannot read the next choice or is gone.
+# ends; the game ends (with the result for the person: this turn, or a later one); the game ends without a result. From the planner: the next choice is a grouped one (a card order, a trigger
+# order), which the line does not play; the bound of choices; the scorer cannot read the next choice or is gone. A
+# block declaration is played: each of the engine's own blocker questions (attacker by attacker, "block it with this
+# creature?") gets the model's top answer given its answers before, and the line shows the whole declaration that
+# adds up to, blocker by blocker.
 # No wall-clock bound: how long the clone takes depends on whether the opponent's windows were posed, which depends on
 # their hidden hand, so time never decides what the line shows.
 LINE_STOPS = ("opponent_decision", "unseen", "turn_ends", "game_end", "game_end_later_turn", "no_result",
@@ -637,17 +642,28 @@ class KernelEngine:
         projection = deepcopy(self.projection)  # the clone's objects never enter the game's own projection
         root, view = self.current, self.current
         ids, steps, stop, result = [], [], "bound", None
-        while len(ids) < LINE_STEPS:
-            pick = self._line_pick(view)
-            if pick is None:
-                stop = "unreadable" if self.line_scorer is not None else "unavailable"
-                break
+        block = None  # the block declaration being played (``_line_block_steps``)
+        while True:
             raw = json.loads(view["extensions"]["x_kernel_v5"]["observation_json"])
             support = view["extensions"]["x_kernel_v2_support"]
             if view is not root:
                 projection.project(raw, support, None)  # the clone view's objects, as the game's own views are
-            steps.append(ordinary_semantic(view["candidates"][pick]["semantic"], raw, support, projection,
-                                           view["group"], candidate_id=pick))
+            if block is None and support.get("at_block_root") is True:
+                # The person's block declaration, from the same public facts as the person's own block screen.
+                plan, refs = native_block_plan(raw, support, projection)
+                block = {"plan": plan, "refs": refs, "instance": support["block_declaration_instance"], "picks": []}
+            if (block is None and len(steps) >= LINE_STEPS) or len(ids) >= LINE_NATIVE_IDS:
+                stop = "bound"
+                break
+            pick = self._line_pick(view)
+            if pick is None:
+                stop = "unreadable" if self.line_scorer is not None else "unavailable"
+                break
+            if block is not None:
+                block["picks"].append(view["candidates"][pick]["semantic"])
+            else:
+                steps.append(ordinary_semantic(view["candidates"][pick]["semantic"], raw, support, projection,
+                                               view["group"], candidate_id=pick))
             ids.append(pick)
             answer = self.peer.request({"request_type": "private_line", "game_id": self.game,
                                         "expected_step": root["step"], "candidate_ids": ids})
@@ -660,10 +676,20 @@ class KernelEngine:
                 break
             view = answer["view"]
             support = view["extensions"]["x_kernel_v2_support"]
-            if (support.get("at_block_root") is True or support.get("choice", {}).get("purpose") in ARRANGEMENTS
+            if block is not None and not (support.get("block_declaration_instance") == block["instance"]
+                                          and all(candidate["semantic"]["kind"] == "choose_blocker_inclusion"
+                                                  for candidate in view["candidates"])):
+                steps.extend(_line_block_steps(block))  # the declaration is complete
+                block = None
+            if (support.get("choice", {}).get("purpose") in ARRANGEMENTS
                     or view["candidates"][0]["semantic"]["kind"] == "order_triggers"):
                 stop = "grouped"
                 break
+        if block is not None and stop not in ("bound", "unreadable", "unavailable"):
+            # A stop from the bridge inside a declaration follows its last answer: within a declaration nothing hidden
+            # or random happens and only the person decides, so the bridge stops only once play has left it. A line
+            # cut inside a declaration by this planner shows none of it.
+            steps.extend(_line_block_steps(block))
         return steps, stop, result, ids
 
     def _line_pick(self, view):
@@ -786,11 +812,13 @@ class KernelEngine:
                 extensions[FLAT] = extension
         if HISTORY in self.rules["extensions"]:
             extensions[HISTORY] = self.history.drain(("p0", "p1").index(raw["acting_player"]), self.projection)
-        if (LINE in self.rules["extensions"] and actor == self.line_seat and self.buffer is None
+        if (LINE in self.rules["extensions"] and actor == self.line_seat
+                and (self.buffer is None or (isinstance(self.buffer, BlockDeclaration) and not self.buffer.prefix))
                 and not any(semantic["kind"] == "mulligan" or semantic.get("purpose") == "mulligan_bottom"
                             for semantic in semantics)):
-            # An ordinary decision of the person's after the pregame (a grouped choice, a mulligan or a bottom gets
-            # no line).
+            # An ordinary decision of the person's after the pregame, or the first question of their block declaration
+            # (the line plays the whole declaration from the engine's untouched root); a later blocker's question, an
+            # order, a mulligan or a bottom gets no line.
             extensions[LINE] = self.planned_line()
         kinds = {family(semantic["kind"]) for semantic in semantics}
         if len(kinds) != 1:
@@ -807,6 +835,20 @@ class KernelEngine:
         self.pending = {"protocol": "spellbench/v2", "response_type": "decision", "request_id": rid,
             "game_id": self.game, "step": self.answered, "seat_decision": sd, "provenance": self.provenance}
         return self.pending
+
+
+def _line_block_steps(block):
+    """The block declaration a planned line played, blocker by blocker in the order the person's block screen asks
+    them (public battlefield order), as the person's own block semantics. The engine asked attacker by attacker
+    ("block this attacker with this creature?"); a blocker the model included for an attacker blocks it."""
+    plan, refs = block["plan"], block["refs"]
+    keys = {f"obj-{key[0]:06}-z{key[1]:04}": key for key in (*plan.blockers, *plan.minimums)}
+    blocks = {}
+    for semantic in block["picks"]:
+        if semantic.get("include") is True:
+            blocks[keys[semantic["blocker"]["object_id"]]] = keys[semantic["attacker"]["object_id"]]
+    return [{"kind": "declare_block", "blocker": refs[blocker],
+             "attacker": refs[blocks[blocker]] if blocker in blocks else None} for blocker in plan.blockers]
 
 
 def main():
