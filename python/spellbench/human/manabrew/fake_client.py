@@ -192,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
                         "has begun")
     parser.add_argument("--linger", type=float, default=8.0, help="seconds to stay connected after leaving")
     parser.add_argument("--pass-to-end", choices=("off", "once", "every"), default="off",
-                        help="press the local pass control at the first priority of each game (once: P; every: shift+P, "
+                        help="press the local pass control at its first priority of each game (once: P; every: shift+P, "
                              "every opponent turn) instead of answering it: the host passes that priority")
     args = parser.parse_args(argv)
     take = tuple(t for t in args.take.split(",") if t)
@@ -285,9 +285,10 @@ def main(argv: list[str] | None = None) -> int:
                     # what the client's control does: the directive, and no answer (the host passes this priority)
                     pressed = True
                     print(f"pressing the pass control ({args.pass_to_end}) in game {games + 1}", flush=True)
+                    from .host import pass_mode_directive
                     send({"type": "BroadcastState", "target_player": None,
-                          "state": {"kind": "directive", "fromPlayer": slot, "directive": {
-                              "type": "localPassToOpponentEnd", "on": True, "everyTurn": args.pass_to_end == "every"}}})
+                          "state": {"kind": "directive", "fromPlayer": slot,
+                                    "directive": pass_mode_directive(True, args.pass_to_end == "every")}})
                     continue
                 output = answer(prompt, take, avoid, view=latest_view, me=slot, pass_mode=args.pass_mode,
                                 attack=not args.no_attack, passive=args.passive, opening=opening,

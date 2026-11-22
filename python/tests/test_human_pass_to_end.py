@@ -9,12 +9,17 @@ from __future__ import annotations
 
 import pytest
 
-from spellbench.human.manabrew.host import PASS_MODE_DIRECTIVE, Bridge
+from spellbench.human.manabrew.host import PASS_MODE_FIELD, Bridge, pass_mode_directive
 from spellbench.human.server import Hub
 
 from test_human_flow import SEATS, at, attack_step, how, until
 from test_human_manabrew import directive
 from test_human_stops import BOLT, MANA, ME, MY_SPELL, NINJA, OPP, PASS, SPELL_ON_STACK, waiting_priority
+
+
+def control(on: bool, every_turn: bool) -> dict:
+    """The envelope the client's control sends (through the relay, as the person's directive)."""
+    return {"kind": "directive", "fromPlayer": "player-0", "directive": pass_mode_directive(on, every_turn)}
 
 
 def full_hub(**kwargs) -> Hub:
@@ -202,7 +207,7 @@ def test_a_pass_the_client_sends_for_the_open_prompt_after_the_directive_is_take
         hub._begin(request, {})
     bridge._push(hub.state())
     seq = hub.pending["seq"]
-    bridge._on_response("human", directive(PASS_MODE_DIRECTIVE, on=True, everyTurn=False))
+    bridge._on_response("human", control(True, False))
     hold = dict(hub.hold)
     bridge._on_response("human", {"kind": "response", "fromPlayer": "player-0", "promptId": seq, "action": {
         "type": "chooseAction", "output": {"type": "pass", "until": until(ME, "postcombat_main"), "exhaustStack": False}}})
@@ -233,7 +238,7 @@ def test_the_state_is_published_to_the_client_once_per_change() -> None:
     bridge, sent = bridge_for(hub)
     thread = waiting_priority(hub, at([PASS, BOLT], phase="precombat_main", turn=3))
     bridge._push(hub.state())
-    bridge._on_response("human", directive(PASS_MODE_DIRECTIVE, on=True, everyTurn=True))
+    bridge._on_response("human", control(True, True))
     thread.join(5)
     assert thread.result == [0]
     bridge._push(hub.state())
@@ -243,7 +248,7 @@ def test_the_state_is_published_to_the_client_once_per_change() -> None:
     assert [m["on"] for m in shown] == [True]  # an untouched mode is never sent
     entry = next(m["state"]["entry"] for m in sent if "passMode" in m.get("state", {}).get("entry", {}))
     assert entry["message"] == ""  # the client's own log ignores it
-    bridge._on_response("human", directive(PASS_MODE_DIRECTIVE, on=False, everyTurn=False))
+    bridge._on_response("human", control(False, False))
     bridge._push(hub.state())
     assert pass_modes(sent)[-1] == {**pass_modes(sent)[-1], "on": False, "everyTurn": False, "ended": "cancelled"}
     # the log says it too
@@ -259,7 +264,7 @@ def test_a_returning_client_is_told_again() -> None:
     with hub.cond:
         hub._begin(at([PASS, BOLT], phase="precombat_main", turn=3), {})
     bridge._push(hub.state())
-    bridge._on_response("human", directive(PASS_MODE_DIRECTIVE, on=True, everyTurn=False))
+    bridge._on_response("human", control(True, False))
     bridge._push(hub.state())
     count = len(pass_modes(sent))
     bridge.rejoins += 1
@@ -267,8 +272,17 @@ def test_a_returning_client_is_told_again() -> None:
     assert len(pass_modes(sent)) == count + 1
 
 
-def test_other_directives_are_still_ignored_and_concede_still_works() -> None:
+def test_the_request_rides_on_a_directive_type_the_relay_forwards() -> None:
+    """The relay forwards only directives that parse as the protocol's own DirectiveInput (an unknown type is refused
+    as an unauthorized envelope); extra fields pass through. The carrier is a restoreVote for a vote that never exists."""
+    sent = pass_mode_directive(True, True)
+    assert sent["type"] == "restoreVote" and isinstance(sent["voteId"], int) and 0 <= sent["voteId"] <= 2**32 - 1
+    assert sent["accept"] is False and sent[PASS_MODE_FIELD] == {"on": True, "everyTurn": True}
+
+
+def test_other_directives_are_still_ignored() -> None:
     hub = full_hub()
     bridge, _ = bridge_for(hub)
     bridge._on_response("human", directive("requestRepeat", iterations=2))
+    bridge._on_response("human", directive("restoreVote", voteId=3, accept=True))  # a real vote: not the control
     assert hub.pass_mode["on"] is False and hub.game_over is None

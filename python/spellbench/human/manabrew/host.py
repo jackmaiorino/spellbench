@@ -18,7 +18,7 @@ The engine gives priority in only some steps (main phases, attackers, blockers),
 A session started with ``--full-priority`` differs in both: the engine gives the person's seat every priority window
 (the bot's seat is unchanged), so a pass-until is taken in the step it names, and a window with only mana abilities is
 sent to the client, whose AUTOPASS countdown or Full control then answers it.
-The local pass control (a build of the client with it) sends ``localPassToOpponentEnd`` directives: the person's
+The local pass control (a build of the client with it) sends ``localPassToOpponentEnd`` requests: the person's
 "pass until the opponent's end step" mode (``Hub.pass_to_opponent_end``), a hold of the same kind as a pass-until, whose
 state goes back to the control as a log entry with a ``passMode`` field.
 
@@ -53,8 +53,17 @@ from .ws import Closed, WebSocket
 HOST_NAME = "spellbench-host"
 PROTOCOL_VERSION = 6  # the client lists a table as joinable only when this matches its own protocol version
 LOG_TYPES = {"game": "info", "you": "action", "opp": "action"}
-# The local pass control's directive: {"type", "on", "everyTurn"} (``Bridge._on_directive``).
-PASS_MODE_DIRECTIVE = "localPassToOpponentEnd"
+# The local pass control's request: a ``localPassToOpponentEnd`` field {"on", "everyTurn"} on a directive
+# (``Bridge._on_directive``). The relay forwards only directives of the protocol's own types (it rejects any other
+# type as an unauthorized envelope), and their extra fields pass through, so the control sends it on a restoreVote
+# for a vote that never exists (PASS_MODE_CARRIER), which a host without the control ignores.
+PASS_MODE_FIELD = "localPassToOpponentEnd"
+PASS_MODE_CARRIER = {"type": "restoreVote", "voteId": 4294967295, "accept": False}
+
+
+def pass_mode_directive(on: bool, every_turn: bool) -> dict[str, Any]:
+    """The directive the local pass control sends (the scripted client sends the same)."""
+    return {**PASS_MODE_CARRIER, PASS_MODE_FIELD: {"on": bool(on), "everyTurn": bool(every_turn)}}
 RELAY_RECONNECT_MIN_S, RELAY_RECONNECT_MAX_S = 10, 90  # the relay clamps a table's reconnect timeout to this range
 # The client's log panel mounts a few seconds after the board (4.5 s measured on a software-rendered browser), so a
 # line sent in the first seconds of a game, or just after a reload, can arrive before it exists and be lost.
@@ -792,17 +801,19 @@ class Bridge:
 
     def _on_directive(self, directive: Mapping[str, Any]) -> None:
         """A client-to-engine directive (fire and forget, not tied to a prompt). Concede ends the game now as the
-        person's loss; ``localPassToOpponentEnd`` ({on, everyTurn}, the local pass control) turns the person's
+        person's loss; a ``localPassToOpponentEnd`` field ({on, everyTurn}, the local pass control, on the directive
+        ``pass_mode_directive`` builds) turns the person's
         pass-to-end mode on or off (``Hub.pass_to_opponent_end``), which never reaches the engine or the bot as anything
         but passes; recording, restore and repeat requests are not offered here and are ignored without an error."""
-        if directive.get("type") == PASS_MODE_DIRECTIVE:
+        request = directive.get(PASS_MODE_FIELD)
+        if isinstance(request, Mapping):
             self._log_hold_until = 0.0  # the control is on screen, so the client's panels exist
-            self.hub.pass_to_opponent_end(bool(directive.get("on")), bool(directive.get("everyTurn")))
+            self.hub.pass_to_opponent_end(bool(request.get("on")), bool(request.get("everyTurn")))
             with self.lock:
                 # The client stops offering its pass on the prompt it had open when it turned the mode on. Should that
                 # priority still be open here (passing was not a choice in it), it is sent again so it can be answered.
                 pending = self.hub.pending
-                if (directive.get("on") and pending is not None and self.hub.answer is None and self.seats is not None
+                if (request.get("on") and pending is not None and self.hub.answer is None and self.seats is not None
                         and self.prompt is not None and self.prompt["seq"] == pending["seq"]
                         and (pending.get("context") or {}).get("kind") == "priority"):
                     self._send_prompt(pending, self.hub.observation or {}, fresh=True)
