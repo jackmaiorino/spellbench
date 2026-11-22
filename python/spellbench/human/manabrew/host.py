@@ -18,6 +18,9 @@ The engine gives priority in only some steps (main phases, attackers, blockers),
 A session started with ``--full-priority`` differs in both: the engine gives the person's seat every priority window
 (the bot's seat is unchanged), so a pass-until is taken in the step it names, and a window with only mana abilities is
 sent to the client, whose AUTOPASS countdown or Full control then answers it.
+The local pass control (a build of the client with it) sends ``localPassToOpponentEnd`` directives: the person's
+"pass until the opponent's end step" mode (``Hub.pass_to_opponent_end``), a hold of the same kind as a pass-until, whose
+state goes back to the control as a log entry with a ``passMode`` field.
 
 The person's seat: a person who leaves the table mid-game concedes at once; one whose connection drops has the table's
 reconnect timeout (the same on the relay and here) to come back, and one who goes between the relay's GameStarted and
@@ -50,6 +53,8 @@ from .ws import Closed, WebSocket
 HOST_NAME = "spellbench-host"
 PROTOCOL_VERSION = 6  # the client lists a table as joinable only when this matches its own protocol version
 LOG_TYPES = {"game": "info", "you": "action", "opp": "action"}
+# The local pass control's directive: {"type", "on", "everyTurn"} (``Bridge._on_directive``).
+PASS_MODE_DIRECTIVE = "localPassToOpponentEnd"
 RELAY_RECONNECT_MIN_S, RELAY_RECONNECT_MAX_S = 10, 90  # the relay clamps a table's reconnect timeout to this range
 # The client's log panel mounts a few seconds after the board (4.5 s measured on a software-rendered browser), so a
 # line sent in the first seconds of a game, or just after a reload, can arrive before it exists and be lost.
@@ -229,6 +234,7 @@ class Bridge:
         self.prompt: dict[str, Any] | None = None  # {"seq", "answer", "type"}
         self.sent_log = 0
         self.sent_advice: tuple[Any, ...] | None = None  # the advisor read last sent (``_send_advice``)
+        self.sent_pass_mode: tuple[Any, ...] | None = None  # the pass-to-end state last sent (``_send_pass_mode``)
         self.sent_positions = 0  # the hub's positions already drawn with pacing (Hub.positions_total), same game
         self.sent_frames = 0  # the hub's stack-changing positions already drawn (Hub.frames_total) ...
         self.sent_frames_game: Any = None  # ... of this game of the hub's (its frame count restarts with each game)
@@ -570,7 +576,7 @@ class Bridge:
             self.seats = view.Seats(game.get("seat"), f"player-{human_index}", f"player-{bot_index}", names)
             self._name_base = dict(names)
             self.sent_log, self.sent_view, self.prompt, self.starter = 0, None, None, None
-            self.sent_advice = None
+            self.sent_advice = self.sent_pass_mode = None
             self.sent_frames, self.sent_frames_game, self.rejoins = 0, None, 0
             self.sent_positions = 0
             self.resent_seq = None
@@ -617,6 +623,7 @@ class Bridge:
         if pending and (self.prompt is None or self.prompt["seq"] != pending["seq"]):
             self._send_prompt(pending, observation or {})
         self._send_advice(state, bool(over))
+        self._send_pass_mode(state, bool(over))
         if over and self.game_id and getattr(self, "_ended", None) != game.get("game_id"):
             self._ended = game.get("game_id")
             self._envelope({"kind": "prompt", "forPlayer": self.seats.pid(game.get("seat")),
@@ -674,6 +681,25 @@ class Bridge:
                                  "combined": asked in ("chooseAttackers", "chooseBlockers")}
         self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
             "entryType": "info", "message": "", "timestampMs": int(time.time() * 1000), "advisor": shown}})
+
+    def _send_pass_mode(self, state: Mapping[str, Any], over: bool) -> None:
+        """Send the state of the person's pass-to-end mode (``Hub.pass_to_opponent_end``) when it changed: on, every
+        turn, and why it last ended. Like the advisor's read it travels as a log entry with no message, here with a
+        ``passMode`` field, which the local pass control reads; it is held while the log is (``_send_log``) and sent
+        again after the person's client has come back."""
+        mode = state.get("pass_mode")
+        if not mode or over or time.time() < self._log_hold_until:
+            return
+        if not mode.get("on") and not mode.get("every_turn") and mode.get("ended") is None:
+            return  # untouched this game: the control starts off by itself, and the log carries nothing new
+        key = ((state.get("game") or {}).get("game_id"), mode.get("rev"), self.rejoins)
+        if key == self.sent_pass_mode:
+            return
+        self.sent_pass_mode = key
+        self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
+            "entryType": "info", "message": "", "timestampMs": int(time.time() * 1000),
+            "passMode": {"on": bool(mode.get("on")), "everyTurn": bool(mode.get("every_turn")),
+                         "ended": mode.get("ended"), "step": mode.get("step"), "rev": mode.get("rev")}}})
 
     def _bank(self, state: Mapping[str, Any], over: Any) -> None:
         """Show the person's decision bank: the time left beside their name, and a log line when it falls below
@@ -766,7 +792,21 @@ class Bridge:
 
     def _on_directive(self, directive: Mapping[str, Any]) -> None:
         """A client-to-engine directive (fire and forget, not tied to a prompt). Concede ends the game now as the
-        person's loss; recording, restore and repeat requests are not offered here and are ignored without an error."""
+        person's loss; ``localPassToOpponentEnd`` ({on, everyTurn}, the local pass control) turns the person's
+        pass-to-end mode on or off (``Hub.pass_to_opponent_end``), which never reaches the engine or the bot as anything
+        but passes; recording, restore and repeat requests are not offered here and are ignored without an error."""
+        if directive.get("type") == PASS_MODE_DIRECTIVE:
+            self._log_hold_until = 0.0  # the control is on screen, so the client's panels exist
+            self.hub.pass_to_opponent_end(bool(directive.get("on")), bool(directive.get("everyTurn")))
+            with self.lock:
+                # The client stops offering its pass on the prompt it had open when it turned the mode on. Should that
+                # priority still be open here (passing was not a choice in it), it is sent again so it can be answered.
+                pending = self.hub.pending
+                if (directive.get("on") and pending is not None and self.hub.answer is None and self.seats is not None
+                        and self.prompt is not None and self.prompt["seq"] == pending["seq"]
+                        and (pending.get("context") or {}).get("kind") == "priority"):
+                    self._send_prompt(pending, self.hub.observation or {}, fresh=True)
+            return
         if directive.get("type") != "concede":
             return
         if self.hub.concede("conceded"):

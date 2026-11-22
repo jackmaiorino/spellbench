@@ -308,6 +308,21 @@ ORDER_FIRST = {"library": "first = closest to the top of the library", "graveyar
 REORDER_PURPOSES = frozenset({"other", "library_top", "library_bottom", "arrangement"})
 PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the new seven are drawn, then asks Keep or "
                  "Mulligan on the smaller hand (real tables ask Keep or Mulligan first, then bottom).")
+# The person's pass-to-end mode (``Hub.pass_to_opponent_end``): its log lines, and why it ended (the client shows the key).
+PASS_MODE_ON = ("Passing for you until the opponent's end step. It stops for any spell, ability or attack of theirs "
+                "and for any choice you have to make.")
+PASS_MODE_AGAIN = "Passing for you until the opponent's end step (every opponent turn)."
+PASS_MODE_ENDS = {
+    "reached": "Pass to the opponent's end step: reached.",
+    "turn_over": "Pass to the opponent's end step: that turn ended with no window in its end step.",
+    "stack": "Pass to the opponent's end step stopped: a spell or ability is on the stack.",
+    "attack": "Pass to the opponent's end step stopped: the opponent is attacking.",
+    "decision": "Pass to the opponent's end step stopped: you have a choice to make.",
+    "asked": "Pass to the opponent's end step stopped: you have priority.",
+    "your_action": "Pass to the opponent's end step stopped: you acted.",
+    "replaced": "Pass to the opponent's end step stopped.",
+    "cancelled": "Pass to the opponent's end step: turned off.",
+}
 
 
 class Hub:
@@ -384,6 +399,11 @@ class Hub:
         # The client's pass-until (Manabrew path): {"seat", "step", "through_combat", "origin", "origin_index",
         # "turn"}; see ``pass_with``. It stays until it is reached, lost or an action of the person's clears it.
         self.hold: dict[str, Any] | None = None
+        # The person's "pass until the opponent's end step" (``pass_to_opponent_end``): ``on`` while its hold (a hold
+        # with ``mode`` set) is ahead; ``every_turn`` re-arms it at the first priority of each opponent turn; ``ended``
+        # says why it last went off; ``turn`` is the opponent turn it last ran in (no re-arm in that turn); ``rev``
+        # counts its changes (the host sends each once). Person-side only: the passes are real passes at real windows.
+        self.pass_mode: dict[str, Any] = self._fresh_pass_mode()
         self._stop_moved_noted: tuple[Any, ...] | None = None  # the stop ``_note_stop_moved`` last explained
         self.auto_attack_group: Any = None  # the attack declaration answered with no attackers because of a hold
         self.forced_attack_group: Any = None  # an attack declaration in which a creature must attack
@@ -495,6 +515,8 @@ class Hub:
             self._arranged_group, self._arranged = None, {}
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
             self.hold = self.auto_attack_group = self.forced_attack_group = self.passed_at = self.pending_key = None
+            # every game starts with the pass-to-end mode off, every-turn included (nothing carries over unseen)
+            self.pass_mode = {**self._fresh_pass_mode(), "rev": self.pass_mode["rev"] + 1}
             self.passed_keys = set()
             self.last_stack, self.frames, self.frames_total = (), [], 0
             self.last_shown, self.positions, self.positions_total, self.positions_taken = None, [], 0, 0
@@ -628,6 +650,7 @@ class Hub:
         if not stack or not frozenset(stack) <= self.exhaust_ids:
             # the stack the person asked to pass through is empty, or something that was not on it appeared: stop
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
+        self._rearm_pass_mode(decision)
         how, candidate_id = self._automatic(decision)
         if candidate_id is not None and how in ("plan", "single") and self.advisor_identity is not None:
             # A later creature of a declaration the person made on one screen (or one that has a single choice): the
@@ -649,6 +672,7 @@ class Hub:
             # Only a decision put to the person can end the declaration's list: the windows answered without them run
             # through the rest of combat in milliseconds, before the later creatures' reads are back.
             self._expire_declaration(observation)
+            self._pass_mode_asked(decision)
             self._priority_note(decision)
             self.seq += 1
             self.pending = self._view(decision)
@@ -1263,7 +1287,10 @@ class Hub:
         if skip is not None:
             return False
         if real:
-            if held and not (not self.hold["through_combat"] and active_combat(observation)):
+            # a combat stops a hold that does not go through combat; the pass-to-end mode stops only for the opponent's
+            combat_stop = (not self.hold["through_combat"] and active_combat(observation)
+                           and not (self.hold.get("mode") and observation.get("active_seat") == me)) if held else False
+            if held and not combat_stop:
                 return False  # the person said to pass up to a later step and nothing here stops that
             return not self._passed_here(decision)
         side = "own" if observation.get("active_seat") == me else "opp"
@@ -1285,13 +1312,19 @@ class Hub:
             hold["turn"] = turn_key  # the turn the target is in: the first of that seat's turns that has it ahead
         if hold["turn"] is None:
             if hold["origin"][1] != hold["seat"] and turn_key[1] == hold["origin"][1] and turn_key != hold["origin"]:
-                self.hold = None  # the seat's turn came and went with no window in it
+                self._drop_hold("turn_over")  # the seat's turn came and went with no window in it
                 return False
             return True
         if turn_key == hold["turn"] and index < target:
             return True
-        self.hold = None  # reached, or that turn is over
+        self._drop_hold("reached" if turn_key == hold["turn"] else "turn_over")  # reached, or that turn is over
         return False
+
+    def _drop_hold(self, reason: str) -> None:
+        """Let the hold go; the pass-to-end mode it belonged to (if any) ends with ``reason`` (see PASS_MODE_ENDS)."""
+        hold, self.hold = self.hold, None
+        if hold is not None and hold.get("mode"):
+            self._end_pass_mode(reason)
 
     def _decline_attack(self, decision: Mapping[str, Any]) -> int | None:
         """The "no attack" candidate of this attack declaration when a hold is still ahead (the engine's own rule: it
@@ -1462,7 +1495,7 @@ class Hub:
                 "observation": self.observation, "clock": self.clock, "pending": self.pending, "log": self.log,
                 "log_total": self.log_total, "advisor": self.advisor_identity, "advice": self.advice,
                 "game_over": self.game_over, "stops": self.stops, "skip": self.skip, "now": _ms(),
-                "phases": list(PHASE_STEPS)}
+                "phases": list(PHASE_STEPS), "pass_mode": self.pass_mode_view()}
 
     def answer_with(self, seq: int, candidate_id: int) -> str | None:
         with self.cond:
@@ -1472,6 +1505,8 @@ class Hub:
             chosen = next((c for c in pending["candidates"] if c["id"] == candidate_id), None)
             if chosen is None:
                 return "not a candidate"
+            if chosen["kind"] == "pass" and self._pass_mode_holds():
+                return self._pass_under_mode(pending, candidate_id)
             if chosen["kind"] == "pass":
                 self._remember_pass()
             self._clear_holds()  # any answer of the person's but a pass with a target ends what they asked for before
@@ -1497,8 +1532,8 @@ class Hub:
             line += f", so your stop there is taken in {owner} {names.get(moved, moved)}, the nearest priority there is."
         self._note("game", line)
 
-    def _clear_holds(self) -> None:
-        self.hold = None
+    def _clear_holds(self, reason: str = "your_action") -> None:
+        self._drop_hold(reason)
         self.exhaust_stack, self.exhaust_ids = False, frozenset()
 
     def plan_with(self, seq: int, plan: Mapping[str, Any]) -> str | None:
@@ -1561,6 +1596,8 @@ class Hub:
             passing = next((c["id"] for c in pending["candidates"] if c["kind"] == "pass"), None)
             if passing is None:
                 return "passing is not a choice here"
+            if self._pass_mode_holds():
+                return self._pass_under_mode(pending, passing)
             self._remember_pass()
             self._clear_holds()
             observation = self.observation or {}
@@ -1585,6 +1622,128 @@ class Hub:
             self.answer = passing
             self._bump()
             return None
+
+    # -- the person's "pass until the opponent's end step" (the client's P / shift+P control) -------------------------
+
+    @staticmethod
+    def _fresh_pass_mode() -> dict[str, Any]:
+        return {"on": False, "every_turn": False, "ended": None, "turn": None, "rev": 0}
+
+    def _pass_mode_holds(self) -> bool:
+        return self.hold is not None and bool(self.hold.get("mode"))
+
+    def pass_mode_view(self) -> dict[str, Any]:
+        """What the client's control shows: ``on``, ``every_turn``, why it last ended (a PASS_MODE_ENDS key) and the
+        step it stops at (``end_step``, or the nearest window the engine has before it)."""
+        mode = self.pass_mode
+        return {"on": mode["on"], "every_turn": mode["every_turn"], "ended": mode["ended"], "rev": mode["rev"],
+                "step": reachable_step("end_step", self.priority_steps)}
+
+    def pass_to_opponent_end(self, on: bool, every_turn: bool = False) -> str | None:
+        """The person turns the pass-to-end mode on or off. On: a hold for the opponent's end step (the nearest window
+        the engine has, as for any stop) that does not run through the opponent's combat, marked ``mode``, and the
+        priority in front of the person, if any, is passed now. While it is ahead, every priority window of the person
+        is passed for them, on their turn and the opponent's, and their own attack is declined (as under any hold).
+        It ends where it is reached, at the end of that opponent turn, the first time the person is asked anything
+        (an opponent object on the stack, the opponent's attack, a choice of theirs), at any action of theirs, or when
+        it is turned off. ``every_turn``: it is also armed again at the first priority of each opponent turn. A
+        priority or a choice is never answered for the person beyond these passes; the engine and the bot see only
+        the passes, at the windows the engine offered."""
+        with self.cond:
+            if self.game is None or self.game_over is not None or not self.game.get("seat"):
+                return "no game in progress"
+            mode = self.pass_mode
+            if not on:
+                mode["every_turn"] = False
+                if self._pass_mode_holds():
+                    self._drop_hold("cancelled")
+                else:
+                    mode.update(ended="cancelled", rev=mode["rev"] + 1)
+                self._bump()
+                return None
+            mode["every_turn"] = bool(every_turn)
+            if self._pass_mode_holds():
+                mode["rev"] += 1  # only every-turn changed
+            else:
+                self._clear_holds("replaced")  # it replaces a pass-until or a stack pass-through set before
+                self._arm_pass_mode(self.observation or {})
+            pending = self.pending
+            if pending is not None and self.answer is None and (pending.get("context") or {}).get("kind") == "priority":
+                passing = next((c["id"] for c in pending["candidates"] if c["kind"] == "pass"), None)
+                if passing is not None:
+                    self._pass_under_mode(pending, passing)
+            self._bump()
+            return None
+
+    def _arm_pass_mode(self, observation: Mapping[str, Any], *, again: bool = False) -> None:
+        me = (self.game or {}).get("seat")
+        opponent = "p1" if me == "p0" else "p0"
+        phase = observation.get("phase_step")
+        origin = (observation.get("turn"), observation.get("active_seat"))
+        index = STEP_ORDER.index(phase) if phase in STEP_ORDER else -1
+        step = reachable_step("end_step", self.priority_steps)
+        if step != "end_step":
+            self._note_stop_moved(opponent, "end_step", step, origin, index)
+        self.hold = {"seat": opponent, "step": step, "through_combat": False, "origin": origin, "origin_index": index,
+                     # as in ``pass_with``: this turn when it is the opponent's and the step asked for is still ahead
+                     "turn": origin if origin[1] == opponent and index < STEP_ORDER.index("end_step") else None,
+                     "mode": True}
+        mode = self.pass_mode
+        mode.update(on=True, ended=None, rev=mode["rev"] + 1)
+        if origin[1] == opponent:
+            mode["turn"] = origin
+        self._note("game", PASS_MODE_AGAIN if again else PASS_MODE_ON)
+
+    def _rearm_pass_mode(self, decision: Mapping[str, Any]) -> None:
+        """With every-turn: arm the mode at the first priority of an opponent turn it has not run in yet."""
+        mode = self.pass_mode
+        if not mode["every_turn"] or self._pass_mode_holds():
+            return
+        if (decision.get("context") or {}).get("kind") != "priority":
+            return
+        observation = decision.get("observation") or {}
+        active = observation.get("active_seat")
+        if active is None or active == (self.game or {}).get("seat"):
+            return
+        if mode["turn"] == (observation.get("turn"), active):
+            return  # it already ran (and ended) in this opponent turn
+        self._arm_pass_mode(observation, again=True)
+
+    def _pass_mode_asked(self, decision: Mapping[str, Any]) -> None:
+        """The person is being asked while the mode is ahead: it ends here, with what stopped it."""
+        if not self._pass_mode_holds():
+            return
+        observation = decision.get("observation") or {}
+        if (decision.get("context") or {}).get("kind") != "priority":
+            reason = "decision"
+        elif observation.get("stack"):
+            reason = "stack"
+        elif active_combat(observation):
+            reason = "attack"
+        else:
+            reason = "asked"
+        self._drop_hold(reason)
+
+    def _end_pass_mode(self, reason: str) -> None:
+        mode = self.pass_mode
+        if not mode["on"]:
+            return
+        observation = self.observation or {}
+        active = observation.get("active_seat")
+        if active is not None and active != (self.game or {}).get("seat"):
+            mode["turn"] = (observation.get("turn"), active)  # no re-arm in the opponent turn it ended in
+        mode.update(on=False, ended=reason, rev=mode["rev"] + 1)
+        self._note("game", PASS_MODE_ENDS.get(reason, PASS_MODE_ENDS["asked"]))
+
+    def _pass_under_mode(self, pending: dict[str, Any], candidate_id: int) -> str | None:
+        """A pass while the mode is on (the directive's own, or one the client sends for the same window): it passes
+        the open priority if nothing has yet, and the mode's hold stays exactly as it is."""
+        if self.answer is None:
+            self._remember_pass()
+            pending["how"] = "human"
+            self.answer = candidate_id
+            self._bump()
+        return None
 
     def control(self, action: str, body: Mapping[str, Any]) -> str | None:
         with self.cond:
