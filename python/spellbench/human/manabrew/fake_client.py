@@ -191,6 +191,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="leave the table the moment the relay announces this game, before the session's game "
                         "has begun")
     parser.add_argument("--linger", type=float, default=8.0, help="seconds to stay connected after leaving")
+    parser.add_argument("--pass-to-end", choices=("off", "once", "every"), default="off",
+                        help="press the local pass control at the first priority of each game (once: P; every: shift+P, "
+                             "every opponent turn) instead of answering it: the host passes that priority")
     args = parser.parse_args(argv)
     take = tuple(t for t in args.take.split(",") if t)
     avoid = tuple(t for t in args.avoid.split(",") if t)
@@ -204,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
     joined, games, prompts, errors, slot = False, 0, 0, 0, "player-0"
     opening = {"mulligans": args.mulligans}
     in_game, conceded = 0, False
+    pressed = False  # the pass control was pressed in this game (--pass-to-end)
+    pass_modes: list[dict[str, Any]] = []  # the host's passMode entries, in order
     started_room = None
     start_retries = 0
     deck = {"name": "Placeholder", "format": "pauper", "sideboard": [],
@@ -257,6 +262,10 @@ def main(argv: list[str] | None = None) -> int:
                 out.flush()
             if envelope.get("kind") == "state":
                 latest_view = (envelope.get("state") or {}).get("gameView") or latest_view
+            elif envelope.get("kind") == "log" and isinstance((envelope.get("entry") or {}).get("passMode"), dict):
+                mode = envelope["entry"]["passMode"]
+                pass_modes.append(mode)
+                print(f"pass mode: {json.dumps(mode, sort_keys=True)}", flush=True)
             elif envelope.get("kind") == "prompt":
                 prompt = envelope["prompt"]
                 if (prompt.get("input") or {}).get("type") == "gameOver":
@@ -265,11 +274,20 @@ def main(argv: list[str] | None = None) -> int:
                           f"{errors} errors", flush=True)
                     if games >= args.games:
                         break
-                    in_game, conceded = 0, False
+                    in_game, conceded, pressed = 0, False, False
                     opening["mulligans"] = args.mulligans
                     started_room, joined = None, False  # the table empties after a game: join it again
                     time.sleep(2)
                     send({"type": "ListRooms"})
+                    continue
+                if (args.pass_to_end != "off" and not pressed and in_game > 0
+                        and (prompt.get("input") or {}).get("type") == "chooseAction"):
+                    # what the client's control does: the directive, and no answer (the host passes this priority)
+                    pressed = True
+                    print(f"pressing the pass control ({args.pass_to_end}) in game {games + 1}", flush=True)
+                    send({"type": "BroadcastState", "target_player": None,
+                          "state": {"kind": "directive", "fromPlayer": slot, "directive": {
+                              "type": "localPassToOpponentEnd", "on": True, "everyTurn": args.pass_to_end == "every"}}})
                     continue
                 output = answer(prompt, take, avoid, view=latest_view, me=slot, pass_mode=args.pass_mode,
                                 attack=not args.no_attack, passive=args.passive, opening=opening,
@@ -308,6 +326,10 @@ def main(argv: list[str] | None = None) -> int:
                 time.sleep(1)
                 send({"type": "StartGame", "format": "Pauper"})
     ws.close()
+    if args.pass_to_end != "off":
+        ended = [m.get("ended") for m in pass_modes if not m.get("on")]
+        print(f"pass mode summary: {len(pass_modes)} states, {sum(1 for m in pass_modes if m.get('on'))} on, "
+              f"ended {ended}", flush=True)
     return 0 if games >= args.games else 1
 
 
