@@ -56,7 +56,8 @@ def test_the_bots_own_syntax_and_precedence(tmp_path) -> None:
 
 
 @pytest.mark.parametrize("options", [["-u"], ["-u", "-X", "utf8"], ["-X", "pycache_prefix=cache.py"],
-                                     ["-Xpycache_prefix=cache.py"], ["-W", "ignore:::module.py"], ["-uB", "--"]])
+                                     ["-Xpycache_prefix=cache.py"], ["-W", "ignore:::module.py"], ["-uB", "--"],
+                                     ["-uX", "utf8"], ["-uW", "ignore:::module.py"], ["-uXutf8"]])
 def test_interpreter_options_before_the_bot_script(tmp_path, options: list[str]) -> None:
     command = native(tmp_path, ["python", *options, *BOT_COMMAND[1:], "--seed", "5"])
     assert value(command, "--native-seed") == "5"
@@ -68,6 +69,8 @@ def test_the_script_index_follows_the_interpreters_rules() -> None:
     assert session.bot_script_index(["python", "-m", "bot"]) is None
     assert session.bot_script_index(["python", "-c", "x.py"]) is None
     assert session.bot_script_index(["python", "-W", "x.py"]) is None  # the value of -W, then nothing
+    assert session.bot_script_index(["python", "-uc", "x.py"]) is None
+    assert session.bot_script_index(["python", "-uW", "x.py", "bot.py"]) == 3
     assert session.bot_script_index(["python", "--check-hash-based-pycs", "never", "bot.py"]) == 3
 
 

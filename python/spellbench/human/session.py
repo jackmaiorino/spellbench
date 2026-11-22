@@ -309,9 +309,9 @@ def picked_game_config(base: dict[str, Any], *, human_deck: str, bot_deck: str, 
 
 def bot_script_index(command: list[str]) -> int | None:
     """The index of the bot script in a bot command: the command itself when it starts with a .py file, else the first
-    word after the interpreter and its options (as CPython reads them: -X and -W take a value, separate or attached;
-    --check-hash-based-pycs takes one; other single-letter flags may be combined). None when there is no script (no
-    words left, -c or -m, or a first operand that is not a .py file)."""
+    word after the interpreter and its options, read as CPython reads them: each option word is read letter by letter;
+    X and W take a value (the rest of the word, else the next word); c and m end the options with no script;
+    --check-hash-based-pycs takes the next word; -- ends the options. None when there is no .py script."""
     if command and command[0].endswith(".py"):
         return 0
     index = 1
@@ -320,17 +320,19 @@ def bot_script_index(command: list[str]) -> int | None:
         if word == "--":
             index += 1
             break
-        if word in ("-X", "-W", "--check-hash-based-pycs"):
+        if word == "--check-hash-based-pycs":
             index += 2
             continue
         if word.startswith("--") or not word.startswith("-") or word == "-":
             break
-        if word.startswith(("-X", "-W")):
-            index += 1
-            continue
-        if any(letter in "cm" for letter in word[1:]):
-            return None  # python -c CODE or -m MODULE: no script
         index += 1
+        for position, letter in enumerate(word[1:], start=1):
+            if letter in "cm":
+                return None  # python -c CODE or -m MODULE: no script
+            if letter in "XW":
+                if position == len(word) - 1:
+                    index += 1  # the value is the next word
+                break  # the rest of this word is the value
     if index < len(command) and command[index].endswith(".py"):
         return index
     return None
