@@ -211,6 +211,14 @@ def trigger_rank(semantic: Mapping[str, Any]) -> str:
     return ORDINALS[rank - 1] if rank <= len(ORDINALS) else f"number {rank}"
 
 
+def from_zone(source: Any) -> str:
+    """" (from exile)" for a card cast or played from somewhere other than the hand, else "". Two copies of a card in
+    different zones (one in hand, one exiled by Reckless Impulse) are different choices and must not read the same:
+    the advisor's rows merge choices whose words are equal. Person-facing text only: the bot reads the engine's input."""
+    zone = source.get("zone") if isinstance(source, Mapping) else None
+    return f" (from {zone})" if isinstance(zone, str) and zone and zone != "hand" else ""
+
+
 def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str] | None = None) -> str:
     """One candidate as a short imperative phrase. ``lands`` (object ids) tells tapped lands from costed mana sources."""
     kind = semantic.get("kind")
@@ -218,10 +226,11 @@ def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str]
     if kind == "pass":
         return "Pass"
     if kind == "play_land":
-        return f"Play {card(s.get('source'))}" + (" (back face)" if s.get("face") else "")
+        return f"Play {card(s.get('source'))}" + (" (back face)" if s.get("face") else "") + from_zone(s.get("source"))
     if kind == "cast_spell":
         method = s.get("method")
-        return f"Cast {card(s.get('source'))}" + (f" ({method})" if method not in (None, "normal") else "")
+        return (f"Cast {card(s.get('source'))}" + (f" ({method})" if method not in (None, "normal") else "")
+                + from_zone(s.get("source")))
     if kind == "activate_mana_ability":
         mana = s.get("mana_choice")
         verb = "Tap" if lands is None or (s.get("source") or {}).get("object_id") in lands else "Activate"
