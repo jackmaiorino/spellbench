@@ -52,8 +52,11 @@ FLAT = "x_kernel_flat_v7"
 # The bot's seat answering its grouped decisions natively (``--native-seat``): its block declaration, card
 # arrangement, selection order and trigger order are the engine's own questions, each put to the bot's model (its own
 # scorer, ``--native-scorer``) with the engine's model input and sampled once, as the trainer's session samples
-# every native question. Without the option the seat gets the protocol's grouped decision with completion proposals
-# (deterministic-completion-logprob/v1), as on the rated board.
+# every native question. The bridge is also told the seat (reset field ``trainer_choice_seats``): it resolves for
+# that seat the single-option choices training resolves itself, as the trainer's session does, where the bridge's
+# neutral choices would pose them (the other seat keeps them). Without the option the seat gets the protocol's
+# grouped decision with completion proposals (deterministic-completion-logprob/v1), as on the rated board, and the
+# bridge's neutral choices.
 NATIVE_KINDS = ("block", "arrangement", "selection_order", "trigger_order")
 NATIVE_LOG_SCHEMA = "spellbench-london-human-native-questions/v1"
 # The bot process (kernel_flat_bot_london_human_v1) draws its own seeds from a stream of the game id and seat; the
@@ -213,6 +216,11 @@ def native_priority_windows(bot_seat, first_seat, rule):
     windows = ["harness-v2", "harness-v2"]
     windows[0 if bot_seat == first_seat else 1] = rule
     return windows
+
+
+def native_seat_of(seat, first_seat):
+    """The bridge seat of a reset-request seat: the bridge's p0 is the starting seat."""
+    return ("p0", "p1")[(("p0", "p1").index(seat) + ("p0", "p1").index(first_seat)) % 2]
 
 
 def acting_player(view):
@@ -477,6 +485,9 @@ class KernelEngine:
             # Likewise only when asked for: a bridge without the field refuses it.
             native["priority_windows"] = native_priority_windows(self.action_windows_seat, first,
                                                                  self.action_windows_rule)
+        if self.native_seat is not None:
+            # Likewise only when asked for: a bridge without the field refuses it.
+            native["trainer_choice_seats"] = [native_seat_of(self.native_seat, first)]
         readers = graveyard_readers(decks, request["seats"]) if self.auto_graveyard_order else []
         if self.auto_graveyard_order and not readers:
             # Likewise only when asked for, and only where no card reads graveyard order.
@@ -491,13 +502,16 @@ class KernelEngine:
                                "engine_window_seats": native.get("engine_window_seats"),
                                "priority_windows": native.get("priority_windows"),
                                "auto_graveyard_order": native.get("auto_graveyard_order", False),
+                               "trainer_choice_seats": native.get("trainer_choice_seats"),
                                "native_seat": (None if self.native_seat is None else
-                                               ("p0", "p1")[(("p0", "p1").index(self.native_seat)
-                                                             + ("p0", "p1").index(first)) % 2])})
+                                               native_seat_of(self.native_seat, first))})
         if self.current.get("response_type") == "error":
             self.game = self.pending = None
             print(f"kernel_engine_london_human_v1: the bridge refused the reset: {self.current.get('error')}",
                   file=sys.stderr, flush=True)
+            if self.native_seat is not None:
+                return error(rid, "unsupported_rule", "the native bridge refused this reset (the bot answering as "
+                             "trained needs a bridge built with trainer_choice_seats)")
             if self.action_windows_seat is not None:
                 return error(rid, "unsupported_rule", "the native bridge refused this reset (engine windows, bot "
                              "windows and the graveyard rule need a bridge built with them)")
