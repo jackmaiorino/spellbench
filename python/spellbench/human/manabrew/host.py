@@ -61,6 +61,12 @@ PASS_MODE_FIELD = "localPassToOpponentEnd"
 PASS_MODE_CARRIER = {"type": "restoreVote", "voteId": 4294967295, "accept": False}
 
 
+def pass_mode_entry(mode: Mapping[str, Any]) -> dict[str, Any]:
+    """The ``passMode`` field the local pass control reads (from ``Hub.pass_mode_view``)."""
+    return {"on": bool(mode.get("on")), "everyTurn": bool(mode.get("every_turn")), "ended": mode.get("ended"),
+            "step": mode.get("step"), "rev": mode.get("rev")}
+
+
 def pass_mode_directive(on: bool, every_turn: bool) -> dict[str, Any]:
     """The directive the local pass control sends (the scripted client sends the same)."""
     return {**PASS_MODE_CARRIER, PASS_MODE_FIELD: {"on": bool(on), "everyTurn": bool(every_turn)}}
@@ -660,11 +666,17 @@ class Bridge:
         if upto is not None and upto < self.sent_log:
             fresh = fresh[:max(0, upto - start)]
             self.sent_log = start + len(fresh)
-        for line in fresh:
-            self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
-                "entryType": LOG_TYPES.get(line.get("side"), "info"),
-                "message": ("  " if line.get("depth") else "") + str(line.get("text")),
-                "timestampMs": int(time.time() * 1000)}})
+        mode = state.get("pass_mode")
+        for index, line in enumerate(fresh):
+            entry = {"entryType": LOG_TYPES.get(line.get("side"), "info"),
+                     "message": ("  " if line.get("depth") else "") + str(line.get("text")),
+                     "timestampMs": int(time.time() * 1000)}
+            if index == 0 and mode:
+                # The first line of each batch says this host has the local pass control and its state: the control
+                # appears only once a host has said so (a host without it never does), also after a return to the
+                # table, when the whole log comes again.
+                entry["passMode"] = pass_mode_entry(mode)
+            self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": entry})
 
     def _send_advice(self, state: Mapping[str, Any], over: bool) -> None:
         """Send the advisor's read of the decision in front of the person (a session with ``--advisor``), and again
@@ -707,8 +719,7 @@ class Bridge:
         self.sent_pass_mode = key
         self._envelope({"kind": "log", "fromPlayer": HOST_NAME, "entry": {
             "entryType": "info", "message": "", "timestampMs": int(time.time() * 1000),
-            "passMode": {"on": bool(mode.get("on")), "everyTurn": bool(mode.get("every_turn")),
-                         "ended": mode.get("ended"), "step": mode.get("step"), "rev": mode.get("rev")}}})
+            "passMode": pass_mode_entry(mode)}})
 
     def _bank(self, state: Mapping[str, Any], over: Any) -> None:
         """Show the person's decision bank: the time left beside their name, and a log line when it falls below
@@ -808,15 +819,8 @@ class Bridge:
         request = directive.get(PASS_MODE_FIELD)
         if isinstance(request, Mapping):
             self._log_hold_until = 0.0  # the control is on screen, so the client's panels exist
+            # The priority open on the client is passed by the client's own pass, sent with the press.
             self.hub.pass_to_opponent_end(bool(request.get("on")), bool(request.get("everyTurn")))
-            with self.lock:
-                # The client stops offering its pass on the prompt it had open when it turned the mode on. Should that
-                # priority still be open here (passing was not a choice in it), it is sent again so it can be answered.
-                pending = self.hub.pending
-                if (request.get("on") and pending is not None and self.hub.answer is None and self.seats is not None
-                        and self.prompt is not None and self.prompt["seq"] == pending["seq"]
-                        and (pending.get("context") or {}).get("kind") == "priority"):
-                    self._send_prompt(pending, self.hub.observation or {}, fresh=True)
             return
         if directive.get("type") != "concede":
             return

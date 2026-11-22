@@ -193,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--linger", type=float, default=8.0, help="seconds to stay connected after leaving")
     parser.add_argument("--pass-to-end", choices=("off", "once", "every"), default="off",
                         help="press the local pass control at its first priority of each game (once: P; every: shift+P, "
-                             "every opponent turn) instead of answering it: the host passes that priority")
+                             "every opponent turn), which also passes that priority, as the client's control does")
     args = parser.parse_args(argv)
     take = tuple(t for t in args.take.split(",") if t)
     avoid = tuple(t for t in args.avoid.split(",") if t)
@@ -264,8 +264,9 @@ def main(argv: list[str] | None = None) -> int:
                 latest_view = (envelope.get("state") or {}).get("gameView") or latest_view
             elif envelope.get("kind") == "log" and isinstance((envelope.get("entry") or {}).get("passMode"), dict):
                 mode = envelope["entry"]["passMode"]
-                pass_modes.append(mode)
-                print(f"pass mode: {json.dumps(mode, sort_keys=True)}", flush=True)
+                if not pass_modes or pass_modes[-1] != mode:  # the first line of each log batch repeats it
+                    pass_modes.append(mode)
+                    print(f"pass mode: {json.dumps(mode, sort_keys=True)}", flush=True)
             elif envelope.get("kind") == "prompt":
                 prompt = envelope["prompt"]
                 if (prompt.get("input") or {}).get("type") == "gameOver":
@@ -282,13 +283,19 @@ def main(argv: list[str] | None = None) -> int:
                     continue
                 if (args.pass_to_end != "off" and not pressed and in_game > 0
                         and (prompt.get("input") or {}).get("type") == "chooseAction"):
-                    # what the client's control does: the directive, and no answer (the host passes this priority)
+                    # what the client's control does: the directive, then its own pass of the open priority
                     pressed = True
                     print(f"pressing the pass control ({args.pass_to_end}) in game {games + 1}", flush=True)
                     from .host import pass_mode_directive
                     send({"type": "BroadcastState", "target_player": None,
                           "state": {"kind": "directive", "fromPlayer": slot,
                                     "directive": pass_mode_directive(True, args.pass_to_end == "every")}})
+                    prompts += 1
+                    in_game += 1
+                    send({"type": "BroadcastState", "target_player": None,
+                          "state": {"kind": "response", "fromPlayer": slot, "promptId": prompt["promptId"],
+                                    "action": {"type": "chooseAction",
+                                               "output": {"type": "pass", "exhaustStack": False}}}})
                     continue
                 output = answer(prompt, take, avoid, view=latest_view, me=slot, pass_mode=args.pass_mode,
                                 attack=not args.no_attack, passive=args.passive, opening=opening,

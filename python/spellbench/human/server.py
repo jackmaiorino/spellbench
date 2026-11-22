@@ -312,6 +312,10 @@ PUT_BACK_NOTE = ("Put cards back now: this engine bottoms them right after the n
 PASS_MODE_ON = ("Passing for you until the opponent's end step. It stops for any spell, ability or attack of theirs "
                 "and for any choice you have to make.")
 PASS_MODE_AGAIN = "Passing for you until the opponent's end step (every opponent turn)."
+PASS_MODE_NOT_ARMED = {
+    "stack": "Not passing ahead: a spell or ability of the opponent's is on the stack. Only this priority is passed.",
+    "attack": "Not passing ahead: the opponent is attacking. Only this priority is passed.",
+}
 PASS_MODE_ENDS = {
     "reached": "Pass to the opponent's end step: reached.",
     "turn_over": "Pass to the opponent's end step: that turn ended with no window in its end step.",
@@ -651,6 +655,12 @@ class Hub:
             # the stack the person asked to pass through is empty, or something that was not on it appeared: stop
             self.exhaust_stack, self.exhaust_ids = False, frozenset()
         self._rearm_pass_mode(decision)
+        if self._pass_mode_holds():
+            # The opponent acted (an object of theirs on the stack, their attack): the mode ends here, also at a window
+            # where passing is all the person can do, so no later window is passed for them because of it.
+            stopped = self._pass_mode_stop(observation)
+            if stopped is not None:
+                self._drop_hold(stopped)
         how, candidate_id = self._automatic(decision)
         if candidate_id is not None and how in ("plan", "single") and self.advisor_identity is not None:
             # A later creature of a declaration the person made on one screen (or one that has a single choice): the
@@ -1641,14 +1651,17 @@ class Hub:
 
     def pass_to_opponent_end(self, on: bool, every_turn: bool = False) -> str | None:
         """The person turns the pass-to-end mode on or off. On: a hold for the opponent's end step (the nearest window
-        the engine has, as for any stop) that does not run through the opponent's combat, marked ``mode``, and the
-        priority in front of the person, if any, is passed now. While it is ahead, every priority window of the person
+        the engine has, as for any stop) that does not run through the opponent's combat, marked ``mode``. While it
+        is ahead, every priority window of the person
         is passed for them, on their turn and the opponent's, and their own attack is declined (as under any hold).
-        It ends where it is reached, at the end of that opponent turn, the first time the person is asked anything
-        (an opponent object on the stack, the opponent's attack, a choice of theirs), at any action of theirs, or when
-        it is turned off. ``every_turn``: it is also armed again at the first priority of each opponent turn. A
-        priority or a choice is never answered for the person beyond these passes; the engine and the bot see only
-        the passes, at the windows the engine offered."""
+        It ends where it is reached, at the end of that opponent turn, at the first object on the stack that is not
+        the person's or the opponent's attack (even at a window where passing is the person's only move), the first
+        time the person is asked anything else (a choice), at any action of theirs, or when it is turned off. Pressed
+        where the opponent has already acted (``_pass_mode_stop``), it is not armed. ``every_turn``: it is also armed
+        again at the first priority of each opponent turn in which the opponent has not acted before it. The
+        priority in front of the person is not passed here: the client sends the person's own pass with the press
+        (a pass while the mode is on keeps its hold). Nothing is answered for the person beyond these passes; the
+        engine and the bot see only the passes, at the windows the engine offered."""
         with self.cond:
             if self.game is None or self.game_over is not None or not self.game.get("seat"):
                 return "no game in progress"
@@ -1662,18 +1675,34 @@ class Hub:
                 self._bump()
                 return None
             mode["every_turn"] = bool(every_turn)
+            observation = self.observation or {}
+            stopped = self._pass_mode_stop(observation)
             if self._pass_mode_holds():
                 mode["rev"] += 1  # only every-turn changed
+            elif stopped is not None:
+                # The opponent has already acted here (an object of theirs on the stack, their attack): the mode is
+                # not armed, and the person's own pass of this window (which the control sends) passes it alone.
+                active = observation.get("active_seat")
+                if active is not None and active != self.game.get("seat"):
+                    mode["turn"] = (observation.get("turn"), active)  # every-turn: not again in this opponent turn
+                mode.update(ended=stopped, rev=mode["rev"] + 1)
+                self._note("game", PASS_MODE_NOT_ARMED[stopped])
             else:
                 self._clear_holds("replaced")  # it replaces a pass-until or a stack pass-through set before
-                self._arm_pass_mode(self.observation or {})
-            pending = self.pending
-            if pending is not None and self.answer is None and (pending.get("context") or {}).get("kind") == "priority":
-                passing = next((c["id"] for c in pending["candidates"] if c["kind"] == "pass"), None)
-                if passing is not None:
-                    self._pass_under_mode(pending, passing)
+                self._arm_pass_mode(observation)
             self._bump()
             return None
+
+    def _pass_mode_stop(self, observation: Mapping[str, Any]) -> str | None:
+        """What the opponent did here that the mode stops for, even at a window where passing is the person's only
+        move: ``stack`` (an object on the stack that is not the person's: a spell, an activated or a triggered
+        ability), ``attack`` (the opponent's combat with attackers declared); None when neither."""
+        me = (self.game or {}).get("seat")
+        if any(entry.get("controller_seat") != me for entry in observation.get("stack") or []):
+            return "stack"
+        if active_combat(observation) and observation.get("active_seat") not in (None, me):
+            return "attack"
+        return None
 
     def _arm_pass_mode(self, observation: Mapping[str, Any], *, again: bool = False) -> None:
         me = (self.game or {}).get("seat")
@@ -1707,6 +1736,10 @@ class Hub:
             return
         if mode["turn"] == (observation.get("turn"), active):
             return  # it already ran (and ended) in this opponent turn
+        stopped = self._pass_mode_stop(observation)
+        if stopped is not None:  # the opponent acted before their turn's first priority of the person's: not this turn
+            mode.update(turn=(observation.get("turn"), active), ended=stopped, rev=mode["rev"] + 1)
+            return
         self._arm_pass_mode(observation, again=True)
 
     def _pass_mode_asked(self, decision: Mapping[str, Any]) -> None:
