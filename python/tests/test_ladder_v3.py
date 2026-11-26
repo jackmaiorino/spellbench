@@ -49,7 +49,7 @@ def test_the_board_plays_every_ordered_pairing_in_every_block() -> None:
     assert len(rungs) == 15 and rungs <= played and len(played) == 24  # each rung against the three above it
     entrants = ("chains-a-c4-u1048576", POLICY_ENTRANT, SEARCH_ENTRANT)
     assert played - rungs == {frozenset((entrant, rung)) for entrant in entrants for rung in RUNGS[-3:]}
-    # Each form schedules its own blocks only: 21 without the export (18 published, 3 new), 3 with it.
+    # Each form schedules its own blocks only: 21 without the export, 3 with it.
     base, export = board.as_form("base"), board.as_form("export")
     assert {frozenset(pair) for pair in export.matchups} == {frozenset((SEARCH_ENTRANT, rung)) for rung in RUNGS[-3:]}
     assert {frozenset(pair) for pair in base.matchups} == played - {frozenset(pair) for pair in export.matchups}
@@ -101,7 +101,8 @@ def test_the_policy_entrant_uses_the_base_form() -> None:
     assert entrant["display"]["label"] == "Basilisk 3"
     description = entrant["display"]["description"]
     for phrase in ("q3 V7 London lineage", "promoted MW arm", "120-game fork", "165,248", "sampled, no search",
-                   "MW line; the board plays without mulligans or action windows.", "forced X = 0 for Nyxborn Hydra",
+                   "MW line, trained with London mulligans and action windows; "
+                   "this board plays without mulligans or action windows.", "forced X = 0 for Nyxborn Hydra",
                    "about 0.03% of decisions", "identical to the trainer's handling"):
         assert phrase in description
 
@@ -119,8 +120,7 @@ def test_the_search_entrants_blocks_are_export_blocks_and_the_published_blocks_k
     assert export.extensions == (*benchmark.extensions, "x_kernel_infoset_v1")
     assert export.evaluation_engine_identity and export.evaluation_engine_identity != benchmark.evaluation_engine_identity
     assert all("evaluation_identity" in bot for bot in raw["bots"])
-    assert benchmark.evaluation_matchups == tuple((POLICY_ENTRANT, rung) for rung in RUNGS[-3:])
-    assert benchmark.evaluation_targets == (POLICY_ENTRANT, *RUNGS[-3:])
+    assert "evaluation_matchups" not in raw and raw["evaluation_targets"] == []
     run = TournamentConfig.from_json(store.read_json(BOARD / "runs" / "2026-11-17" / "config.json"))
     assert run.export_blocks is None and run.evaluation_version == "pauper-ladder-v3.1.0"
     assert run.extensions == export.extensions and run.evaluation_engine_identity == export.evaluation_engine_identity
@@ -139,6 +139,25 @@ def test_the_search_entrants_blocks_are_export_blocks_and_the_published_blocks_k
     assert both["schema"] == "spellbench-snapshot/v2" and both["contract"] == contracts["base"]
     assert both["export_blocks"]["contract"] == contracts["export"]
     assert sorted(map(sorted, both["export_blocks"]["matchups"])) == sorted(map(sorted, run.matchups))
+
+
+def test_the_policy_entrants_rated_run_supplies_three_base_blocks_to_the_snapshot() -> None:
+    board = panel.full_config(definition.load_benchmark(BOARD))
+    contracts = snapshot.form_contracts(board)
+    run = TournamentConfig.from_json(store.read_json(BOARD / "runs" / "2026-11-26" / "config.json"))
+    assert run.export_blocks is None and run.evaluation_version == "pauper-ladder-v3.0.0"
+    assert snapshot.contract(run) == contracts["base"]
+    matchups = {frozenset(pair) for pair in run.matchups}
+    assert matchups == {frozenset((POLICY_ENTRANT, rung)) for rung in RUNGS[-3:]}
+    assert len(schedule(run, TEST_RUN_SECRET)) == 3 * 128
+
+    composed = store.read_json(BOARD / "snapshots" / "2026-11-26" / "manifest.json")
+    assert composed["schema"] == "spellbench-snapshot/v2" and composed["contract"] == contracts["base"]
+    assert composed["export_blocks"]["contract"] == contracts["export"]
+    assert composed["run"]["rated"] and "pending" not in composed
+    assert sum(len(source["matchups"]) for source in composed["sources"]) == 24
+    policy_source = next(source for source in composed["sources"] if source["run"] == "2026-11-26")
+    assert {frozenset(pair) for pair in policy_source["matchups"]} == matchups
 
 
 def test_the_board_text_follows_the_wording_rules() -> None:
