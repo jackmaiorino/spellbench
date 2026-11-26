@@ -432,7 +432,8 @@
         "author": "mipo",
         "url": null,
         "description": "An mtg-kernel policy network: Basilisk 2's descendant through the q3 V7 London lineage, the promoted MW arm of a 120-game fork, at global update 165,248 (25,984 updates after the fork), sampled, no search. Trained with London mulligans and action windows. MW line; the board plays without mulligans or action windows. The board's forced X = 0 for Nyxborn Hydra occurs in about 0.03% of decisions and was shown identical to the trainer's handling."
-      }
+      },
+      "evaluation_identity": "e31574e393d0464284bcf0870060d03c98bb72fe0af47edc38780de14231fafd"
     }
   ],
   "job_storage_budget": {
@@ -440,5 +441,24 @@
     "cap_bytes": 25769803776
   },
   "evaluation_engine_identity": "afbc4836322ef52011594819a5de0b87a2a8a39350b8a9cd1762020c5ab424ad",
-  "evaluation_targets": []
+  "evaluation_matchups": [
+    [
+      "fmw120b-q3c-u0165248",
+      "g115"
+    ],
+    [
+      "fmw120b-q3c-u0165248",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "fmw120b-q3c-u0165248",
+      "oh2-r2s1-b512-argmax"
+    ]
+  ],
+  "evaluation_targets": [
+    "fmw120b-q3c-u0165248",
+    "g115",
+    "oh2-r2s1-b512",
+    "oh2-r2s1-b512-argmax"
+  ]
 }
