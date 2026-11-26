@@ -118,17 +118,16 @@ def test_the_search_entrants_blocks_are_export_blocks_and_the_published_blocks_k
     assert export.engine_command[3] == "${MTG_KERNEL_V2_EXPORT_BRIDGE}" != benchmark.engine_command[3]
     assert export.extensions == (*benchmark.extensions, "x_kernel_infoset_v1")
     assert export.evaluation_engine_identity and export.evaluation_engine_identity != benchmark.evaluation_engine_identity
-    assert all("evaluation_identity" in bot for bot in raw["bots"] if bot["name"] != POLICY_ENTRANT)
+    assert all("evaluation_identity" in bot for bot in raw["bots"])
+    assert benchmark.evaluation_matchups == tuple((POLICY_ENTRANT, rung) for rung in RUNGS[-3:])
+    assert benchmark.evaluation_targets == (POLICY_ENTRANT, *RUNGS[-3:])
     run = TournamentConfig.from_json(store.read_json(BOARD / "runs" / "2026-11-17" / "config.json"))
     assert run.export_blocks is None and run.evaluation_version == "pauper-ladder-v3.1.0"
     assert run.extensions == export.extensions and run.evaluation_engine_identity == export.evaluation_engine_identity
     assert sorted(map(sorted, run.matchups)) == [sorted((rung, SEARCH_ENTRANT)) for rung in RUNGS[-3:]]
     assert len(schedule(run, TEST_RUN_SECRET)) == 3 * 128
-    # Ladder contracts omit entrants, so compare the published forms on the earlier, fully prepared roster.
-    historical = {**raw, "bots": [bot for bot in raw["bots"] if bot["name"] != POLICY_ENTRANT],
-                  "ladder": {**raw["ladder"], "entrants": {name: value for name, value in raw["ladder"]["entrants"].items()
-                                                           if name != POLICY_ENTRANT}}}
-    board = panel.full_config(definition.parse_benchmark(historical))
+    # Ladder contracts omit entrants, so the prepared board keeps the published base contract.
+    board = panel.full_config(benchmark)
     contracts = snapshot.form_contracts(board)
     published = TournamentConfig.from_json(store.read_json(BOARD / "runs" / "2026-11-15" / "config.json"))
     assert snapshot.contract(published) == contracts["base"]
