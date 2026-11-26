@@ -53,6 +53,11 @@
         "g115",
         "oh2-r2s1-b512",
         "oh2-r2s1-b512-argmax"
+      ],
+      "fmw120b-q3c-u0165248": [
+        "g115",
+        "oh2-r2s1-b512",
+        "oh2-r2s1-b512-argmax"
       ]
     }
   },
@@ -397,6 +402,37 @@
         "description": "An mtg-kernel policy network: Basilisk 1 (oh2-r2s1-b512) continued by ordinary self-play RL for 1,048,576 updates (chain c4 of a training run that continues), sampled, no search. An interim milestone checkpoint of that run."
       },
       "evaluation_identity": "b7d8d60634c03b9e3fdedf0424a28ecda4edbbe6a06a5922d868592894b31dc5"
+    },
+    {
+      "name": "fmw120b-q3c-u0165248",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${FMW120B_Q3C_U0165248_SCORER_CONFIG}",
+        "--name",
+        "fmw120b-q3c-u0165248",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "36ac3d34e7a7a87acc1a08193f83e6e94ba741b7908bb1197c1309919d5f0553"
+      ],
+      "checkpoint": "${FMW120B_Q3C_U0165248_CHECKPOINT}",
+      "display": {
+        "label": "Basilisk 3",
+        "author": "mipo",
+        "url": null,
+        "description": "An mtg-kernel policy network: Basilisk 2's descendant through the q3 V7 London lineage, the promoted MW arm of a 120-game fork, at global update 165,248 (25,984 updates after the fork), sampled, no search. Trained with London mulligans and action windows. MW line; the board plays without mulligans or action windows. The board's forced X = 0 for Nyxborn Hydra occurs in about 0.03% of decisions and was shown identical to the trainer's handling."
+      }
     }
   ],
   "job_storage_budget": {
