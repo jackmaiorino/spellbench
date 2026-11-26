@@ -198,16 +198,17 @@ def test_no_room_without_wait_and_fifo_queue_with_wait(host, tmp_path):
 def test_claims_suspend_while_timed_work_leaves_no_room(host, tmp_path):
     count = tmp_path / "count"
     ticker_info = tmp_path / "ticker.json"
+    stop = tmp_path / "stop"
     ticker = script(
         tmp_path, "tick.py",
         "from pathlib import Path\n"
         "pid, creation = h.self_identity()\n"
         "h.write_json(Path(sys.argv[2]), {'pid': pid, 'creation_time': creation})\n"
-        "n = 0\nwhile True:\n    n += 1\n    open(sys.argv[1], 'w').write(str(n))\n"
+        "n = 0\nwhile not Path(sys.argv[3]).exists():\n    n += 1\n    open(sys.argv[1], 'w').write(str(n))\n"
         "    time.sleep(0.02)\n",
     )
     runner = cli("run", "--lane", "l", "--work-id", "tick", "--cores", "1", "--priority", "normal", "--",
-                 sys.executable, ticker, str(count), str(ticker_info))
+                 sys.executable, ticker, str(count), str(ticker_info), str(stop))
     claim_owner = None
     child_owner = None
 
@@ -240,9 +241,15 @@ def test_claims_suspend_while_timed_work_leaves_no_room(host, tmp_path):
             frozen = counter(count)
         (host / "TESTHOST.lock").unlink()
         assert wait_for(lambda: counter(count) > frozen + 5)
+        # A cooperative end: the runner itself must remove its claim record from disk.
+        stop.write_text("stop")
+        assert runner.wait(timeout=60) == 0
+        assert wait_for(lambda: not list((host / "TESTHOST.slots").glob("claim-*.json")), timeout=30)
     finally:
-        runner.terminate()
-        runner.wait(timeout=60)
+        stop.write_text("stop")
+        if runner.poll() is None:  # fallback only: a failed assertion above must not leave the tree running
+            runner.terminate()
+            runner.wait(timeout=60)
         if claim_owner is not None:
             wait_for(lambda: slots.process_state(*claim_owner) == "absent", timeout=60)
         if child_owner is not None:
@@ -250,6 +257,7 @@ def test_claims_suspend_while_timed_work_leaves_no_room(host, tmp_path):
     assert claim_owner is not None and slots.process_state(*claim_owner) == "absent"
     assert child_owner is not None and slots.process_state(*child_owner) == "absent"
     assert slots._peek()[0] == []
+    assert not list((host / "TESTHOST.slots").glob("claim-*.json"))
     settled = counter(count)
     time.sleep(0.5)
     assert counter(count) == settled  # stopping the runner ended its whole tree
@@ -2676,18 +2684,29 @@ class WatcherProcessTests(unittest.TestCase):
         assert report["handoff_seconds_max"] is not None and report["handoff_seconds_max"] >= 0
 
 
+def _history_source(commit):
+    """The upstream file at `commit`, or None only when git works here and the commit is confirmed absent (a shallow
+    clone). A git that cannot run, times out or fails otherwise raises, so a broken probe fails visibly."""
+    def git(*args):
+        return subprocess.run(["git", "-C", str(TOOLS), *args], capture_output=True, timeout=60)
+    if git("rev-parse", "--git-dir").returncode != 0:
+        raise RuntimeError("git cannot read this checkout; the history probe cannot decide")
+    if git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+        return None
+    source = git("show", f"{commit}:python/tools/host_slots_v1.py")
+    if source.returncode != 0:
+        raise RuntimeError(f"git show failed for present commit {commit}: {source.stderr.decode(errors='replace')}")
+    return source.stdout
+
+
 def e2657b8c_engine():
     """The deployed backfill engine before shared claims (mtg-kernel e2657b8c), loaded from git, or None when the
     checkout lacks that commit (a shallow CI clone)."""
-    try:
-        source = subprocess.run(["git", "-C", str(TOOLS), "show", "e2657b8c:python/tools/host_slots_v1.py"],
-                                capture_output=True, timeout=60)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if source.returncode != 0:
+    source = _history_source("e2657b8c")
+    if source is None:
         return None
     folder = Path(tempfile.mkdtemp(prefix="hs-e2657b8c-"))
-    (folder / "host_slots_e2657b8c.py").write_bytes(source.stdout)
+    (folder / "host_slots_e2657b8c.py").write_bytes(source)
     import importlib.util
     spec = importlib.util.spec_from_file_location("host_slots_e2657b8c", folder / "host_slots_e2657b8c.py")
     module = importlib.util.module_from_spec(spec)
@@ -2963,15 +2982,11 @@ class OverdueTests(unittest.TestCase):
 
 def engine_at(commit, name):
     """A deployed backfill engine loaded from git, or None when the checkout lacks that commit."""
-    try:
-        source = subprocess.run(["git", "-C", str(TOOLS), "show", f"{commit}:python/tools/host_slots_v1.py"],
-                                capture_output=True, timeout=60)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if source.returncode != 0:
+    source = _history_source(commit)
+    if source is None:
         return None
     folder = Path(tempfile.mkdtemp(prefix=f"hs-{commit}-"))
-    (folder / f"{name}.py").write_bytes(source.stdout)
+    (folder / f"{name}.py").write_bytes(source)
     import importlib.util
     spec = importlib.util.spec_from_file_location(name, folder / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
