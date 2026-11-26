@@ -60,6 +60,7 @@
  "board": {
   "games": "15 rung matchups (7 rungs, band 3) plus 3 entrant matchups of chains-a-c4-u1048576 (Basilisk 2) against g115, oh2-r2s1-b512 and oh2-r2s1-b512-argmax: 18 blocks of 64 seat-swapped pairs, one pair per ordered pairing of the eight decks, 128 games a block, 2,304 games",
   "search_entrant": "oh2-r2s1-b512-s4a-16k-k4 is not deferred any more: its three blocks are this board's export blocks (export_blocks below, evaluation pauper-ladder-v3.1.0), played in one entrant-only committed run. The board lists it as pending until that run is published. Its placement on pauper-ladder-v2 is a record of that board and not a rating here.",
+  "policy_entrant": "fmw120b-q3c-u0165248 (Basilisk 3) is placed against g115, oh2-r2s1-b512 and oh2-r2s1-b512-argmax in three base-form blocks, evaluation pauper-ladder-v3.0.0. It is not in export_blocks. Its V4-identity export and equality evidence are recorded under entrants below; bench prepare filled its evaluation identity and the three matchups.",
   "validity": "Enforced by code (unit spellbench-validity/v1 in benchmark.json, docs/design/2026-11-15-validity-unit.md). Every denominator is the scheduled count. Per block: at least 125 of 128 games natural and at least 63 of 64 pairs complete. Per bot: at least 97% of its scheduled games natural. Per ordered deck pairing over the run: at least 33 of 36 games natural (90%, one game always allowed). Forfeits of any cause, halts, truncations and games not played count against natural. `bench run` writes the verdict and the tables into the manifest. A failing run is published in full and revealed, is not rated, shows no rating, is excluded by its own record, and is never topped up or replaced: bench prepare does not schedule its matchups again under this evaluation. `bench compose` applies the unit again to the blocks it combines.",
   "number": "A rating is Elo against the reference bots over every ordered pairing of the eight decks. Unequal decks pull scores toward even, so the scale is this board's own: no v3 number is compared with a pauper-ladder-v2 or pauper-grid-v1 number. Per-deck ratings are not published (deck_slices false).",
   "infoset_off": {
@@ -258,6 +259,81 @@
     "games_per_hour": 824
    },
    "date": "2026-11-15"
+  }
+ },
+ "entrants": {
+  "fmw120b-q3c-u0165248": {
+   "evaluation_version": "pauper-ladder-v3.0.0",
+   "export_receipt": {
+    "file": "export-receipt.json",
+    "sha256": "576e11cd741790e1e4a3f25c7f0adc14d0653d799f34dc4c3ec0ab0b3b86e2d4",
+    "schema": "mtg-kernel-flat-v7-to-v4-inference-export-receipt/v1",
+    "source_revision": "6935a05ad52156683650fb82b7a5996b87fa349c",
+    "input_checkpoint_sha256": "cd52f5f34458fe18d6250bffd89f35156001a7387df70ab4e9857cbe0e0c838e",
+    "output_checkpoint_sha256": "664fd98872121b591697b705e5aa2d57ca6cc2836246dc44a1a3036eea6a296f",
+    "state_sha256_before_and_after": "36ac3d34e7a7a87acc1a08193f83e6e94ba741b7908bb1197c1309919d5f0553",
+    "parameter_bytes_sha256_before_and_after": "53ae0bed3514d07cb265c4107c4ab1c7582b403deb81bff1831da053dd0d4432",
+    "first_moment_bytes_sha256_before_and_after": "caa6c2c67e8fd62db372cf842c057184b7253c7b0e663d73239d17acd6c04a29",
+    "second_moment_bytes_sha256_before_and_after": "c649556d9fa95278a91dc2840ae8ea3229711ea29dc2cbe2d1cd23e88770c28b",
+    "weights_sha256_before_and_after": "53ae0bed3514d07cb265c4107c4ab1c7582b403deb81bff1831da053dd0d4432",
+    "changed_members_exactly": [
+     "feature_contract_digest",
+     "feature_encoding_digest"
+    ],
+    "differing_bytes": 121
+   },
+   "equality_evidence": {
+    "proof_file": "PROOF.md",
+    "proof_sha256": "eea80f1d9b9b0d1ff4260b89dfcb1ec34b63daffd50790f4be7766a284bd72f4",
+    "board_scorer_ready_file": "board-scorer-ready-v4.json",
+    "board_scorer_ready_sha256": "39af17a7a62cf580a3b1a987eed492f0c23114632a7fd0c8b498224f136d1c80",
+    "games_per_run": 128,
+    "coverage": "All 64 ordered pairings of the eight board decks, with both starting players; seeds 20261125000 to 20261125127",
+    "run_a": {
+     "conditions": "the board's engine, neutral choices on",
+     "compared_rows": 21741,
+     "equal_rows": 21741,
+     "mismatches": 0,
+     "v7_only_refusals": 0,
+     "v4_only_refusals": 0,
+     "refusal_ended_games": 0,
+     "terminal_games": 128,
+     "numeric_choice_decisions": 6,
+     "numeric_choices_equal_to_trainer_path": 6
+    },
+    "run_b": {
+     "conditions": "the trainer's engine, neutral choices off",
+     "compared_rows": 22675,
+     "equal_rows": 22675,
+     "mismatches": 0,
+     "numeric_choice_decisions": 0
+    },
+    "nyxborn_hydra_x": {
+     "run_a_decisions": 31,
+     "run_a_board_only_forced_x_zero": 6,
+     "run_a_scored_decisions": 21747,
+     "run_a_forced_x_zero_percent": 0.028,
+     "run_b_decisions": 24,
+     "run_b_board_only_forced_x_zero": 0,
+     "handling_identical_in_every_case": true
+    }
+   },
+   "pinned_scorer": {
+    "file": "spellbench_scorer_v1.exe",
+    "sha256": "b7deed4df80431f446176d20f469449f1dbf133caa7d6de3c14c7db9840ebb76",
+    "pin": "pinned_files.spellbench_scorer_v1.exe above",
+    "ready_receipt_sha256": "39af17a7a62cf580a3b1a987eed492f0c23114632a7fd0c8b498224f136d1c80",
+    "model_state_sha256": "36ac3d34e7a7a87acc1a08193f83e6e94ba741b7908bb1197c1309919d5f0553",
+    "feature_contract_digest": "c4af415a3b0cf1e9c9960dbe2bc2d134c63e9f08206a9a364e113121fea5538b",
+    "feature_encoding_digest": "271c0e5a0fdce75663c897e89a9d7280ab1a3bbb6679bd10ecb5f524991952de",
+    "selection": "sampled-wide-v1",
+    "config": "fmw120b-q3c-u0165248-v4.scorer.json: the board's b512 config with only the checkpoint changed"
+   },
+   "dry_run": {
+    "status": "pending Step 4",
+    "endings": null,
+    "record": "Fill with endings only; do not record who won."
+   }
   }
  },
  "export_blocks": {

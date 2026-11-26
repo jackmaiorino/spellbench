@@ -28,6 +28,7 @@ from test_site_render import BENCH
 REPO = Path(__file__).resolve().parents[2]
 BOARD = REPO / "benchmarks" / "pauper-ladder-v3"
 SEARCH_ENTRANT = "oh2-r2s1-b512-s4a-16k-k4"
+POLICY_ENTRANT = "fmw120b-q3c-u0165248"
 RUNGS = ["uniform", "heuristic", "c12", "gorge-ar8", "g115", "oh2-r2s1-b512", "oh2-r2s1-b512-argmax"]
 
 
@@ -42,23 +43,24 @@ def test_the_board_plays_every_ordered_pairing_in_every_block() -> None:
     assert benchmark.engine_command[1] == "${MTG_KERNEL_V2_ENGINE}"
     assert len(benchmark.deck_pool) == 8 and benchmark.evaluation_version == "pauper-ladder-v3.0.0"
     board = panel.full_config(benchmark)
-    # Fifteen rung blocks (seven rungs, band 3) and three for each of the two entrants: 21 blocks of 64 pairs.
+    # Fifteen rung blocks (seven rungs, band 3) and three for each of the three entrants: 24 blocks of 64 pairs.
     played = {frozenset(pair) for pair in board.matchups}
     rungs = {frozenset((a, RUNGS[j])) for i, a in enumerate(RUNGS) for j in range(i + 1, min(len(RUNGS), i + 4))}
-    assert len(rungs) == 15 and rungs <= played and len(played) == 21  # each rung against the three above it
-    assert played - rungs == {frozenset((entrant, rung)) for entrant in ("chains-a-c4-u1048576", SEARCH_ENTRANT)
-                              for rung in RUNGS[-3:]}
-    # Each form schedules its own blocks only: 18 without the export (the published ones), 3 with it.
+    assert len(rungs) == 15 and rungs <= played and len(played) == 24  # each rung against the three above it
+    entrants = ("chains-a-c4-u1048576", POLICY_ENTRANT, SEARCH_ENTRANT)
+    assert played - rungs == {frozenset((entrant, rung)) for entrant in entrants for rung in RUNGS[-3:]}
+    # Each form schedules its own blocks only: 21 without the export (18 published, 3 new), 3 with it.
     base, export = board.as_form("base"), board.as_form("export")
     assert {frozenset(pair) for pair in export.matchups} == {frozenset((SEARCH_ENTRANT, rung)) for rung in RUNGS[-3:]}
     assert {frozenset(pair) for pair in base.matchups} == played - {frozenset(pair) for pair in export.matchups}
     # Each form's roster is its own: the base form does not hold the search entrant, which needs the export.
-    assert [bot.name for bot in base.bots] == [*RUNGS, "chains-a-c4-u1048576"]
+    assert [bot.name for bot in base.bots] == [*RUNGS, "chains-a-c4-u1048576", POLICY_ENTRANT]
     assert [bot.name for bot in export.bots] == [*RUNGS, SEARCH_ENTRANT]
-    assert set(base.ladder.entrants) == {"chains-a-c4-u1048576"} and set(export.ladder.entrants) == {SEARCH_ENTRANT}
+    assert set(base.ladder.entrants) == {"chains-a-c4-u1048576", POLICY_ENTRANT}
+    assert set(export.ladder.entrants) == {SEARCH_ENTRANT}
     assert base.engine_command[1] == "${MTG_KERNEL_V2_ENGINE}" and "x_kernel_infoset_v1" not in base.extensions
     assert export.engine_command[1] == "${MTG_KERNEL_V2_INFOSET_ENGINE}" and "x_kernel_infoset_v1" in export.extensions
-    for config, blocks in ((base, 18), (export, 3)):
+    for config, blocks in ((base, 21), (export, 3)):
         games = schedule(config, TEST_RUN_SECRET)
         assert len(games) == blocks * 128
         # The search entrant sits in every game of the export form and in none of the base form.
@@ -83,6 +85,27 @@ def test_the_board_names_its_validity_unit_and_publishes_no_deck_ratings() -> No
     assert benchmark.excluded_runs == ()
 
 
+def test_the_policy_entrant_uses_the_base_form() -> None:
+    raw = json.loads((BOARD / "benchmark.json").read_bytes())
+    benchmark = definition.load_benchmark(BOARD)
+    entrant = next(bot for bot in raw["bots"] if bot["name"] == POLICY_ENTRANT)
+    assert benchmark.ladder.entrants[POLICY_ENTRANT] == tuple(RUNGS[-3:])
+    assert POLICY_ENTRANT not in benchmark.export_blocks.bots
+    assert entrant["type"] == "subprocess" and entrant["engine"] == "mtg-kernel"
+    assert entrant["training_style_tags"] == ["reinforcement-learning"]
+    assert entrant["command"] == [
+        "${PYTHON}", "${MTG_KERNEL_V2_BOT}", "--scorer", "${MTG_KERNEL_SCORER}", "--config",
+        "${FMW120B_Q3C_U0165248_SCORER_CONFIG}", "--name", POLICY_ENTRANT, "--version", "pauper-v2.0.0",
+        "--expect-model-state", "36ac3d34e7a7a87acc1a08193f83e6e94ba741b7908bb1197c1309919d5f0553"]
+    assert entrant["checkpoint"] == "${FMW120B_Q3C_U0165248_CHECKPOINT}"
+    assert entrant["display"]["label"] == "Basilisk 3"
+    description = entrant["display"]["description"]
+    for phrase in ("q3 V7 London lineage", "promoted MW arm", "120-game fork", "165,248", "sampled, no search",
+                   "MW line; the board plays without mulligans or action windows.", "forced X = 0 for Nyxborn Hydra",
+                   "about 0.03% of decisions", "identical to the trainer's handling"):
+        assert phrase in description
+
+
 def test_the_search_entrants_blocks_are_export_blocks_and_the_published_blocks_keep_their_contract() -> None:
     raw = json.loads((BOARD / "benchmark.json").read_bytes())
     benchmark = definition.load_benchmark(BOARD)
@@ -96,15 +119,14 @@ def test_the_search_entrants_blocks_are_export_blocks_and_the_published_blocks_k
     assert export.extensions == (*benchmark.extensions, "x_kernel_infoset_v1")
     assert export.evaluation_engine_identity and export.evaluation_engine_identity != benchmark.evaluation_engine_identity
     assert all("evaluation_identity" in bot for bot in raw["bots"])
-    # Every block is played: the definition schedules nothing. The rated run of the entrant's three blocks was one
-    # run of the export form.
-    assert "evaluation_matchups" not in raw and raw["evaluation_targets"] == []
+    assert benchmark.evaluation_matchups == tuple((POLICY_ENTRANT, rung) for rung in RUNGS[-3:])
+    assert benchmark.evaluation_targets == (POLICY_ENTRANT, *RUNGS[-3:])
     run = TournamentConfig.from_json(store.read_json(BOARD / "runs" / "2026-11-17" / "config.json"))
     assert run.export_blocks is None and run.evaluation_version == "pauper-ladder-v3.1.0"
     assert run.extensions == export.extensions and run.evaluation_engine_identity == export.evaluation_engine_identity
     assert sorted(map(sorted, run.matchups)) == [sorted((rung, SEARCH_ENTRANT)) for rung in RUNGS[-3:]]
     assert len(schedule(run, TEST_RUN_SECRET)) == 3 * 128
-    # The published run is still a source of the base form: its contract is the board's base contract, unchanged.
+    # Ladder contracts omit entrants, so the prepared board keeps the published base contract.
     board = panel.full_config(benchmark)
     contracts = snapshot.form_contracts(board)
     published = TournamentConfig.from_json(store.read_json(BOARD / "runs" / "2026-11-15" / "config.json"))
