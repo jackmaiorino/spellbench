@@ -441,24 +441,5 @@
     "cap_bytes": 25769803776
   },
   "evaluation_engine_identity": "afbc4836322ef52011594819a5de0b87a2a8a39350b8a9cd1762020c5ab424ad",
-  "evaluation_matchups": [
-    [
-      "fmw120b-q3c-u0165248",
-      "g115"
-    ],
-    [
-      "fmw120b-q3c-u0165248",
-      "oh2-r2s1-b512"
-    ],
-    [
-      "fmw120b-q3c-u0165248",
-      "oh2-r2s1-b512-argmax"
-    ]
-  ],
-  "evaluation_targets": [
-    "fmw120b-q3c-u0165248",
-    "g115",
-    "oh2-r2s1-b512",
-    "oh2-r2s1-b512-argmax"
-  ]
+  "evaluation_targets": []
 }
