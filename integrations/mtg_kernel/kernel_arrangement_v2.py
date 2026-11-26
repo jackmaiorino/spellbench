@@ -237,7 +237,7 @@ class ArrangementViewIndex:
                 else:
                     continue
                 matches[key] = _AMBIGUOUS if key in matches else cid
-        except (KeyError, TypeError, IndexError):
+        except (KeyError, TypeError, IndexError, AttributeError):
             # Defer malformed row/candidate structure to native_arrangement_pick so error order matches.
             self.row_of_candidate = None
             self.matches = None

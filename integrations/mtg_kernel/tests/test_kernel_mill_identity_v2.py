@@ -778,3 +778,53 @@ def test_randomized_mill_equivalence_covers_all_compression_branches(monkeypatch
             branches_hit.add(branch)
 
     assert branches_hit == {"u1", "u9", "g9", "fallback"}
+
+
+def test_malformed_target_candidates_match_native_arrangement_pick():
+    """Malformed choose_effect_target candidates defer cleanly to native_arrangement_pick."""
+    import kernel_arrangement_v2
+
+    binding = kernel_arrangement_v2.NativeArrangementBinding(
+        "g", "e", "put_on_top", {"n0": "native-0", "n1": "native-1"}
+    )
+    obs = json.dumps({"projection": {"engine_context": {"pending_effect": {"choice": {"selected_targets": [{}, {}]}}}}})
+
+    for bad_target in ([], None, {"object": None}, {"object": []}):
+        # Case 1: arrangement complete (selected == len(wanted)); origin returns finish candidate.
+        view_finish = {
+            "game_id": "g",
+            "candidates": [
+                {"candidate_id": 0, "semantic": {"kind": "finish_effect_selection"}},
+                {"candidate_id": 1, "semantic": {"kind": "choose_effect_target", "target": bad_target}},
+            ],
+            "extensions": {
+                "x_kernel_v2_support": {
+                    "effect_instance": "e",
+                    "hand_to_top": {"selected_count": 2},
+                    "choice": {"purpose": "put_on_top", "stage": "top_order"},
+                },
+                "x_kernel_flat_v4": {"row_candidate_ids": [0, 1]},
+                "x_kernel_v5": {"observation_json": obs},
+            },
+        }
+        result = {"top": ("n0", "n1")}
+        idx = kernel_arrangement_v2.ArrangementViewIndex(view_finish, binding)
+        assert idx.matches is None
+        assert kernel_arrangement_v2.native_arrangement_pick(view_finish, result, binding) == 0
+
+        # Case 2: selected > len(wanted); both raise ArrangementError rather than AttributeError.
+        view_over = {
+            **view_finish,
+            "extensions": {
+                **view_finish["extensions"],
+                "x_kernel_v2_support": {
+                    "effect_instance": "e",
+                    "hand_to_top": {"selected_count": 3},
+                    "choice": {"purpose": "put_on_top", "stage": "top_order"},
+                },
+            },
+        }
+        idx_over = kernel_arrangement_v2.ArrangementViewIndex(view_over, binding)
+        assert idx_over.matches is None
+        with pytest.raises(kernel_arrangement_v2.ArrangementError):
+            kernel_arrangement_v2.native_arrangement_pick(view_over, result, binding)
