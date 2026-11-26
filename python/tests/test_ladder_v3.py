@@ -101,7 +101,8 @@ def test_the_policy_entrant_uses_the_base_form() -> None:
     assert entrant["display"]["label"] == "Basilisk 3"
     description = entrant["display"]["description"]
     for phrase in ("q3 V7 London lineage", "promoted MW arm", "120-game fork", "165,248", "sampled, no search",
-                   "MW line; the board plays without mulligans or action windows.", "forced X = 0 for Nyxborn Hydra",
+                   "MW line, trained with London mulligans and action windows; "
+                   "this board plays without mulligans or action windows.", "forced X = 0 for Nyxborn Hydra",
                    "about 0.03% of decisions", "identical to the trainer's handling"):
         assert phrase in description
 

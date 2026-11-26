@@ -275,7 +275,8 @@ Run 2026-11-26 rated Basilisk 3 (`fmw120b-q3c-u0165248`) under evaluation
 All 384 games ended naturally, and the run passed the board's validity unit.
 Snapshot 2026-11-26 fits all 24 blocks. Basilisk 3 earned 1619.5 Elo
 (95% interval [1561.1, 1681.0]) against the reference bots over every ordered
-pairing of the eight decks.
+pairing of the eight decks. MW line, trained with London mulligans and action
+windows; this board plays without mulligans or action windows.
 
 [Latest rated snapshot, evaluations 3.0.0 and 3.1.0](benchmarks/pauper-ladder-v3/snapshots/2026-11-26/LEADERBOARD.md)
 [Rated snapshot, evaluations 3.0.0 and 3.1.0](benchmarks/pauper-ladder-v3/snapshots/2026-11-18/LEADERBOARD.md)
