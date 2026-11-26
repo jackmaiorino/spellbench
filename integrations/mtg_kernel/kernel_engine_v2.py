@@ -141,51 +141,86 @@ def pack_proposal_tensor(tensor):
     return result
 
 
-def _pack_and_encode_tensor(tensor, key_cache):
-    """Pack a tensor and produce each key's canonical JSON bytes once."""
+def _is_plain_rle(item):
+    if (type(item) is not dict or item.keys() != _RLE_KEYS
+            or type(item["length"]) is not int
+            or not (_MIN_JSON_INT <= item["length"] <= _MAX_JSON_INT)
+            or type(item["rle"]) is not list):
+        return False
+    return all(
+        type(run) is list and len(run) == 2
+        and type(run[0]) is int and type(run[1]) is int
+        and _MIN_JSON_INT <= run[0] <= _MAX_JSON_INT
+        and _MIN_JSON_INT <= run[1] <= _MAX_JSON_INT
+        for run in item["rle"]
+    )
+
+
+def _encode_packed_tensor(packed):
+    """Encode an already-packed tensor to per-key canonical JSON bytes if all keys/values are plain."""
+    encoded = {}
+    for key, item in packed.items():
+        if type(key) is not str or not key.isascii():
+            return None, False
+        if type(item) is list:
+            if not item:
+                encoded[key] = b"[]"
+                continue
+            if not _plain_ints_bounds(item)[0]:
+                return None, False
+        elif not _is_plain_rle(item):
+            return None, False
+        encoded[key] = json.dumps(item, separators=(",", ":")).encode("ascii")
+    return encoded, True
+
+
+def _pack_and_encode_tensor(tensor, previews):
+    """Pack a tensor and produce each key's canonical JSON bytes when all keys/values are plain ASCII/int."""
     packed = {}
     encoded = {}
     all_plain = True
+    use_key_cache = previews is not None and previews.bound > 0
     for key, values in tensor.items():
         if type(key) is not str or not key.isascii():
             all_plain = False
         plain, lo, hi = _plain_ints_bounds(values)
         if plain:
-            cache_key = (key, len(values))
-            cached = key_cache.get(cache_key)
-            if cached is not None and values == cached[0]:
-                packed[key] = cached[1]
-                encoded[key] = cached[2]
+            if not values:
+                packed[key] = values
+                if all_plain:
+                    encoded[key] = b"[]"
                 continue
+            cache_key = (key, len(values))
+            if use_key_cache:
+                cached = previews.get_key_cache(cache_key)
+                if cached is not None and values == cached[0]:
+                    packed[key] = cached[1]
+                    if all_plain:
+                        encoded[key] = cached[2]
+                    continue
             item = _pack_plain_ints(values, lo, hi)
-            # Plain int lists and {"length": int, "rle": [[int, int], ...]} are already
-            # canonical ASCII JSON with keys in UTF-16 order ("length" < "rle").
-            raw = json.dumps(item, separators=(",", ":")).encode("ascii")
             packed[key] = item
-            encoded[key] = raw
-            key_cache[cache_key] = (values, item, raw)
+            if all_plain:
+                # Plain int lists and {"length": int, "rle": [[int, int], ...]} are already
+                # canonical ASCII JSON with keys in UTF-16 order ("length" < "rle").
+                raw = json.dumps(item, separators=(",", ":")).encode("ascii")
+                encoded[key] = raw
+                if use_key_cache:
+                    previews.put_key_cache(cache_key, values, item, raw)
         else:
             all_plain = False
-            item = _pack_non_plain(values)
-            packed[key] = item
-            encoded[key] = wire.canonical_json_dumps(item)
-    return packed, encoded, all_plain
+            packed[key] = _pack_non_plain(values)
+    if not all_plain:
+        return packed, None, False
+    return packed, encoded, True
 
 
 def _vector_key(words):
     """A key equal for two vectors exactly when their canonical JSON is equal."""
     if _plain_ints(words):
         return tuple(words)
-    if (type(words) is dict and words.keys() == _RLE_KEYS and type(words["length"]) is int
-            and _MIN_JSON_INT <= words["length"] <= _MAX_JSON_INT
-            and type(words["rle"]) is list):
-        runs = words["rle"]
-        if all(type(run) is list and len(run) == 2
-               and type(run[0]) is int and type(run[1]) is int
-               and _MIN_JSON_INT <= run[0] <= _MAX_JSON_INT
-               and _MIN_JSON_INT <= run[1] <= _MAX_JSON_INT
-               for run in runs):
-            return (words["length"], tuple(map(tuple, runs)))
+    if _is_plain_rle(words):
+        return (words["length"], tuple(map(tuple, words["rle"])))
     return wire.canonical_json_dumps(words)
 
 
@@ -230,51 +265,13 @@ def intern_proposal_vectors(proposals, grouped=False):
     return {"vectors": vectors, "proposals": indexed}
 
 
-class _BoundedDeflate:
-    """Incremental zlib compressor matching zlib.compress byte-for-byte with early pause."""
-
-    __slots__ = ("_mv", "_co", "_chunks", "_total", "_offset", "_step", "_done", "_result")
-
-    def __init__(self, data, level, step=65536):
-        self._mv = memoryview(data)
-        self._co = zlib.compressobj(level)
-        self._chunks = []
-        self._total = 0
-        self._offset = 0
-        self._step = step
-        self._done = False
-        self._result = None
-
-    def run_until(self, max_bytes):
-        """Return exact compressed bytes if len <= max_bytes, else pause and return None."""
-        if self._done:
-            return self._result if len(self._result) <= max_bytes else None
-        if self._total > max_bytes:
-            return None
-        mv, co, chunks, step = self._mv, self._co, self._chunks, self._step
-        n = len(mv)
-        while self._offset < n:
-            end = self._offset + step
-            piece = co.compress(mv[self._offset:end])
-            self._offset = end
-            if piece:
-                self._total += len(piece)
-                chunks.append(piece)
-                if self._total > max_bytes:
-                    return None
-        tail = co.flush()
-        if tail:
-            self._total += len(tail)
-            chunks.append(tail)
-        self._done = True
-        self._result = b"".join(chunks)
-        self._chunks = None
-        self._co = None
-        return self._result if len(self._result) <= max_bytes else None
-
-
 def _encode_plain_proposal_tables(encoded_proposals):
-    """Build exact canonical JSON bytes for ungrouped (and lazily grouped) interned tables."""
+    """Build exact canonical JSON bytes for ungrouped (and lazily grouped) interned tables.
+
+    Callers guarantee every key is an ASCII str and every vector is already exact canonical
+    ASCII JSON bytes (plain int list or plain int RLE object). Keys are encoded through
+    wire.canonical_json_dumps (ensure_ascii=False) so ASCII DEL (0x7f) and all control
+    characters match origin/main byte-for-byte."""
     vectors = []
     keys = []
     indices = {}
@@ -303,7 +300,10 @@ def _encode_plain_proposal_tables(encoded_proposals):
                 key_tuple = tuple(vec_map)
                 sorted_keys = sorted_key_cache.get(key_tuple)
                 if sorted_keys is None:
-                    sorted_keys = tuple((k, json.dumps(k)) for k in sorted(key_tuple))
+                    sorted_keys = tuple(
+                        (k, wire.canonical_json_dumps(k).decode("ascii"))
+                        for k in sorted(key_tuple)
+                    )
                     sorted_key_cache[key_tuple] = sorted_keys
                 tensor_json = "{" + ",".join(
                     f'{k_json}:{{"vector":{tensor_idx[k]}}}' for k, k_json in sorted_keys
@@ -343,51 +343,227 @@ def _encode_plain_proposal_tables(encoded_proposals):
     return payload_u, build_grouped
 
 
+def _nested_key_bytes(value):
+    if isinstance(value, str):
+        return len(value) + 16
+    if isinstance(value, tuple):
+        return 32 + sum(_nested_key_bytes(item) for item in value)
+    return 16
+
+
+def _meta_entry_bytes(vec_bytes, view_index):
+    size = 64
+    if vec_bytes is not None:
+        size += sum(len(k) + len(raw) + 32 for k, raw in vec_bytes.items())
+    if view_index is not None:
+        size += 64
+        if view_index.row_of_candidate is not None:
+            size += 16 * len(view_index.row_of_candidate)
+        if view_index.matches is not None:
+            size += sum((len(k) if isinstance(k, str) else 8) + 16 for k in view_index.matches)
+    return size
+
+
+def _key_cache_entry_bytes(values, item, raw):
+    rle_bytes = 0 if item is values else 16 * len(item["rle"])
+    return 64 + len(raw) + 8 * len(values) + rle_bytes
+
+
+def _carried_entry_bytes(plan_key, native_picks, entry_gens, selected_rows):
+    return (
+        64
+        + _nested_key_bytes(plan_key)
+        + 16 * (len(native_picks) + len(entry_gens) + len(selected_rows))
+    )
+
+
 class PreviewCache:
     """Private previews of one buffered declaration, keyed by native prefix.
 
     A preview is a pure function of the declaration's root and its native
     prefix, so a stored answer equals a fresh one. Every candidate's completion
     replays the declaration's shared prefix, which stays recently used; other
-    entries leave oldest first once the stored response bytes pass the bound."""
+    entries leave oldest first once the stored response bytes pass the bound.
+
+    Derived caches (meta, key_cache, carried) count against the same total byte
+    bound, are disabled when bound <= 0, and are trimmed before entries are
+    affected so entry eviction and bridge calls stay identical to origin/main."""
 
     def __init__(self, bound=PREVIEW_CACHE_BYTES):
         self.entries, self.bytes, self.bound = OrderedDict(), 0, bound
-        self.meta = {}
-        self.key_cache = {}
-        self.carried = {}
+        self._entry_bytes = 0
+        self._entry_gen = {}
+        self._next_gen = 1
+        self.meta = OrderedDict()
+        self._meta_bytes = 0
+        self.key_cache = OrderedDict()
+        self._key_cache_bytes = 0
+        self.carried = OrderedDict()
+        self._carried_bytes = 0
         self.carried_order = []
+
+    def _sync_bytes(self):
+        self.bytes = (
+            self._entry_bytes
+            + self._meta_bytes
+            + self._key_cache_bytes
+            + self._carried_bytes
+        )
+
+    def _trim_extras(self, reserve=0, *, allow_evict_carried=True):
+        """Evict derived caches until total bytes + reserve <= bound (or derived caches are empty)."""
+        if reserve > 0:
+            floor = self._entry_bytes + (0 if allow_evict_carried else self._carried_bytes)
+            if self.bound <= 0 or floor + reserve > self.bound:
+                return False
+        limit = self.bound - reserve
+        while self.bytes > limit and self.key_cache:
+            _, dropped = self.key_cache.popitem(last=False)
+            self._key_cache_bytes -= dropped[3]
+            self._sync_bytes()
+        while self.bytes > limit and self.meta:
+            _, dropped = self.meta.popitem(last=False)
+            self._meta_bytes -= dropped[3]
+            self._sync_bytes()
+        if allow_evict_carried:
+            while self.bytes > limit and self.carried:
+                _, dropped = self.carried.popitem(last=False)
+                self._carried_bytes -= dropped[4]
+                self._sync_bytes()
+        return self.bound > 0 and self.bytes <= limit
 
     def get(self, key):
         stored = self.entries.get(key)
         if stored is None:
             return None
         self.entries.move_to_end(key)
+        if key in self.meta:
+            self.meta.move_to_end(key)
         return stored[0]
+
+    def entry_gen(self, key):
+        return self._entry_gen.get(key)
 
     def put(self, key, entry, size):
         """Store [view or None when complete, packed tensor or None] and return it."""
         old = self.entries.get(key)
         if old is not None:
-            self.bytes -= old[1]
+            self._entry_bytes -= old[1]
             self.entries.move_to_end(key)
+        old_meta = self.meta.pop(key, None)
+        if old_meta is not None:
+            self._meta_bytes -= old_meta[3]
         self.entries[key] = entry, size
-        self.bytes += size
-        while self.bytes > self.bound and len(self.entries) > 1:
+        self._entry_bytes += size
+        if self.bound > 0:
+            self._entry_gen[key] = self._next_gen
+            self._next_gen += 1
+        while self._entry_bytes > self.bound and len(self.entries) > 1:
             dropped_key, (_, dropped) = self.entries.popitem(last=False)
-            self.bytes -= dropped
-            self.meta.pop(dropped_key, None)
+            self._entry_bytes -= dropped
+            self._entry_gen.pop(dropped_key, None)
+            dropped_meta = self.meta.pop(dropped_key, None)
+            if dropped_meta is not None:
+                self._meta_bytes -= dropped_meta[3]
+        self._sync_bytes()
+        if self.bytes > self.bound:
+            self._trim_extras()
         return entry
+
+    def get_meta(self, key):
+        stored = self.meta.get(key)
+        if stored is None:
+            return None
+        self.meta.move_to_end(key)
+        return stored
+
+    def put_meta(self, key, vec_bytes, all_plain, view_index):
+        if self.bound <= 0 or key not in self.entries:
+            return
+        old = self.meta.pop(key, None)
+        if old is not None:
+            self._meta_bytes -= old[3]
+            self._sync_bytes()
+        size = _meta_entry_bytes(vec_bytes, view_index)
+        if self._trim_extras(reserve=size, allow_evict_carried=False):
+            self.meta[key] = (vec_bytes, all_plain, view_index, size)
+            self._meta_bytes += size
+            self._sync_bytes()
+        elif vec_bytes is not None and view_index is not None:
+            # Keep at least the small view index if vec_bytes did not fit.
+            idx_size = _meta_entry_bytes(None, view_index)
+            if self._trim_extras(reserve=idx_size, allow_evict_carried=False):
+                self.meta[key] = (None, all_plain, view_index, idx_size)
+                self._meta_bytes += idx_size
+                self._sync_bytes()
+
+    def get_key_cache(self, cache_key):
+        if self.bound <= 0:
+            return None
+        stored = self.key_cache.get(cache_key)
+        if stored is None:
+            return None
+        self.key_cache.move_to_end(cache_key)
+        return stored
+
+    def put_key_cache(self, cache_key, values, item, raw):
+        if self.bound <= 0:
+            return
+        old = self.key_cache.pop(cache_key, None)
+        if old is not None:
+            self._key_cache_bytes -= old[3]
+            self._sync_bytes()
+        size = _key_cache_entry_bytes(values, item, raw)
+        # Key cache may evict older key_cache items, never meta/carried/entries.
+        floor = self._entry_bytes + self._meta_bytes + self._carried_bytes
+        if floor + size > self.bound:
+            return
+        limit = self.bound - size
+        while self.bytes > limit and self.key_cache:
+            _, dropped = self.key_cache.popitem(last=False)
+            self._key_cache_bytes -= dropped[3]
+            self._sync_bytes()
+        if self.bytes <= limit:
+            self.key_cache[cache_key] = (values, item, raw, size)
+            self._key_cache_bytes += size
+            self._sync_bytes()
+
+    def put_carried(self, plan_key, native_picks, entry_gens, selected_rows, prefix_verified):
+        if self.bound <= 0:
+            return False
+        old = self.carried.pop(plan_key, None)
+        if old is not None:
+            self._carried_bytes -= old[4]
+            self._sync_bytes()
+        size = _carried_entry_bytes(plan_key, native_picks, entry_gens, selected_rows)
+        if self._trim_extras(reserve=size):
+            self.carried[plan_key] = (native_picks, entry_gens, selected_rows, prefix_verified, size)
+            self._carried_bytes += size
+            self._sync_bytes()
+            return True
+        return False
+
+    def clear_carried(self):
+        self.carried.clear()
+        self._carried_bytes = 0
+        self.carried_order = []
+        self._sync_bytes()
 
     def select_candidate(self, candidate):
         """Keep only the chosen candidate's carried completion after a buffered pick."""
+        kept = None
+        plan_key = None
         if 0 <= candidate < len(self.carried_order):
             plan_key = self.carried_order[candidate]
-            kept = self.carried.get(plan_key)
-            self.carried = {plan_key: kept} if kept is not None else {}
-        else:
-            self.carried = {}
+            if plan_key is not None:
+                kept = self.carried.get(plan_key)
+        self.carried.clear()
+        self._carried_bytes = 0
+        if kept is not None:
+            self.carried[plan_key] = kept
+            self._carried_bytes = kept[4]
         self.carried_order = []
+        self._sync_bytes()
 
 
 def error(request_id, code, message):
@@ -625,38 +801,34 @@ class KernelEngine:
         raise ProjectionError("native buffered commit exceeded its bound")
 
     def _pack_view(self, key, entry, previews, use_cache):
-        """Ensure packed tensor and canonical vector bytes are cached for a preview entry."""
-        if use_cache:
-            meta = previews.meta.get(key)
-            if meta is not None and meta[0] is not None:
-                return entry[1], meta[0], meta[1]
-            key_cache = previews.key_cache
+        """Ensure packed tensor and canonical vector bytes are available for a preview entry."""
+        cached_meta = previews.get_meta(key) if (use_cache and previews.bound > 0) else None
+        if cached_meta is not None and entry[1] is not None and (cached_meta[0] is not None or not cached_meta[1]):
+            return entry[1], cached_meta[0], cached_meta[1]
+        if entry[1] is not None:
+            packed = entry[1]
+            vec_bytes, all_plain = _encode_packed_tensor(packed)
         else:
-            meta = None
-            key_cache = {}
-        flat = entry[0]["extensions"][FLAT]
-        packed, vec_bytes, all_plain = _pack_and_encode_tensor(flat["tensor"], key_cache)
-        entry[1] = packed
-        if use_cache and key in previews.entries:
-            if meta is None:
-                previews.meta[key] = [vec_bytes, all_plain, None, None]
-            else:
-                meta[0], meta[1] = vec_bytes, all_plain
+            flat = entry[0]["extensions"][FLAT]
+            packed, vec_bytes, all_plain = _pack_and_encode_tensor(
+                flat["tensor"], previews if (use_cache and previews.bound > 0) else None
+            )
+            entry[1] = packed
+        if use_cache and previews.bound > 0 and key in previews.entries:
+            view_index = cached_meta[2] if cached_meta is not None else None
+            previews.put_meta(key, vec_bytes, all_plain, view_index)
         return packed, vec_bytes, all_plain
 
     def _arrangement_index(self, key, view, binding, previews, use_cache):
         """Return a cached ArrangementViewIndex for one preview view."""
-        if use_cache:
-            meta = previews.meta.get(key)
-            if meta is not None and meta[2] is not None:
-                return meta[2]
+        cached_meta = previews.get_meta(key) if (use_cache and previews.bound > 0) else None
+        if cached_meta is not None and cached_meta[2] is not None:
+            return cached_meta[2]
         view_index = ArrangementViewIndex(view, binding)
-        if use_cache and key in previews.entries:
-            meta = previews.meta.get(key)
-            if meta is None:
-                previews.meta[key] = [None, True, view_index, None]
-            else:
-                meta[2] = view_index
+        if use_cache and previews.bound > 0 and key in previews.entries:
+            vec_bytes = cached_meta[0] if cached_meta is not None else None
+            all_plain = cached_meta[1] if cached_meta is not None else True
+            previews.put_meta(key, vec_bytes, all_plain, view_index)
         return view_index
 
     def _fetch_preview(self, prefix, key, previews):
@@ -669,14 +841,15 @@ class KernelEngine:
         view = answer["view"] if answer["response_type"] == "private_preview" else None
         size = getattr(self.peer, "last_line_bytes", None)
         entry_size = len(json.dumps(answer)) if size is None else size
-        return previews.put(key, [view, None], entry_size), entry_size
+        return previews.put(key, [view, None], entry_size)
 
     def proposal_extension(self, actor, candidate_count):
         previews = self.previews
         use_cache = isinstance(previews, PreviewCache)
         cache_bound = previews.bound if use_cache else 0
-        prev_carried = previews.carried if (use_cache and cache_bound > 0) else {}
-        next_carried = {}
+        prev_carried = dict(previews.carried) if (use_cache and cache_bound > 0) else {}
+        if use_cache:
+            previews.clear_carried()
         carried_order = []
         encoded_proposals = []
         plain_proposals = []
@@ -694,18 +867,17 @@ class KernelEngine:
         )
         shared_depth = len(buf.order) if is_graveyard_order else 0
         can_share_prefix = is_graveyard_order and shared_depth > 0
-        next_branch_depth = shared_depth + 1
-        shared_enc = shared_plain = shared_picks = shared_branch_entry = shared_branch_key = None
+        shared_enc = shared_plain = shared_picks = shared_key_gens = shared_rows = None
         shared_all_plain = True
-        shared_prefix_bytes = 0
         order_prefix_ids = tuple(c["object_id"] for c in buf.order) if is_pure_order else ()
         pure_choices = [c["object_id"] for c in buf.choices()] if is_pure_order else None
 
         trigger_packed = trigger_vec_bytes = trigger_row_map = None
-        if is_trigger:
+        if is_trigger and candidate_count:
             flat = self.root["extensions"][FLAT]
             trigger_packed, trigger_vec_bytes, trigger_plain = _pack_and_encode_tensor(
-                flat["tensor"], previews.key_cache if use_cache else {})
+                flat["tensor"], previews if (use_cache and cache_bound > 0) else None
+            )
             if not trigger_plain:
                 all_plain = False
             trigger_row_map = {}
@@ -737,70 +909,72 @@ class KernelEngine:
                     result = plan.result()
                     plan_key = ("arr", arr_binding.purpose, tuple(sorted(result.items())))
 
+            # Touch/insert root entry first so cache eviction and LRU order match origin/main.
+            root_entry = previews.get(()) or previews.put((), [self.root, None], 0)
+
             carried_hit = prev_carried.get(plan_key)
-            if carried_hit is not None:
-                enc_steps, pl_steps, traj_plain, native_picks, traj_bytes, branch_saved, prefix_verified = carried_hit
-                encoded_proposals.append(enc_steps)
-                plain_proposals.append(pl_steps)
-                if not traj_plain:
-                    all_plain = False
-                if candidate == 0 and can_share_prefix and prefix_verified and len(native_picks) > shared_depth:
-                    shared_enc = enc_steps[:shared_depth]
-                    shared_plain = pl_steps[:shared_depth]
-                    shared_picks = native_picks[:shared_depth]
-                    shared_all_plain = traj_plain
-                    shared_prefix_bytes = traj_bytes * shared_depth // max(1, len(native_picks))
-                    shared_branch_key = shared_picks
-                    shared_branch_entry = previews.get(shared_branch_key)
-                    if shared_branch_entry is None and branch_saved is not None and branch_saved[0] == shared_branch_key:
-                        _, b_view, b_packed, b_meta, b_size = branch_saved
-                        shared_branch_entry = previews.put(shared_branch_key, [b_view, b_packed], b_size)
-                        if b_meta is not None and shared_branch_key in previews.entries:
-                            previews.meta[shared_branch_key] = b_meta
-                next_branch = None
-                if is_graveyard_order and prefix_verified and len(native_picks) > next_branch_depth:
-                    next_key = native_picks[:next_branch_depth]
-                    stored_next = previews.entries.get(next_key)
-                    if stored_next is not None:
-                        next_entry, next_size = stored_next
-                        next_branch = (next_key, next_entry[0], next_entry[1], previews.meta.get(next_key), next_size)
-                if use_cache and cache_bound > 0 and traj_bytes <= cache_bound:
-                    next_carried[plan_key] = (
-                        enc_steps, pl_steps, traj_plain, native_picks, traj_bytes, next_branch, prefix_verified
-                    )
-                    carried_order.append(plan_key)
-                else:
-                    carried_order.append(None)
-                continue
+            if carried_hit is not None and use_cache and cache_bound > 0:
+                native_picks, entry_gens, selected_rows, prefix_verified, _ = carried_hit
+                if previews.entry_gen(()) == entry_gens[0]:
+                    prefix_keys = tuple(native_picks[:k] for k in range(1, len(native_picks) + 1))
+                    if all(previews.entry_gen(k) == g for k, g in zip(prefix_keys, entry_gens[1:])):
+                        # Every prefix of this completion is still live in previews.entries
+                        # without eviction, so origin/main would make zero bridge calls.
+                        enc_steps = []
+                        pl_steps = []
+                        traj_plain = True
+                        cur_key = ()
+                        cur_entry = root_entry
+                        for step_idx, row in enumerate(selected_rows):
+                            packed, vec_bytes, step_plain = self._pack_view(cur_key, cur_entry, previews, use_cache)
+                            if not step_plain:
+                                traj_plain = False
+                            enc_steps.append((vec_bytes, row))
+                            pl_steps.append({"tensor": packed, "selected_row": row})
+                            cur_key = prefix_keys[step_idx]
+                            cur_entry = previews.get(cur_key)
+                        encoded_proposals.append(enc_steps)
+                        plain_proposals.append(pl_steps)
+                        if not traj_plain:
+                            all_plain = False
+                        if candidate == 0 and can_share_prefix and prefix_verified and len(native_picks) > shared_depth:
+                            shared_enc = enc_steps[:shared_depth]
+                            shared_plain = pl_steps[:shared_depth]
+                            shared_picks = native_picks[:shared_depth]
+                            shared_rows = selected_rows[:shared_depth]
+                            shared_key_gens = tuple(zip(((),) + prefix_keys[:shared_depth], entry_gens[:shared_depth + 1]))
+                            shared_all_plain = traj_plain
+                        if previews.put_carried(plan_key, native_picks, entry_gens, selected_rows, prefix_verified):
+                            carried_order.append(plan_key)
+                        else:
+                            carried_order.append(None)
+                        continue
 
             enc_steps = []
             pl_steps = []
             traj_plain = True
-            traj_bytes = 0
-            branch_next = None
             prefix_verified = is_graveyard_order
 
-            if candidate > 0 and shared_branch_key is not None:
+            if (candidate > 0 and shared_key_gens is not None
+                    and all(previews.entry_gen(k) == g for k, g in shared_key_gens)):
                 enc_steps = list(shared_enc)
                 pl_steps = list(shared_plain)
                 if not shared_all_plain:
                     traj_plain = False
-                traj_bytes = shared_prefix_bytes
                 prefix = list(shared_picks)
-                key = shared_branch_key
-                entry = previews.get(key)
-                if entry is None:
-                    if shared_branch_entry is not None and shared_branch_entry[0] is not None:
-                        entry = shared_branch_entry
-                    else:
-                        entry, fetched_size = self._fetch_preview(prefix, key, previews)
-                        traj_bytes += fetched_size
-                        shared_branch_entry = entry
+                step_rows = list(shared_rows)
+                step_entry_gens = [g for _, g in shared_key_gens]
+                entry = root_entry
+                for k, _ in shared_key_gens[1:]:
+                    entry = previews.get(k)
+                key = shared_picks
                 step_num = shared_depth
             else:
                 key = ()
-                entry = previews.get(()) or previews.put((), [self.root, None], 0)
+                entry = root_entry
                 prefix = []
+                step_rows = []
+                step_entry_gens = [previews.entry_gen(())] if (use_cache and cache_bound > 0) else []
                 step_num = 0
 
             for _ in range(4096 - step_num):
@@ -810,36 +984,29 @@ class KernelEngine:
                 if is_block:
                     selected = native_block_pick(view, block_binding)
                     row = view["extensions"][FLAT]["row_candidate_ids"].index(selected)
-                    view_index = None
                 else:
                     view_index = self._arrangement_index(key, view, arr_binding, previews, use_cache)
                     if prefix_verified and view_index.selected != step_num:
                         prefix_verified = False
-                    selected = indexed_arrangement_pick(view_index, result, arr_binding)
-                    row = view_index.row_of_candidate[selected]
+                    if view_index.matches is not None:
+                        selected = indexed_arrangement_pick(view_index, result, arr_binding)
+                        row = view_index.row_of_candidate[selected]
+                    else:
+                        selected = native_arrangement_pick(view, result, arr_binding)
+                        row = view["extensions"][FLAT]["row_candidate_ids"].index(selected)
                 packed, vec_bytes, step_plain = self._pack_view(key, entry, previews, use_cache)
                 if not step_plain:
                     traj_plain = False
-                if candidate == 0 and can_share_prefix and step_num == shared_depth:
-                    shared_branch_key = key
-                    shared_branch_entry = entry
-                    shared_prefix_bytes = traj_bytes
-                if is_graveyard_order and step_num == next_branch_depth and view is not None:
-                    stored_cur = previews.entries.get(key)
-                    cur_size = stored_cur[1] if stored_cur is not None else 0
-                    branch_next = (key, view, packed, previews.meta.get(key) if use_cache else None, cur_size)
                 enc_steps.append((vec_bytes, row))
                 pl_steps.append({"tensor": packed, "selected_row": row})
+                step_rows.append(row)
                 prefix.append(selected)
                 key = tuple(prefix)
                 entry = previews.get(key)
                 if entry is None:
-                    entry, fetched_size = self._fetch_preview(prefix, key, previews)
-                    traj_bytes += fetched_size
-                elif use_cache:
-                    stored = previews.entries.get(key)
-                    if stored is not None:
-                        traj_bytes += stored[1]
+                    entry = self._fetch_preview(prefix, key, previews)
+                if use_cache and cache_bound > 0:
+                    step_entry_gens.append(previews.entry_gen(key))
                 step_num += 1
                 if entry[0] is None:
                     break
@@ -851,25 +1018,27 @@ class KernelEngine:
             plain_proposals.append(pl_steps)
             if not traj_plain:
                 all_plain = False
-            if (candidate == 0 and can_share_prefix and prefix_verified
-                    and shared_branch_key is not None and len(native_picks) > shared_depth
-                    and all(native_picks[:k] in previews.entries for k in range(shared_depth + 1))):
-                shared_enc = enc_steps[:shared_depth]
-                shared_plain = pl_steps[:shared_depth]
-                shared_picks = native_picks[:shared_depth]
-                shared_all_plain = traj_plain
-            elif candidate == 0:
-                shared_branch_key = shared_branch_entry = None
-            if use_cache and cache_bound > 0 and traj_bytes <= cache_bound:
-                next_carried[plan_key] = (
-                    enc_steps, pl_steps, traj_plain, native_picks, traj_bytes, branch_next, prefix_verified
-                )
-                carried_order.append(plan_key)
-            else:
-                carried_order.append(None)
+            if use_cache and cache_bound > 0:
+                entry_gens_tuple = tuple(step_entry_gens)
+                rows_tuple = tuple(step_rows)
+                if (candidate == 0 and can_share_prefix and prefix_verified
+                        and len(native_picks) > shared_depth):
+                    prefix_keys = ((),) + tuple(native_picks[:k] for k in range(1, shared_depth + 1))
+                    if all(previews.entry_gen(k) == g for k, g in zip(prefix_keys, entry_gens_tuple[:shared_depth + 1])):
+                        shared_enc = enc_steps[:shared_depth]
+                        shared_plain = pl_steps[:shared_depth]
+                        shared_picks = native_picks[:shared_depth]
+                        shared_rows = rows_tuple[:shared_depth]
+                        shared_key_gens = tuple(zip(prefix_keys, entry_gens_tuple[:shared_depth + 1]))
+                        shared_all_plain = traj_plain
+                all_keys = ((),) + tuple(native_picks[:k] for k in range(1, len(native_picks) + 1))
+                if (all(g is not None and previews.entry_gen(k) == g for k, g in zip(all_keys, entry_gens_tuple))
+                        and previews.put_carried(plan_key, native_picks, entry_gens_tuple, rows_tuple, prefix_verified)):
+                    carried_order.append(plan_key)
+                else:
+                    carried_order.append(None)
 
-        if use_cache:
-            previews.carried = next_carried
+        if use_cache and cache_bound > 0:
             previews.carried_order = carried_order
 
         original = self.root["extensions"][FLAT]
@@ -885,10 +1054,6 @@ class KernelEngine:
         # Proposals well under the bound keep their exact bytes.
         limit = wire.MAX_LINE_BYTES - 262144
         margin = limit * 3 // 4
-        extension["proposals_zlib"] = ""
-        base_len = len(wire.canonical_json_dumps(extension))
-        avail = margin - base_len
-        max_comp = -1 if avail < 0 else 3 * (avail // 4)
 
         if all_plain:
             payload_u, build_grouped = _encode_plain_proposal_tables(encoded_proposals)
@@ -896,37 +1061,40 @@ class KernelEngine:
             payload_u = wire.canonical_json_dumps(intern_proposal_vectors(plain_proposals, grouped=False))
             build_grouped = lambda: wire.canonical_json_dumps(intern_proposal_vectors(plain_proposals, grouped=True))
 
-        if len(payload_u) > 64 * 1024 * 1024:
-            raise ProjectionError("completion proposal exceeds the decoded payload bound")
         decoded_len = len(payload_u)
+        if decoded_len > 64 * 1024 * 1024:
+            raise ProjectionError("completion proposal exceeds the decoded payload bound")
 
-        d1 = _BoundedDeflate(payload_u, 1)
-        chosen = d1.run_until(max_comp)
-        if chosen is None:
-            d9 = _BoundedDeflate(payload_u, 9)
-            chosen = d9.run_until(max_comp)
-        if chosen is None:
-            payload_g = build_grouped()
-            decoded_len = len(payload_g)
-            if decoded_len > 64 * 1024 * 1024:
-                raise ProjectionError("completion proposal exceeds the decoded payload bound")
-            cg9 = zlib.compress(payload_g, level=9)
-            if len(cg9) <= max_comp:
-                chosen = cg9
+        extension["proposals_zlib"] = ""
+        base_len = len(wire.canonical_json_dumps(extension))
+
+        # One-shot zlib.compress matches origin/main byte-for-byte on every zlib (including zlib-ng).
+        c1 = zlib.compress(payload_u, level=1)
+        b1 = 4 * ((len(c1) + 2) // 3)
+        best_raw, best_b64_len = c1, b1
+        if base_len + b1 <= margin:
+            chosen = c1
+        else:
+            c9 = zlib.compress(payload_u, level=9)
+            b9 = 4 * ((len(c9) + 2) // 3)
+            if b9 < best_b64_len:
+                best_raw, best_b64_len = c9, b9
+            if base_len + b9 <= margin:
+                chosen = c9
             else:
-                # Nothing left the margin: pick the smallest base64 encoding, earliest on ties.
-                best = cg9
-                best_blocks = (len(cg9) + 2) // 3
-                c1 = d1.run_until(3 * best_blocks)
-                if c1 is not None:
-                    best = c1
-                    c9_cap = 3 * ((len(c1) + 2) // 3 - 1)
+                payload_g = build_grouped()
+                decoded_len = len(payload_g)
+                if decoded_len > 64 * 1024 * 1024:
+                    raise ProjectionError("completion proposal exceeds the decoded payload bound")
+                cg9 = zlib.compress(payload_g, level=9)
+                bg9 = 4 * ((len(cg9) + 2) // 3)
+                if bg9 < best_b64_len:
+                    best_raw, best_b64_len = cg9, bg9
+                if base_len + bg9 <= margin:
+                    chosen = cg9
                 else:
-                    c9_cap = 3 * best_blocks
-                c9 = d9.run_until(c9_cap)
-                if c9 is not None:
-                    best = c9
-                chosen = best
+                    # Nothing left the margin: send the smallest base64 encoding, earliest on ties.
+                    chosen = best_raw
 
         encoded = base64.b64encode(chosen).decode("ascii")
         extension["proposals_zlib"] = encoded

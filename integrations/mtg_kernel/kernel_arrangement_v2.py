@@ -180,6 +180,7 @@ def native_arrangement_binding(root, cards):
 
 
 _AMBIGUOUS = object()
+_FINISH = object()
 
 
 class ArrangementViewIndex:
@@ -198,40 +199,50 @@ class ArrangementViewIndex:
         self.effect_instance = effect_instance
         self.purpose = purpose
         self.stage = stage
+        # Parse and validate observation_json identically to native_arrangement_pick.
+        raw = json_observation(view)
         if purpose == "discard_order":
             self.selected = support["discard_selected_count"]
-        elif purpose == "put_on_top":
-            self.selected = support["hand_to_top"]["selected_count"]
         else:
-            raw = json_observation(view)
-            self.selected = len(raw["projection"]["engine_context"]["pending_effect"]["choice"]["selected_targets"])
+            choice = raw["projection"]["engine_context"]["pending_effect"]["choice"]
+            selected = len(choice["selected_targets"])
+            if purpose == "put_on_top":
+                self.selected = support["hand_to_top"]["selected_count"]
+            else:
+                self.selected = selected
         row_of_candidate = {}
-        for row, cid in enumerate(view["extensions"]["x_kernel_flat_v4"]["row_candidate_ids"]):
-            if cid not in row_of_candidate:
-                row_of_candidate[cid] = row
-        self.row_of_candidate = row_of_candidate
         matches = {}
-        discard = purpose == "discard_order"
-        for candidate in view["candidates"]:
-            cid = candidate["candidate_id"]
-            if cid not in row_of_candidate:
-                continue
-            semantic = candidate["semantic"]
-            kind = semantic["kind"]
-            if kind == "finish_effect_selection":
-                key = None
-            elif discard:
-                if kind == "discard" and len(semantic["cards"]) == 1:
-                    key = semantic["cards"][0]["object_id"]
+        try:
+            for row, cid in enumerate(view["extensions"]["x_kernel_flat_v4"]["row_candidate_ids"]):
+                if cid not in row_of_candidate:
+                    row_of_candidate[cid] = row
+            discard = purpose == "discard_order"
+            for candidate in view["candidates"]:
+                semantic = candidate["semantic"]
+                cid = candidate["candidate_id"]
+                if cid not in row_of_candidate:
+                    continue
+                kind = semantic["kind"]
+                if kind == "finish_effect_selection":
+                    key = _FINISH
+                elif discard:
+                    if kind == "discard" and len(semantic["cards"]) == 1:
+                        key = semantic["cards"][0]["object_id"]
+                    else:
+                        continue
+                elif kind == "choose_effect_target":
+                    key = semantic["target"].get("object", {}).get("object_id")
+                    if key is None:
+                        continue
                 else:
                     continue
-            elif kind == "choose_effect_target":
-                key = semantic["target"].get("object", {}).get("object_id")
-                if key is None:
-                    continue
-            else:
-                continue
-            matches[key] = _AMBIGUOUS if key in matches else cid
+                matches[key] = _AMBIGUOUS if key in matches else cid
+        except (KeyError, TypeError, IndexError):
+            # Defer malformed row/candidate structure to native_arrangement_pick so error order matches.
+            self.row_of_candidate = None
+            self.matches = None
+            return
+        self.row_of_candidate = row_of_candidate
         self.matches = matches
 
 
@@ -256,8 +267,8 @@ def indexed_arrangement_pick(index, result, binding):
             wanted = tuple(reversed(wanted))  # old chooser puts its first pick deepest
     if selected > len(wanted):
         raise ArrangementError("native arrangement exceeds the captured completed plan")
-    candidate_object = None if selected == len(wanted) else binding.cards[wanted[selected]]
-    matched = index.matches.get(candidate_object, _AMBIGUOUS)
+    candidate_key = _FINISH if selected == len(wanted) else binding.cards[wanted[selected]]
+    matched = index.matches.get(candidate_key, _AMBIGUOUS)
     if matched is _AMBIGUOUS:
         raise ArrangementError("completed neutral arrangement does not bind to one native row")
     return matched
@@ -271,23 +282,25 @@ def native_arrangement_pick(view, result, binding):
         binding.game_id, binding.instance, binding.purpose
     ):
         raise ArrangementError("completed arrangement belongs to another game or effect")
+    raw = json_observation(view)
     if purpose == "discard_order":
         selected, wanted = support["discard_selected_count"], result["graveyard"]
+    else:
+        choice = raw["projection"]["engine_context"]["pending_effect"]["choice"]
+        selected = len(choice["selected_targets"])
+    if purpose == "discard_order":
+        pass
     elif purpose == "put_on_top":
         wanted = tuple(reversed(result["top"]))
         selected = support["hand_to_top"]["selected_count"]
+    elif purpose == "mill":
+        wanted = result["graveyard"]
+    elif stage == "partition":
+        wanted = result["bottom" if purpose == "scry" else "hand"]
     else:
-        raw = json_observation(view)
-        choice = raw["projection"]["engine_context"]["pending_effect"]["choice"]
-        selected = len(choice["selected_targets"])
-        if purpose == "mill":
-            wanted = result["graveyard"]
-        elif stage == "partition":
-            wanted = result["bottom" if purpose == "scry" else "hand"]
-        else:
-            wanted = result["graveyard" if purpose == "reveal_partition" else "bottom" if stage == "bottom_order" else "top"]
-            if purpose == "look":
-                wanted = tuple(reversed(wanted))  # old chooser puts its first pick deepest
+        wanted = result["graveyard" if purpose == "reveal_partition" else "bottom" if stage == "bottom_order" else "top"]
+        if purpose == "look":
+            wanted = tuple(reversed(wanted))  # old chooser puts its first pick deepest
     if selected > len(wanted):
         raise ArrangementError("native arrangement exceeds the captured completed plan")
     candidate_object = None if selected == len(wanted) else binding.cards[wanted[selected]]
